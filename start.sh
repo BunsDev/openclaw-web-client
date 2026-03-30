@@ -13,8 +13,14 @@ if [ ! -f "$ENV_FILE" ]; then
       JWT_SECRET="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64)"
       MONGO_PASSWORD="$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)"
     fi
-cat > "$ENV_FILE" << EOF  
 MONGO_USER="openclaw"
+
+cat > "$ROOT/.env" << EOF
+MONGO_USER=${MONGO_USER}
+MONGO_PASSWORD=${MONGO_PASSWORD}
+EOF
+
+cat > "$ENV_FILE" << EOF
 NODE_ENV=development
 JWT_SECRET=${JWT_SECRET}
 MONGO_LINK=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/openClawClient?authSource=admin

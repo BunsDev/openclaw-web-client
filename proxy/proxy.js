@@ -117,12 +117,23 @@ function runAgent(agentId, message, sessionKey, res) {
     }
 
     if (!hasOutput && stderrBuf.trim()) {
+      const noisePatterns = [
+        "bootstrap", "fallback", "config backend", "model-providers",
+        "auth]", "auth-profiles]", "inherited", "deprecated",
+        "ExperimentalWarning", "punycode",
+      ];
       const errorLines = stderrBuf
         .split("\n")
-        .filter((l) => l.includes("Error") || l.includes("error") || l.includes("failed") || l.includes("No API key"))
+        .filter((l) => {
+          const trimmed = l.trim();
+          if (!trimmed) return false;
+          if (noisePatterns.some((p) => trimmed.includes(p))) return false;
+          return trimmed.includes("Error") || trimmed.includes("error") || trimmed.includes("failed") || trimmed.includes("No API key");
+        })
         .join(" | ");
-      const errorMsg = errorLines || "OpenClaw agent returned no output";
-      res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: `[Error] ${errorMsg}` })}\n\n`);
+      if (errorLines) {
+        res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: `[Error] ${errorLines}` })}\n\n`);
+      }
     }
     res.write("data: [DONE]\n\n");
     res.end();
