@@ -1,0 +1,7 @@
+.DS_Store
+.gitattributes
+.gitignore
+.env
+./build
+Dockerfile
+node_modules

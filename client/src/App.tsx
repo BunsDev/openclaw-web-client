@@ -1,0 +1,76 @@
+import { Suspense, lazy } from 'react';
+import { Routes, Route } from 'react-router';
+import { CircularProgress, Box } from '@mui/material';
+
+const Login = lazy(() => import('./pages/login'));
+const PrivateRoute = lazy(() => import('./components/PrivateRoute'));
+const Users = lazy(() => import('./pages/user'));
+const AgentChat = lazy(() => import('./pages/agent'));
+
+function Loading() {
+  return (
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="100vh"
+    >
+      <CircularProgress />
+    </Box>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<Loading />}>
+            <Login />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <Suspense fallback={<Loading />}>
+            <PrivateRoute />
+          </Suspense>
+        }
+      >
+        <Route
+          path="users"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Users />
+            </Suspense>
+          }
+        >
+          <Route
+            path="create"
+            element={null}
+          />
+          <Route
+            path="edit/:userId"
+            element={null}
+          />
+        </Route>
+        <Route
+          path="agent/:agentId/chat/:conversationId"
+          element={
+            <Suspense fallback={<Loading />}>
+              <AgentChat />
+            </Suspense>
+          }
+        />
+        <Route
+          path="*"
+          element="404"
+        />
+      </Route>
+    </Routes>
+  );
+}
+
+export default App;

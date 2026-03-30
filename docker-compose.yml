@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./api/
+      dockerfile: Dockerfile
+    working_dir: /usr/src/app/
+    image: api
+    container_name: api
+    stdin_open: true
+    tty: true
+    links:
+      - mongo
+    ports:
+      - 18802:18802
+    environment:
+      - OPENCLAW_PROXY_URL=http://proxy:18801
+    volumes:
+      - ./api/:/usr/src/app/
+    command: /bin/sh -c 'npm install && npm run start'
+
+  client:
+    build:
+      context: ./client/
+      dockerfile: Dockerfile
+      target: app
+    working_dir: /usr/src/app/
+    image: client
+    container_name: client
+    stdin_open: true
+    tty: true
+    ports:
+      - 18800:18800
+    volumes:
+      - ./client/:/usr/src/app/
+    command: /bin/sh -c 'npm install && npm run dev'
+
+  proxy:
+    build:
+      context: ./proxy/
+      dockerfile: Dockerfile
+    ports:
+      - "18801:18801"
+    container_name: proxy
+    volumes:
+      - ~/.openclaw/:/root/.openclaw/
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    container_name: db
+    volumes:
+      - mongodbdata:/data/db
+
+volumes:
+  mongodbdata:
+  ollamadata:

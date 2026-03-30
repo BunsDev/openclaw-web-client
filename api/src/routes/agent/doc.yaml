@@ -1,0 +1,209 @@
+paths:
+  /agent:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: listAgents
+      summary: List all agents
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 40
+        - in: query
+          name: sortField
+          schema:
+            type: string
+            enum: [name, createdAt, updatedAt]
+            default: createdAt
+        - in: query
+          name: sortType
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        200:
+          description: Paginated list of agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentListResponse'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    post:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: createAgent
+      summary: Create a new agent
+      description: Creates an agent and registers it with the OpenClaw proxy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentReqBody'
+      responses:
+        200:
+          description: Created agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agent'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgent
+      summary: Get an agent by ID
+      parameters:
+        - $ref: '#/components/parameters/objectId'
+      responses:
+        200:
+          description: Agent object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agent'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgent
+      summary: Update an agent's name
+      parameters:
+        - $ref: '#/components/parameters/objectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentUpdateBody'
+      responses:
+        200:
+          description: Updated agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agent'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+    delete:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: deleteAgent
+      summary: Soft-delete an agent and its conversations
+      parameters:
+        - $ref: '#/components/parameters/objectId'
+      responses:
+        200:
+          $ref: '#/components/responses/empty'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+#
+#
+#
+components:
+  ##
+  parameters:
+    objectId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+  ##
+  schemas:
+    #
+    agent:
+      type: object
+      properties:
+        _id:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+        name:
+          type: string
+        openclawAgentId:
+          type: string
+        createdBy:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    #
+    agentListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/agent'
+    #
+    agentReqBody:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: 'Research Assistant'
+        openclawAgentId:
+          type: string
+          example: 'research-assistant'
+          description: Optional slug for the OpenClaw agent. Auto-generated from name if omitted.
+    #
+    agentUpdateBody:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: 'Updated Agent Name'

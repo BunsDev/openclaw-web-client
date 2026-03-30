@@ -1,0 +1,47 @@
+import * as dotenv from 'dotenv';
+import express, { Application, Request, Response } from 'express';
+import mongoose from 'mongoose';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import bodyParser from 'body-parser';
+import swaggerUi from 'swagger-ui-express';
+import colors from 'colors';
+import { swaggerConf, swaggerSpec } from './middlewares/swagger';
+import expressErrorHandler from './middlewares/errorHandler';
+import corsConf from './middlewares/cors';
+import routes from './routes';
+import seedAdminUser from './seed';
+
+dotenv.config();
+
+const app: Application = express();
+app.use('/api/public', express.static(`${__dirname}/public`));
+app.use(helmet());
+app.use(corsConf);
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
+if (process.env.NODE_ENV === 'development') app.use('/api/docs', swaggerUi.serve, swaggerConf);
+app.use('/api', routes);
+app.use('/', (req: Request, res: Response) => res.status(200).json());
+app.use('*', (req: Request, res: Response) => res.status(404).json());
+app.use(expressErrorHandler);
+
+(async () => {
+  try {
+    if (process.env.NODE_ENV !== 'test') {
+      mongoose.set('debug', process.env.NODE_ENV === 'development');
+      mongoose.set('strictQuery', false);
+      await mongoose.connect(process.env.MONGO_LINK);
+      await seedAdminUser();
+      app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
+    }
+  } catch (error) {
+    console.log(colors.red('%s'), error); /* eslint-disable-line */
+  }
+})();
+
+export {
+  app,
+  swaggerSpec,
+};

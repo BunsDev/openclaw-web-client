@@ -1,0 +1,8 @@
+{
+  "name": "openclaw-proxy",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.0",
+    "multer": "^2.1.1"
+  }
+}
