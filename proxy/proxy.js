@@ -38,6 +38,25 @@ function runAgent(agentId, message, sessionKey, res) {
   let buf = "";
   let mode = "idle";
 
+  const noisePatterns = [
+    /\[.*?model-providers.*?\]/,
+    /\[.*?auth-profiles?\]/,
+    /\[.*?auth\]/,
+    /bootstrap.*config.*fallback/i,
+    /inherited.*from.*main/i,
+    /ExperimentalWarning/,
+    /punycode/,
+    /deprecated/i,
+    /no config backend key found/i,
+  ];
+
+  function stripNoise(text) {
+    return text
+      .split("\n")
+      .filter((line) => !noisePatterns.some((rx) => rx.test(line)))
+      .join("\n");
+  }
+
   function emit(text, isThinking) {
     if (!text) return;
     const type = isThinking ? "response.thinking.delta" : "response.output_text.delta";
@@ -98,7 +117,9 @@ function runAgent(agentId, message, sessionKey, res) {
   }
 
   child.stdout.on("data", (data) => {
-    buf += data.toString();
+    const cleaned = stripNoise(data.toString());
+    if (!cleaned) return;
+    buf += cleaned;
     processBuf();
   });
 
