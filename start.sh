@@ -24,5 +24,23 @@ else
   echo "${ENV_FILE} already exists; not overwriting."
 fi
 
+echo ""
+echo "Installing proxy dependencies..."
+cd "$ROOT/proxy" && npm install
+
+echo ""
+echo "Starting Docker services..."
 cd "$ROOT"
 docker compose up -d
+
+echo ""
+echo "Starting OpenClaw proxy on host (port 18801)..."
+cd "$ROOT/proxy"
+nohup node proxy.js > "$ROOT/proxy/proxy.log" 2>&1 &
+PROXY_PID=$!
+echo "Proxy started (PID: $PROXY_PID), log: proxy/proxy.log"
+echo ""
+echo "All services are up!"
+echo "  Client:  http://localhost:18800"
+echo "  API:     http://localhost:18802"
+echo "  Proxy:   http://localhost:18801 (host, runs openclaw CLI)"

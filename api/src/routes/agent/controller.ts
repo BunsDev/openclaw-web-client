@@ -3,7 +3,7 @@ import Agent from '../../models/agent';
 import Conversation from '../../models/conversation';
 import { List, Get, Create, Update, Destroy } from '../../@types/agent';
 
-const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://openclaw:8080';
+const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
 
 function toSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent';

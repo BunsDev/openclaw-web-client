@@ -3,14 +3,25 @@ import { spawn, execSync } from "child_process";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 const app = express();
 app.use(express.json());
 
-const SHARED_FILES_DIR = "/tmp/openclaw-files";
+const OPENCLAW_HOME = process.env.OPENCLAW_HOME || path.join(os.homedir(), ".openclaw");
+const PROXY_PORT = parseInt(process.env.PROXY_PORT || "18801", 10);
+const SHARED_FILES_DIR = path.join(os.tmpdir(), "openclaw-files");
 if (!fs.existsSync(SHARED_FILES_DIR)) fs.mkdirSync(SHARED_FILES_DIR, { recursive: true });
 
 const upload = multer({ dest: SHARED_FILES_DIR, limits: { fileSize: 10 * 1024 * 1024 } });
+
+function agentWorkspace(agentId) {
+  return path.join(OPENCLAW_HOME, "agents", agentId, "workspace");
+}
+
+function agentDir(agentId) {
+  return path.join(OPENCLAW_HOME, "agents", agentId);
+}
 
 function runAgent(agentId, message, sessionKey, res) {
   const args = ["agent", "--agent", agentId, "-m", message];
@@ -25,7 +36,6 @@ function runAgent(agentId, message, sessionKey, res) {
   let hasOutput = false;
   let stderrBuf = "";
   let buf = "";
-  // 'idle' = before any tag, 'think' = inside <think>, 'output' = inside <output>
   let mode = "idle";
 
   function emit(text, isThinking) {
@@ -96,13 +106,10 @@ function runAgent(agentId, message, sessionKey, res) {
     stderrBuf += data.toString();
   });
 
-  child.on("close", (code) => {
-    if (buf.trim()) {
-      emit(buf, mode === "think");
-    }
+  child.on("close", () => {
+    if (buf.trim()) emit(buf, mode === "think");
 
     const isUnknownAgent = stderrBuf.includes("Unknown agent id");
-
     if (isUnknownAgent && agentId !== "main") {
       console.warn(`[chat] agent "${agentId}" not found, falling back to "main"`);
       runAgent("main", message, sessionKey, res);
@@ -133,12 +140,11 @@ function runAgent(agentId, message, sessionKey, res) {
 
 app.post("/api/agents/register", (req, res) => {
   const { agentId } = req.body;
-
   if (!agentId || typeof agentId !== "string") {
     return res.status(400).json({ error: "agentId is required" });
   }
 
-  const workspace = `/root/.openclaw/agents/${agentId}/workspace`;
+  const workspace = agentWorkspace(agentId);
   console.log(`[register] adding agent: ${agentId}, workspace: ${workspace}`);
 
   try {
@@ -160,7 +166,6 @@ app.post("/api/agents/register", (req, res) => {
 
 app.post("/api/agents/set-identity", (req, res) => {
   const { agentId, name } = req.body;
-
   if (!agentId || typeof agentId !== "string") {
     return res.status(400).json({ error: "agentId is required" });
   }
@@ -185,7 +190,6 @@ app.post("/api/agents/set-identity", (req, res) => {
 
 app.post("/api/agents/remove", (req, res) => {
   const { agentId } = req.body;
-
   if (!agentId || typeof agentId !== "string") {
     return res.status(400).json({ error: "agentId is required" });
   }
@@ -199,10 +203,10 @@ app.post("/api/agents/remove", (req, res) => {
     ).toString();
     console.log(`[remove] success: ${output.trim()}`);
 
-    const workspace = `/root/.openclaw/agents/${agentId}`;
-    if (fs.existsSync(workspace)) {
-      fs.rmSync(workspace, { recursive: true, force: true });
-      console.log(`[remove] cleaned up workspace: ${workspace}`);
+    const dir = agentDir(agentId);
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      console.log(`[remove] cleaned up: ${dir}`);
     }
 
     return res.json({ ok: true, agentId, output: output.trim() });
@@ -221,7 +225,7 @@ app.post("/api/chat/stream", upload.array("files", 5), (req, res) => {
   const agentId = openclawAgentId || "main";
   const files = req.files || [];
 
-  const workspaceDir = `/root/.openclaw/agents/${agentId}/workspace`;
+  const workspaceDir = agentWorkspace(agentId);
   if (!fs.existsSync(workspaceDir)) fs.mkdirSync(workspaceDir, { recursive: true });
 
   const filePaths = files.map((f) => {
@@ -250,6 +254,7 @@ app.post("/api/chat/stream", upload.array("files", 5), (req, res) => {
   runAgent(agentId, fullMessage, sessionKey, res);
 });
 
-app.listen(18801, () => {
-  console.log("OpenClaw proxy listening on http://localhost:18801");
+app.listen(PROXY_PORT, () => {
+  console.log(`OpenClaw proxy listening on http://localhost:${PROXY_PORT}`);
+  console.log(`OPENCLAW_HOME: ${OPENCLAW_HOME}`);
 });

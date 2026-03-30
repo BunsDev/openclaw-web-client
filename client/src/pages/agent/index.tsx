@@ -15,7 +15,7 @@ import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDelet
 import type { Message, MessageFile } from '../../store/api/messagesApi';
 import DeleteButton from '../../components/DeleteButton';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:18802/api';
 
 function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   const [expanded, setExpanded] = useState(false);

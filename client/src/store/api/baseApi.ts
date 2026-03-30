@@ -7,7 +7,7 @@ import {
 } from '@reduxjs/toolkit/query/react';
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: 'http://localhost:3001/api',
+  baseUrl: 'http://localhost:18802/api',
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('token');
     if (token) {

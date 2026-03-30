@@ -5,7 +5,7 @@ import Conversation from '../../models/conversation';
 import Agent from '../../models/agent';
 import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@types/message';
 
-const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://openclaw:8080';
+const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
 
 const uploadsDir = path.join(__dirname, '../../public/uploads');
 if (!fs.existsSync(uploadsDir)) {

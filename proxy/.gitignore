@@ -3,3 +3,4 @@
 .pnp.js
 .DS_Store
 npm-debug.log*
+proxy.log
