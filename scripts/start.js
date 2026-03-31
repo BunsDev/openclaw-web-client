@@ -41,11 +41,15 @@ run('node scripts/setup.js');
 console.log('\nInstalling proxy dependencies...');
 run('npm install', PROXY_DIR);
 
-// 3. Start Docker services
+// 3. Build images (uses Docker layer cache — instant if nothing changed)
+console.log('\nBuilding Docker images...');
+run('docker compose build');
+
+// 4. Start Docker services
 console.log('\nStarting Docker services...');
 run('docker compose up -d');
 
-// 4. Kill stale proxy if PID file exists
+// 5. Kill stale proxy if PID file exists
 if (fs.existsSync(PID_FILE)) {
   try {
     const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf-8').trim(), 10);
@@ -56,7 +60,7 @@ if (fs.existsSync(PID_FILE)) {
   fs.unlinkSync(PID_FILE);
 }
 
-// 5. Start the proxy (detached so it survives this script exiting)
+// 6. Start the proxy (detached so it survives this script exiting)
 console.log('\nStarting OpenClaw proxy on host (port 18801)...');
 const logFd = fs.openSync(path.join(PROXY_DIR, 'proxy.log'), 'a');
 const proxy = spawn('node', ['proxy.js'], {
