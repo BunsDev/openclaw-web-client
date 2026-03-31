@@ -120,7 +120,8 @@ Optional — set before running `proxy.js`:
 
 | Command     | Description                          |
 |-------------|--------------------------------------|
-| `npm start` | Setup env + start Docker + proxy     |
-| `npm stop`  | Stop Docker containers + proxy       |
+| `npm start` | Build images + run containers + proxy (fast after first build) |
+| `npm stop`  | Stop all containers + proxy          |
 | `npm run setup` | Only generate env files (no start) |
+
 

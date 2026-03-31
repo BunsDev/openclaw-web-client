@@ -1,4 +1,4 @@
-FROM node:19-alpine3.16
+FROM node:22-alpine
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
@@ -11,4 +11,4 @@ COPY ./ .
 RUN npm run build
 
 EXPOSE 3000
-CMD sh -c 'node ./build/app.js'
+CMD ["node", "./build/app.js"]
