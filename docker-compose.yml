@@ -18,8 +18,7 @@ services:
       - OPENCLAW_PROXY_URL=http://host.docker.internal:18801
     volumes:
       - ./api/:/usr/src/app/
-      - api_node_modules:/usr/src/app/node_modules
-    command: /bin/sh -c 'if ! cmp -s package-lock.json node_modules/.lockfile-cache; then npm install && cp package-lock.json node_modules/.lockfile-cache; fi && npm run start'
+    command: /bin/sh -c 'npm install && npm run start'
 
   client:
     build:
@@ -35,8 +34,7 @@ services:
       - 18800:18800
     volumes:
       - ./client/:/usr/src/app/
-      - client_node_modules:/usr/src/app/node_modules
-    command: /bin/sh -c 'if ! cmp -s package-lock.json node_modules/.lockfile-cache; then npm install && cp package-lock.json node_modules/.lockfile-cache; fi && npm run dev'
+    command: /bin/sh -c 'npm install && npm run dev'
 
   mongo:
     image: mongo:latest
@@ -51,5 +49,3 @@ services:
 
 volumes:
   mongodbdata:
-  api_node_modules:
-  client_node_modules:
