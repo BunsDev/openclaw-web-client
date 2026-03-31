@@ -50,7 +50,7 @@ openclaw auth status
 ## Quick Start
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/lotsoftick/openclaw_client.git
 cd openclaw_client
 npm start
 ```
