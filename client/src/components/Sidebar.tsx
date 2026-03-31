@@ -26,6 +26,7 @@ import {
   useGetMessagesQuery,
 } from "../store";
 import DeleteButton from "./DeleteButton";
+import ThemePicker from "./ThemePicker";
 
 const SIDEBAR_WIDTH = 240;
 
@@ -580,6 +581,8 @@ export default function Sidebar() {
           )}
         </Box>
       </Box>
+
+      <ThemePicker />
     </Box>
   );
 }

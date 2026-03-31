@@ -1,0 +1,11 @@
+{
+  "name": "openclaw-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "start": "node scripts/start.js",
+    "stop": "node scripts/stop.js"
+  }
+}

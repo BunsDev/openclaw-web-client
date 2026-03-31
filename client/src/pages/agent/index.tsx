@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Collapse,
   Chip,
+  useTheme,
 } from '@mui/material';
 import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../store';
@@ -141,6 +142,7 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
   onDelete?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const theme = useTheme();
   const isUser = message.role === 'user';
   const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
   const files = ('files' in message ? message.files : undefined) ?? [];
@@ -179,7 +181,7 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           px: 2,
           py: 1,
           maxWidth: '70%',
-          bgcolor: isUser ? 'primary.main' : '#EFF5E8',
+          bgcolor: isUser ? 'primary.main' : theme.palette.chat.assistantBubble,
           color: isUser ? 'primary.contrastText' : 'text.primary',
           borderRadius: 3,
           borderTopRightRadius: isUser ? 4 : undefined,

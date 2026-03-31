@@ -7,3 +7,4 @@ export * from './api/agentsApi';
 export * from './api/conversationsApi';
 export * from './api/messagesApi';
 export { logout } from './slices/authSlice';
+export { setTheme } from './slices/themeSlice';

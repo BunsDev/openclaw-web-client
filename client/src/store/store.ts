@@ -2,10 +2,12 @@ import { configureStore } from '@reduxjs/toolkit';
 import { createLogger } from 'redux-logger';
 import { baseApi } from './api/baseApi';
 import authReducer from './slices/authSlice';
+import themeReducer from './slices/themeSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    theme: themeReducer,
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: (getDefaultMiddleware) => {

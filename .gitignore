@@ -1,2 +1,6 @@
 .env
+api/.env
 .DS_Store
+.proxy.pid
+node_modules/
+proxy/proxy.log

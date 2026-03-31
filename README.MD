@@ -50,20 +50,14 @@ openclaw auth status
 ## Quick Start
 
 ```bash
-# Clone the repository
 git clone <repo-url>
-cd openclaw
-
-# Make scripts executable
-chmod +x start.sh stop.sh
-
-# Start everything
-./start.sh
+cd openclaw_client
+npm start
 ```
 
-The start script will:
+That's it. On first run it will automatically:
 
-1. Generate environment files (`.env`, `api/.env`) with random secrets on first run
+1. Generate environment files (`.env`, `api/.env`) with random secrets
 2. Install proxy dependencies
 3. Start Docker containers (client, API, MongoDB)
 4. Start the OpenClaw proxy on the host
@@ -87,7 +81,7 @@ On first startup, a default admin user is created:
 ## Stopping
 
 ```bash
-./stop.sh
+npm stop
 ```
 
 This stops all Docker containers and kills the proxy process.
@@ -96,7 +90,7 @@ This stops all Docker containers and kills the proxy process.
 
 ### Environment Variables
 
-Generated automatically by `start.sh` on first run:
+Generated automatically on first run:
 
 **`api/.env`**
 | Variable     | Description                          |
@@ -111,6 +105,8 @@ Generated automatically by `start.sh` on first run:
 | `MONGO_USER`     | MongoDB root username    |
 | `MONGO_PASSWORD` | MongoDB root password    |
 
+To regenerate secrets, delete both env files and run `npm start` again.
+
 ### Proxy Environment Variables
 
 Optional — set before running `proxy.js`:
@@ -119,4 +115,12 @@ Optional — set before running `proxy.js`:
 |-----------------|----------------------------|---------------------------------|
 | `PROXY_PORT`    | `18801`                    | Port the proxy listens on       |
 | `OPENCLAW_HOME` | `~/.openclaw`              | Path to OpenClaw config directory |
+
+### npm Scripts
+
+| Command     | Description                          |
+|-------------|--------------------------------------|
+| `npm start` | Setup env + start Docker + proxy     |
+| `npm stop`  | Stop Docker containers + proxy       |
+| `npm run setup` | Only generate env files (no start) |
 

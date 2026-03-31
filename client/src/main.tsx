@@ -4,18 +4,26 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from "react-router";
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { store } from './store/store';
-import theme from './theme';
+import { themes } from './theme';
+import { useAppSelector } from './store/hooks';
 import App from './App.tsx'
+
+function ThemedApp() {
+  const themeId = useAppSelector((s) => s.theme.themeId);
+  return (
+    <ThemeProvider theme={themes[themeId]}>
+      <CssBaseline />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </ThemeProvider>
+      <ThemedApp />
     </Provider>
   </StrictMode>,
 )
