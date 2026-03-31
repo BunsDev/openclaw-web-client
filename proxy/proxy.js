@@ -30,6 +30,7 @@ function runAgent(agentId, message, sessionKey, res) {
   console.log(`[chat] spawning: openclaw ${args.join(" ")}`);
 
   const child = spawn("openclaw", args, {
+    cwd: os.homedir(),
     env: { ...process.env, NO_COLOR: "1" },
   });
 
@@ -182,7 +183,7 @@ app.post("/api/agents/register", (req, res) => {
   try {
     const output = execSync(
       `openclaw agents add ${agentId} --non-interactive --workspace ${workspace} --json 2>&1`,
-      { env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
+      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
     ).toString();
     console.log(`[register] success: ${output.trim()}`);
     return res.json({ ok: true, agentId, output: output.trim() });
@@ -209,7 +210,7 @@ app.post("/api/agents/set-identity", (req, res) => {
     if (name) args.push("--name", name);
     const output = execSync(
       `openclaw ${args.map((a) => `"${a}"`).join(" ")} 2>&1`,
-      { env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
+      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
     ).toString();
     console.log(`[set-identity] success: ${output.trim()}`);
     return res.json({ ok: true, agentId, output: output.trim() });
@@ -231,7 +232,7 @@ app.post("/api/agents/remove", (req, res) => {
   try {
     const output = execSync(
       `openclaw agents delete ${agentId} --force --json 2>&1`,
-      { env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
+      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 },
     ).toString();
     console.log(`[remove] success: ${output.trim()}`);
 
