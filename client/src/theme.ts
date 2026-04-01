@@ -20,6 +20,8 @@ declare module '@mui/material/styles' {
     };
     chat: {
       assistantBubble: string;
+      userBubble: string;
+      userText: string;
     };
   }
   interface PaletteOptions {
@@ -41,6 +43,8 @@ declare module '@mui/material/styles' {
     };
     chat?: {
       assistantBubble: string;
+      userBubble: string;
+      userText: string;
     };
   }
 }
@@ -79,7 +83,7 @@ interface ThemeConfig {
     selectedShadow: string;
     hoverShadow: string;
   };
-  chat: { assistantBubble: string };
+  chat: { assistantBubble: string; userBubble: string; userText: string };
 }
 
 function buildTheme(config: ThemeConfig): Theme {
@@ -239,7 +243,11 @@ const amberConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#EFF5E8' },
+  chat: {
+    assistantBubble: '#EFF5E8',
+    userBubble: '#e8a840',
+    userText: '#ffffff',
+  },
 };
 
 const oceanConfig: ThemeConfig = {
@@ -269,7 +277,11 @@ const oceanConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#EFF6FF' },
+  chat: {
+    assistantBubble: '#EFF6FF',
+    userBubble: '#3B82F6',
+    userText: '#ffffff',
+  },
 };
 
 const midnightConfig: ThemeConfig = {
@@ -299,7 +311,11 @@ const midnightConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#2A2540' },
+  chat: {
+    assistantBubble: '#2A2540',
+    userBubble: '#8B5CF6',
+    userText: '#ffffff',
+  },
 };
 
 const forestConfig: ThemeConfig = {
@@ -329,7 +345,11 @@ const forestConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#DCFCE7' },
+  chat: {
+    assistantBubble: '#DCFCE7',
+    userBubble: '#22C55E',
+    userText: '#ffffff',
+  },
 };
 
 const roseConfig: ThemeConfig = {
@@ -359,7 +379,11 @@ const roseConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#FFE4E6' },
+  chat: {
+    assistantBubble: '#FFE4E6',
+    userBubble: '#F43F5E',
+    userText: '#ffffff',
+  },
 };
 
 const arcticConfig: ThemeConfig = {
@@ -389,7 +413,11 @@ const arcticConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#E0F7FA' },
+  chat: {
+    assistantBubble: '#E0F7FA',
+    userBubble: '#06B6D4',
+    userText: '#ffffff',
+  },
 };
 
 const sunsetConfig: ThemeConfig = {
@@ -419,7 +447,11 @@ const sunsetConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#FFF3E0' },
+  chat: {
+    assistantBubble: '#FFF3E0',
+    userBubble: '#F97316',
+    userText: '#ffffff',
+  },
 };
 
 const lavenderConfig: ThemeConfig = {
@@ -449,7 +481,11 @@ const lavenderConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#F3E8FF' },
+  chat: {
+    assistantBubble: '#F3E8FF',
+    userBubble: '#9333EA',
+    userText: '#ffffff',
+  },
 };
 
 const mochaConfig: ThemeConfig = {
@@ -479,7 +515,11 @@ const mochaConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#3D332A' },
+  chat: {
+    assistantBubble: '#3D332A',
+    userBubble: '#D4915C',
+    userText: '#ffffff',
+  },
 };
 
 const slateConfig: ThemeConfig = {
@@ -509,7 +549,11 @@ const slateConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#F1F5F9' },
+  chat: {
+    assistantBubble: '#F1F5F9',
+    userBubble: '#475569',
+    userText: '#ffffff',
+  },
 };
 
 const emberConfig: ThemeConfig = {
@@ -539,7 +583,11 @@ const emberConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#3D2222' },
+  chat: {
+    assistantBubble: '#3D2222',
+    userBubble: '#DC2626',
+    userText: '#ffffff',
+  },
 };
 
 const sandConfig: ThemeConfig = {
@@ -569,7 +617,45 @@ const sandConfig: ThemeConfig = {
     selectedShadow: 'none',
     hoverShadow: 'none',
   },
-  chat: { assistantBubble: '#FDF5E6' },
+  chat: {
+    assistantBubble: '#FDF5E6',
+    userBubble: '#B8860B',
+    userText: '#ffffff',
+  },
+};
+
+const studioConfig: ThemeConfig = {
+  name: 'Studio',
+  primary: { main: '#5B6B7A', light: '#7A8894', dark: '#3D4A56', contrastText: '#ffffff' },
+  secondary: { main: '#8B9CA8', light: '#A8B5BE', dark: '#6B7A85', contrastText: '#ffffff' },
+  error: { main: '#DC2626', light: '#EF4444', dark: '#B91C1C' },
+  warning: { main: '#D97706', light: '#F59E0B', dark: '#B45309' },
+  info: { main: '#64748B', light: '#94A3B8', dark: '#475569' },
+  success: { main: '#059669', light: '#10B981', dark: '#047857' },
+  background: { default: '#FAFAFA', paper: '#FFFFFF' },
+  text: { primary: '#1F2937', secondary: '#6B7280' },
+  divider: '#E5E7EB',
+  sidebar: {
+    background: '#FFFFFF',
+    border: '#E5E7EB',
+    text: '#6B7280',
+    hover: '#F3F4F6',
+    selectedBg: '#F3F4F6',
+    selectedText: '#111827',
+    selectedBorder: '#5B6B7A',
+  },
+  card: {
+    background: '#FFFFFF',
+    selectedBackground: '#F9FAFB',
+    shadow: 'none',
+    selectedShadow: 'none',
+    hoverShadow: 'none',
+  },
+  chat: {
+    assistantBubble: '#F7F8FA',
+    userBubble: '#E8EDF2',
+    userText: '#1F2937',
+  },
 };
 
 // ── Export ──────────────────────────────────────────────────
@@ -587,6 +673,7 @@ export const themeConfigs = {
   slate: slateConfig,
   ember: emberConfig,
   sand: sandConfig,
+  studio: studioConfig,
 } as const;
 
 export type ThemeId = keyof typeof themeConfigs;

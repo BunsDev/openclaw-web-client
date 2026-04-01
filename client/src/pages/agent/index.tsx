@@ -11,6 +11,7 @@ import {
   Chip,
   useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../store';
 import type { Message, MessageFile } from '../../store/api/messagesApi';
@@ -84,6 +85,8 @@ function formatFileSize(bytes: number) {
 }
 
 function FileAttachments({ files, isUser }: { files: MessageFile[]; isUser: boolean }) {
+  const theme = useTheme();
+  const { userText } = theme.palette.chat;
   if (!files?.length) return null;
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 0.5 }}>
@@ -122,8 +125,8 @@ function FileAttachments({ files, isUser }: { files: MessageFile[]; isUser: bool
             clickable
             sx={{
               maxWidth: 220,
-              bgcolor: isUser ? 'rgba(255,255,255,0.2)' : 'background.paper',
-              color: isUser ? 'primary.contrastText' : 'text.primary',
+              bgcolor: isUser ? alpha(userText, 0.12) : 'background.paper',
+              color: isUser ? userText : 'text.primary',
               fontSize: '0.72rem',
             }}
           />
@@ -181,8 +184,8 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           px: 2,
           py: 1,
           maxWidth: '70%',
-          bgcolor: isUser ? 'primary.main' : theme.palette.chat.assistantBubble,
-          color: isUser ? 'primary.contrastText' : 'text.primary',
+          bgcolor: isUser ? theme.palette.chat.userBubble : theme.palette.chat.assistantBubble,
+          color: isUser ? theme.palette.chat.userText : 'text.primary',
           borderRadius: 3,
           borderTopRightRadius: isUser ? 4 : undefined,
           borderTopLeftRadius: isUser ? undefined : 4,

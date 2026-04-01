@@ -6,7 +6,7 @@ interface ThemeState {
 }
 
 const stored = localStorage.getItem('themeId');
-const validIds: ThemeId[] = ['amber', 'ocean', 'midnight', 'forest', 'rose', 'arctic', 'sunset', 'lavender', 'mocha', 'slate', 'ember', 'sand'];
+const validIds: ThemeId[] = ['amber', 'ocean', 'midnight', 'forest', 'rose', 'arctic', 'sunset', 'lavender', 'mocha', 'slate', 'ember', 'sand', 'studio'];
 
 const initialState: ThemeState = {
   themeId: validIds.includes(stored as ThemeId) ? (stored as ThemeId) : 'amber',
