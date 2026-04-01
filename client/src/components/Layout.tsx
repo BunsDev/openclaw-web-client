@@ -9,12 +9,13 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", minWidth: 0, overflowX: "hidden" }}>
       <Sidebar />
       <Box
         component="main"
         sx={{
           flex: 1,
+          minWidth: 0,
           p: 3,
           bgcolor: "background.default",
           minHeight: "100vh",

@@ -16,8 +16,137 @@ import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutl
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../store';
 import type { Message, MessageFile } from '../../store/api/messagesApi';
 import DeleteButton from '../../components/DeleteButton';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css';
 
 const API_BASE = 'http://localhost:18802/api';
+
+const markdownComponents: Partial<Components> = {
+  table({ node: _node, children, ...props }) {
+    return (
+      <Box sx={{ overflowX: 'auto', maxWidth: '100%', mb: 0.75, WebkitOverflowScrolling: 'touch' }}>
+        <Box component="table" {...props} sx={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+          {children}
+        </Box>
+      </Box>
+    );
+  },
+};
+
+function MarkdownContent({ children, isStreaming }: { children: string; isStreaming?: boolean }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
+  return (
+    <Box
+      sx={{
+        fontSize: '0.875rem',
+        lineHeight: 1.65,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflowWrap: 'anywhere',
+        wordBreak: 'break-word',
+        '& p': { m: 0, mb: 0.75, '&:last-child': { mb: 0 } },
+        '& h1,& h2,& h3,& h4,& h5,& h6': {
+          mt: 1.5, mb: 0.5,
+          fontWeight: 600,
+          lineHeight: 1.3,
+          color: 'text.primary',
+          '&:first-of-type': { mt: 0 },
+        },
+        '& h1': { fontSize: '1.2rem' },
+        '& h2': { fontSize: '1.05rem' },
+        '& h3': { fontSize: '0.95rem' },
+        '& ul,& ol': { pl: 2.5, m: 0, mb: 0.75 },
+        '& li': { mb: 0.25 },
+        '& li > p': { mb: 0 },
+        '& blockquote': {
+          m: 0, mb: 0.75,
+          pl: 1.5,
+          borderLeft: '3px solid',
+          borderColor: 'divider',
+          color: 'text.secondary',
+          fontStyle: 'italic',
+        },
+        '& a': {
+          color: 'primary.main',
+          textDecoration: 'none',
+          '&:hover': { textDecoration: 'underline' },
+        },
+        '& hr': { border: 'none', borderTop: '1px solid', borderColor: 'divider', my: 1 },
+        '& th,& td': {
+          border: '1px solid',
+          borderColor: 'divider',
+          px: 1.5,
+          py: 0.75,
+          textAlign: 'left',
+          wordBreak: 'break-word',
+        },
+        '& th': { fontWeight: 600, bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
+        '& code:not(pre code)': {
+          fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+          fontSize: '0.8rem',
+          px: 0.6,
+          py: 0.15,
+          borderRadius: '4px',
+          bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
+        },
+        '& pre': {
+          m: 0, mb: 0.75,
+          maxWidth: '100%',
+          width: '100%',
+          boxSizing: 'border-box',
+          borderRadius: '8px',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          bgcolor: isDark ? '#1e1e2e' : '#f6f8fa',
+          border: '1px solid',
+          borderColor: 'divider',
+          '& code': {
+            fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+            fontSize: '0.8rem',
+            background: 'none',
+            p: 0,
+            whiteSpace: 'pre',
+            wordBreak: 'normal',
+            display: 'block',
+          },
+          '& .hljs': {
+            background: 'none',
+            p: 1.5,
+            display: 'block',
+          },
+        },
+      }}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={markdownComponents}
+      >
+        {children}
+      </ReactMarkdown>
+      {isStreaming && (
+        <Box
+          component="span"
+          sx={{
+            display: 'inline-block',
+            width: 6,
+            height: 14,
+            bgcolor: 'text.secondary',
+            ml: 0.3,
+            animation: 'blink 1s step-end infinite',
+            verticalAlign: 'text-bottom',
+            '@keyframes blink': { '50%': { opacity: 0 } },
+          }}
+        />
+      )}
+    </Box>
+  );
+}
 
 function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -159,6 +288,8 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
         alignItems: 'center',
         mb: 1.5,
         gap: 0.5,
+        width: '100%',
+        minWidth: 0,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -183,7 +314,8 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
         sx={{
           px: 2,
           py: 1,
-          maxWidth: '70%',
+          minWidth: 0,
+          maxWidth: 'min(70%, 100%)',
           bgcolor: isUser ? theme.palette.chat.userBubble : theme.palette.chat.assistantBubble,
           color: isUser ? theme.palette.chat.userText : 'text.primary',
           borderRadius: 3,
@@ -204,29 +336,16 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           />
         )}
         {hasTextContent && (
-          <Typography
-            variant="body1"
-            sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-          >
-            {message.text}
-            {isStreaming && (
-              <Box
-                component="span"
-                sx={{
-                  display: 'inline-block',
-                  width: 6,
-                  height: 16,
-                  bgcolor: 'text.secondary',
-                  ml: 0.3,
-                  animation: 'blink 1s step-end infinite',
-                  verticalAlign: 'text-bottom',
-                  '@keyframes blink': {
-                    '50%': { opacity: 0 },
-                  },
-                }}
-              />
-            )}
-          </Typography>
+          isUser ? (
+            <Typography
+              variant="body1"
+              sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+            >
+              {message.text}
+            </Typography>
+          ) : (
+            <MarkdownContent isStreaming={isStreaming}>{message.text!}</MarkdownContent>
+          )
         )}
         {isStreaming && !hasTextContent && (
           <Box
@@ -436,9 +555,9 @@ export default function AgentChat() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', minWidth: 0, width: '100%', overflowX: 'hidden' }}>
       {agent && (
-        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexShrink: 0 }}>
           {editingName ? (
             <>
               <TextField
@@ -475,7 +594,7 @@ export default function AgentChat() {
               <Typography
                 variant="h6"
                 fontWeight={600}
-                sx={{ flex: 1 }}
+                sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
                 {agent.name}
               </Typography>
@@ -491,7 +610,7 @@ export default function AgentChat() {
         </Box>
       )}
 
-      <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', px: 3, py: 2 }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={28} />
@@ -546,7 +665,7 @@ export default function AgentChat() {
         <div ref={messagesEndRef} />
       </Box>
 
-      <Box sx={{ px: 3, pb: 2, pt: 1 }}>
+      <Box sx={{ px: 3, pb: 2, pt: 1, minWidth: 0, flexShrink: 0 }}>
         {pendingFiles.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
             {pendingFiles.map((f, i) => (
@@ -568,6 +687,7 @@ export default function AgentChat() {
           sx={{
             display: 'flex',
             alignItems: 'center',
+            minWidth: 0,
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
@@ -606,6 +726,7 @@ export default function AgentChat() {
             onKeyDown={handleKeyDown}
             disabled={isStreaming}
             slotProps={{ input: { disableUnderline: true, sx: { py: 1, fontSize: '0.9rem' } } }}
+            sx={{ minWidth: 0, flex: 1 }}
           />
           <IconButton
             onClick={handleSend}
