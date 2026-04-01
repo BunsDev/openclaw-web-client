@@ -11,7 +11,7 @@ import {
   Chip,
   useTheme,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, getLuminance } from '@mui/material/styles';
 import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../store';
 import type { Message, MessageFile } from '../../store/api/messagesApi';
@@ -19,9 +19,25 @@ import DeleteButton from '../../components/DeleteButton';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github.css';
+import hljsGithubLightUrl from 'highlight.js/styles/github.css?url';
+import hljsGithubDarkUrl from 'highlight.js/styles/github-dark.css?url';
 
 const API_BASE = 'http://localhost:18802/api';
+
+let hljsThemeLinkEl: HTMLLinkElement | null = null;
+
+function syncHljsStylesheet(isDarkUi: boolean) {
+  if (!hljsThemeLinkEl) {
+    hljsThemeLinkEl = document.createElement('link');
+    hljsThemeLinkEl.rel = 'stylesheet';
+    hljsThemeLinkEl.id = 'openclaw-hljs-theme';
+    document.head.appendChild(hljsThemeLinkEl);
+  }
+  const href = isDarkUi ? hljsGithubDarkUrl : hljsGithubLightUrl;
+  if (hljsThemeLinkEl.getAttribute('href') !== href) {
+    hljsThemeLinkEl.setAttribute('href', href);
+  }
+}
 
 const markdownComponents: Partial<Components> = {
   table({ node: _node, children, ...props }) {
@@ -37,7 +53,16 @@ const markdownComponents: Partial<Components> = {
 
 function MarkdownContent({ children, isStreaming }: { children: string; isStreaming?: boolean }) {
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+  // Custom themes never set palette.mode; derive from paper luminance so code blocks match light vs dark UI.
+  const isDarkUi =
+    theme.palette.mode === 'dark' ||
+    getLuminance(theme.palette.background.paper) < 0.5;
+
+  const codeBlockBg = isDarkUi ? '#0d1117' : '#f6f8fa';
+
+  useEffect(() => {
+    syncHljsStylesheet(isDarkUi);
+  }, [isDarkUi]);
 
   return (
     <Box
@@ -48,6 +73,7 @@ function MarkdownContent({ children, isStreaming }: { children: string; isStream
         maxWidth: '100%',
         overflowWrap: 'anywhere',
         wordBreak: 'break-word',
+        color: 'text.primary',
         '& p': { m: 0, mb: 0.75, '&:last-child': { mb: 0 } },
         '& h1,& h2,& h3,& h4,& h5,& h6': {
           mt: 1.5, mb: 0.5,
@@ -84,14 +110,14 @@ function MarkdownContent({ children, isStreaming }: { children: string; isStream
           textAlign: 'left',
           wordBreak: 'break-word',
         },
-        '& th': { fontWeight: 600, bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
+        '& th': { fontWeight: 600, bgcolor: isDarkUi ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
         '& code:not(pre code)': {
           fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
           fontSize: '0.8rem',
           px: 0.6,
           py: 0.15,
           borderRadius: '4px',
-          bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
+          bgcolor: isDarkUi ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
         },
         '& pre': {
           m: 0, mb: 0.75,
@@ -102,7 +128,7 @@ function MarkdownContent({ children, isStreaming }: { children: string; isStream
           overflowX: 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          bgcolor: isDark ? '#1e1e2e' : '#f6f8fa',
+          bgcolor: codeBlockBg,
           border: '1px solid',
           borderColor: 'divider',
           '& code': {
@@ -115,7 +141,7 @@ function MarkdownContent({ children, isStreaming }: { children: string; isStream
             display: 'block',
           },
           '& .hljs': {
-            background: 'none',
+            background: 'transparent !important',
             p: 1.5,
             display: 'block',
           },

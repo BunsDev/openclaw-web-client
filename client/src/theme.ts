@@ -624,6 +624,40 @@ const sandConfig: ThemeConfig = {
   },
 };
 
+const nightConfig: ThemeConfig = {
+  name: 'Night',
+  primary: { main: '#60A5FA', light: '#93C5FD', dark: '#3B82F6', contrastText: '#ffffff' },
+  secondary: { main: '#94A3B8', light: '#CBD5E1', dark: '#64748B', contrastText: '#0B1220' },
+  error: { main: '#F87171', light: '#FCA5A5', dark: '#EF4444' },
+  warning: { main: '#FBBF24', light: '#FCD34D', dark: '#F59E0B' },
+  info: { main: '#38BDF8', light: '#7DD3FC', dark: '#0EA5E9' },
+  success: { main: '#4ADE80', light: '#86EFAC', dark: '#22C55E' },
+  background: { default: '#0C0E12', paper: '#16181D' },
+  text: { primary: '#E4E4E7', secondary: '#A1A1AA' },
+  divider: '#27272A',
+  sidebar: {
+    background: '#090A0D',
+    border: '#1C1C1F',
+    text: '#A1A1AA',
+    hover: '#1C1C1F',
+    selectedBg: 'transparent',
+    selectedText: '#FAFAFA',
+    selectedBorder: '#60A5FA',
+  },
+  card: {
+    background: '#16181D',
+    selectedBackground: '#1F2329',
+    shadow: 'none',
+    selectedShadow: 'none',
+    hoverShadow: 'none',
+  },
+  chat: {
+    assistantBubble: '#1E2229',
+    userBubble: '#3B82F6',
+    userText: '#ffffff',
+  },
+};
+
 const studioConfig: ThemeConfig = {
   name: 'Studio',
   primary: { main: '#5B6B7A', light: '#7A8894', dark: '#3D4A56', contrastText: '#ffffff' },
@@ -673,6 +707,7 @@ export const themeConfigs = {
   slate: slateConfig,
   ember: emberConfig,
   sand: sandConfig,
+  night: nightConfig,
   studio: studioConfig,
 } as const;
 
