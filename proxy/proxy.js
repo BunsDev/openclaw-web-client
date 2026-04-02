@@ -308,13 +308,13 @@ app.get("/api/agents/:agentId/sessions", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    // Key format: "agent:<agentId>:<sessionKey>"
-    const sessions = Object.entries(raw).map(([key, val]) => {
-      const parts = key.split(":");
-      const sessionKey = parts.slice(2).join(":") || "main";
+    // OpenClaw's key format: "agent:<agentId>:<routeLabel>"
+    // The actual session ID (used for --session-id and file naming) is in val.sessionId.
+    // Our DB stores conv._id as sessionKey, and that matches val.sessionId.
+    const sessions = Object.entries(raw).map(([, val]) => {
       const firstMessage = readFirstUserMessage(val.sessionFile);
       return {
-        sessionKey,
+        sessionKey: val.sessionId,
         sessionId: val.sessionId,
         updatedAt: val.updatedAt,
         firstMessage,
@@ -337,12 +337,9 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    const key = `agent:${agentId}:${sessionKey}`;
-    const entry = raw[key];
-
-    const sessionEntry = entry || Object.values(raw).find((v) =>
-      v.sessionKey === sessionKey || v.sessionId === sessionKey,
-    );
+    // sessionKey from our DB is the sessionId (conv._id). Find by sessionId in values.
+    const sessionEntry = Object.values(raw).find((v) => v.sessionId === sessionKey)
+      || raw[`agent:${agentId}:${sessionKey}`];
 
     if (!sessionEntry) {
       return res.json({ ok: true, messages: [] });

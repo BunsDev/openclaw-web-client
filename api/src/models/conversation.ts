@@ -35,6 +35,12 @@ const conversationSchema = new Schema<IConversation>({
   versionKey: false,
 });
 
+// Prevent duplicate conversations for the same session during concurrent syncs.
+conversationSchema.index(
+  { agentId: 1, sessionKey: 1 },
+  { unique: true, partialFilterExpression: { sessionKey: { $type: 'string' } } },
+);
+
 /* eslint-disable prefer-arrow-callback,func-names */
 
 conversationSchema.pre(['find', 'findOne', 'findOneAndUpdate', 'countDocuments'], function () {

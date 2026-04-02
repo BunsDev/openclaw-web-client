@@ -64,9 +64,13 @@ const chat: Chat = async (req, res, next) => {
     });
     await userMessage.save();
 
+    if (!conv.title && text) {
+      await Conversation.findByIdAndUpdate(conversationId, { title: text.slice(0, 200) });
+    }
+
     const formData = new FormData();
     if (text) formData.append('message', text);
-    formData.append('sessionKey', conv.sessionKey || String(conv.agentId));
+    formData.append('sessionKey', conv.sessionKey || String(conv._id));
     formData.append('openclawAgentId', agent?.openclawAgentId || 'main');
 
     uploadedFiles.forEach((uf) => {
@@ -96,27 +100,36 @@ const chat: Chat = async (req, res, next) => {
     const decoder = new TextDecoder();
     let fullText = '';
     let fullThinking = '';
+    let lineBuf = '';
+
+    const processLine = (line: string) => {
+      if (!line.startsWith('data: ')) return;
+      const jsonStr = line.slice(6).trim();
+      if (!jsonStr || jsonStr === '[DONE]') return;
+      try {
+        const event = JSON.parse(jsonStr);
+        if (event.type === 'response.output_text.delta' && event.delta) {
+          fullText += event.delta;
+        } else if (event.type === 'response.thinking.delta' && event.delta) {
+          fullThinking += event.delta;
+        }
+      } catch {
+        // skip malformed lines
+      }
+    };
 
     const parseChunk = (chunk: string) => {
-      chunk.split('\n').forEach((line) => {
-        if (!line.startsWith('data: ')) return;
-        const jsonStr = line.slice(6).trim();
-        if (!jsonStr || jsonStr === '[DONE]') return;
-        try {
-          const event = JSON.parse(jsonStr);
-          if (event.type === 'response.output_text.delta' && event.delta) {
-            fullText += event.delta;
-          } else if (event.type === 'response.thinking.delta' && event.delta) {
-            fullThinking += event.delta;
-          }
-        } catch {
-          // skip malformed lines
-        }
-      });
+      lineBuf += chunk;
+      const parts = lineBuf.split('\n');
+      lineBuf = parts.pop()!;
+      parts.forEach(processLine);
     };
 
     const pump = (): Promise<void> => reader.read().then(({ done, value }) => {
-      if (done) return undefined;
+      if (done) {
+        if (lineBuf.trim()) processLine(lineBuf);
+        return undefined;
+      }
       const chunk = decoder.decode(value, { stream: true });
       res.write(chunk);
       parseChunk(chunk);
@@ -125,16 +138,32 @@ const chat: Chat = async (req, res, next) => {
 
     await pump();
 
-    if (fullText || fullThinking) {
-      const assistantMessage = new Message({
-        conversationId,
-        text: fullText || '...',
-        thinking: fullThinking || null,
-        role: 'assistant',
-        createdBy: req.user!._id,
-        createdAt: new Date(),
-      });
-      await assistantMessage.save();
+    // Persist the sessionKey we actually used — covers old conversations that pre-date the
+    // creation-time assignment and still have sessionKey: null.
+    const usedSessionKey = conv.sessionKey || String(conv._id);
+    if (!conv.sessionKey) {
+      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: usedSessionKey });
+    }
+
+    // Strip <final>...</final> wrapper that OpenClaw adds to streamed responses.
+    const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
+
+    if (cleanText || fullThinking) {
+      try {
+        const assistantMessage = new Message({
+          conversationId,
+          text: cleanText || '...',
+          thinking: fullThinking || null,
+          role: 'assistant',
+          createdBy: req.user!._id,
+          createdAt: new Date(),
+        });
+        await assistantMessage.save();
+      } catch (saveErr) {
+        console.error('[chat] failed to save assistant message:', saveErr);
+      }
+    } else {
+      console.warn('[chat] stream ended with empty text/thinking, assistant message not saved');
     }
 
     return res.end();

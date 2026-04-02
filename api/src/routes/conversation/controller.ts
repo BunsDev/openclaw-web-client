@@ -21,6 +21,8 @@ const create: Create = async (req, res, next) => {
       createdBy: req.user!._id,
       createdAt: new Date(),
     });
+    // Set sessionKey to the conversation's own id so the sync can always match it.
+    conversation.sessionKey = String(conversation._id);
     const saved = await conversation.save();
     return res.json(saved);
   } catch (error) {

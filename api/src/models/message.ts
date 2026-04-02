@@ -56,8 +56,12 @@ const messageSchema = new Schema<IMessage>({
   versionKey: false,
 });
 
-// Unique per conversation — prevents duplicate synced messages even under concurrent requests.
-messageSchema.index({ conversationId: 1, externalId: 1 }, { unique: true, sparse: true });
+// Only enforce uniqueness for synced messages (where externalId is a non-null string).
+// Dashboard-created messages have externalId: null and must allow multiples per conversation.
+messageSchema.index(
+  { conversationId: 1, externalId: 1 },
+  { unique: true, partialFilterExpression: { externalId: { $type: 'string' } } },
+);
 
 /* eslint-disable prefer-arrow-callback,func-names */
 

@@ -12,7 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { alpha, getLuminance } from '@mui/material/styles';
-import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check } from '@mui/icons-material';
+import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check, ContentCopy, Done } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../store';
 import type { Message, MessageFile } from '../../store/api/messagesApi';
 import DeleteButton from '../../components/DeleteButton';
@@ -300,41 +300,32 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
   onDelete?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [copied, setCopied] = useState(false);
   const theme = useTheme();
   const isUser = message.role === 'user';
   const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
   const files = ('files' in message ? message.files : undefined) ?? [];
   const hasTextContent = message.text && !message.text.startsWith('[Attached ');
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.text || '');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
     <Box
       sx={{
         display: 'flex',
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        alignItems: 'center',
+        flexDirection: 'column',
+        alignItems: isUser ? 'flex-end' : 'flex-start',
         mb: 1.5,
-        gap: 0.5,
         width: '100%',
         minWidth: 0,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {isUser && hovered && onDelete && (
-        <DeleteButton
-          onConfirm={onDelete}
-          message="Delete this message?"
-          renderTrigger={(onClick) => (
-            <IconButton
-              size="small"
-              onClick={onClick}
-              sx={{ opacity: 0.4, '&:hover': { opacity: 1, color: 'error.main' } }}
-            >
-              <DeleteOutline sx={{ fontSize: 16 }} />
-            </IconButton>
-          )}
-        />
-      )}
       <Paper
         elevation={0}
         sx={{
@@ -342,6 +333,7 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           py: 1,
           minWidth: 0,
           maxWidth: 'min(70%, 100%)',
+          position: 'relative',
           bgcolor: isUser ? theme.palette.chat.userBubble : theme.palette.chat.assistantBubble,
           color: isUser ? theme.palette.chat.userText : 'text.primary',
           borderRadius: 3,
@@ -349,6 +341,24 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           borderTopLeftRadius: isUser ? undefined : 4,
         }}
       >
+        {hovered && (
+          <Box sx={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 0.25 }}>
+            <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}>
+              {copied ? <Done sx={{ fontSize: 13, color: 'success.main' }} /> : <ContentCopy sx={{ fontSize: 13 }} />}
+            </IconButton>
+            {onDelete && (
+              <DeleteButton
+                onConfirm={onDelete}
+                message="Delete this message?"
+                renderTrigger={(onClick) => (
+                  <IconButton size="small" onClick={onClick} sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' }, p: 0.3 }}>
+                    <DeleteOutline sx={{ fontSize: 14 }} />
+                  </IconButton>
+                )}
+              />
+            )}
+          </Box>
+        )}
         {!isUser && thinking && (
           <ThinkingBlock
             text={thinking}
@@ -395,21 +405,6 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           </Typography>
         )}
       </Paper>
-      {!isUser && hovered && onDelete && (
-        <DeleteButton
-          onConfirm={onDelete}
-          message="Delete this message?"
-          renderTrigger={(onClick) => (
-            <IconButton
-              size="small"
-              onClick={onClick}
-              sx={{ opacity: 0.4, '&:hover': { opacity: 1, color: 'error.main' } }}
-            >
-              <DeleteOutline sx={{ fontSize: 16 }} />
-            </IconButton>
-          )}
-        />
-      )}
     </Box>
   );
 }

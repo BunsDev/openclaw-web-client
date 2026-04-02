@@ -158,20 +158,40 @@ const sync: RequestHandler = async (req, res, next) => {
           }).lean();
           const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
 
+          const unlinkedConvs = await Conversation.find({
+            agentId: agent._id,
+            sessionKey: null,
+          }).lean();
+
           await Promise.all(
             sessions.map(async (s) => {
               const existing = existingByKey.get(s.sessionKey);
               if (!existing) {
-                await new Conversation({
-                  agentId: agent._id,
-                  sessionKey: s.sessionKey,
-                  title: s.firstMessage || null,
-                  createdBy: req.user!._id,
-                  createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
-                }).save();
-                syncedConversations += 1;
+                const adoptable = s.firstMessage
+                  ? unlinkedConvs.find((c) => c.title && c.title === s.firstMessage)
+                  : unlinkedConvs.find((c) => !c.title);
+
+                if (adoptable) {
+                  await Conversation.findByIdAndUpdate(adoptable._id, {
+                    sessionKey: s.sessionKey,
+                    title: adoptable.title || s.firstMessage || null,
+                  });
+                  syncedConversations += 1;
+                } else {
+                  const upserted = await Conversation.findOneAndUpdate(
+                    { agentId: agent._id, sessionKey: s.sessionKey, deletedAt: null },
+                    { $setOnInsert: {
+                      agentId: agent._id,
+                      sessionKey: s.sessionKey,
+                      title: s.firstMessage || null,
+                      createdBy: req.user!._id,
+                      createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+                    } },
+                    { upsert: true, new: true },
+                  );
+                  if (upserted) syncedConversations += 1;
+                }
               } else if (!existing.title && s.firstMessage) {
-                // Backfill title on already-synced conversations that have none
                 await Conversation.findByIdAndUpdate(existing._id, { title: s.firstMessage });
               }
             }),
@@ -217,7 +237,6 @@ const sync: RequestHandler = async (req, res, next) => {
 
           if (!openclawMessages?.length) return;
 
-          // If the conversation has any dashboard-created messages, skip to avoid duplicates.
           const hasDashboardMessages = await Message.exists({
             conversationId: conv._id,
             externalId: null,
@@ -227,7 +246,6 @@ const sync: RequestHandler = async (req, res, next) => {
           const validMessages = openclawMessages.filter((m) => m.externalId);
           if (!validMessages.length) return;
 
-          // Upsert by (conversationId, externalId) — fully idempotent, safe under concurrent syncs.
           const result = await Message.bulkWrite(
             validMessages.map((m) => ({
               updateOne: {
