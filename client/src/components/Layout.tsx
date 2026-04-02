@@ -1,22 +1,45 @@
-import type { ReactNode } from "react";
-import { Box } from "@mui/material";
-import { Outlet } from "react-router";
-import Sidebar from "./Sidebar";
+import { type ReactNode, useState } from "react";
+import { Box, Drawer, IconButton, useMediaQuery, useTheme } from "@mui/material";
+import { Menu as MenuIcon } from "@mui/icons-material";
+import { Outlet, useLocation } from "react-router";
+import Sidebar, { SIDEBAR_WIDTH } from "./Sidebar";
 
 interface LayoutProps {
   children?: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+
+  // Close drawer on navigation
+  const handleNavClose = () => { if (isMobile) setMobileOpen(false); };
+
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", minWidth: 0, overflowX: "hidden" }}>
-      <Sidebar />
+      {isMobile ? (
+        <>
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            sx={{ '& .MuiDrawer-paper': { width: SIDEBAR_WIDTH, boxSizing: 'border-box' } }}
+          >
+            <Sidebar onNavigate={handleNavClose} />
+          </Drawer>
+        </>
+      ) : (
+        <Sidebar />
+      )}
       <Box
         component="main"
         sx={{
           flex: 1,
           minWidth: 0,
-          p: 3,
+          p: { xs: 0, md: 3 },
           bgcolor: "background.default",
           minHeight: "100vh",
           position: 'relative',
@@ -38,6 +61,21 @@ export default function Layout({ children }: LayoutProps) {
           },
         }}
       >
+        {isMobile && (
+          <Box sx={{ position: 'fixed', top: 8, left: 8, zIndex: 1100 }}>
+            <IconButton
+              onClick={() => setMobileOpen(true)}
+              sx={{
+                bgcolor: theme.palette.sidebar.background,
+                color: theme.palette.sidebar.text,
+                boxShadow: 2,
+                '&:hover': { bgcolor: theme.palette.sidebar.hover },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        )}
         {children ?? <Outlet />}
       </Box>
     </Box>

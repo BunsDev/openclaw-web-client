@@ -332,7 +332,7 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
           px: 2,
           py: 1,
           minWidth: 0,
-          maxWidth: 'min(70%, 100%)',
+          maxWidth: { xs: '90%', sm: '80%', md: 'min(70%, 100%)' },
           position: 'relative',
           bgcolor: isUser ? theme.palette.chat.userBubble : theme.palette.chat.assistantBubble,
           color: isUser ? theme.palette.chat.userText : 'text.primary',
@@ -576,9 +576,9 @@ export default function AgentChat() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', minWidth: 0, width: '100%', overflowX: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: { xs: '100vh', md: 'calc(100vh - 48px)' }, minWidth: 0, width: '100%', overflowX: 'hidden' }}>
       {agent && (
-        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexShrink: 0 }}>
+        <Box sx={{ px: { xs: 1.5, md: 2 }, py: 1.5, pl: { xs: 7, md: 2 }, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexShrink: 0 }}>
           {editingName ? (
             <>
               <TextField
@@ -631,7 +631,7 @@ export default function AgentChat() {
         </Box>
       )}
 
-      <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', px: 3, py: 2 }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={28} />
@@ -686,7 +686,7 @@ export default function AgentChat() {
         <div ref={messagesEndRef} />
       </Box>
 
-      <Box sx={{ px: 3, pb: 2, pt: 1, minWidth: 0, flexShrink: 0 }}>
+      <Box sx={{ px: { xs: 1, sm: 2, md: 3 }, pb: { xs: 1, md: 2 }, pt: 1, minWidth: 0, flexShrink: 0 }}>
         {pendingFiles.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
             {pendingFiles.map((f, i) => (

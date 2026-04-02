@@ -29,7 +29,7 @@ import {
 import DeleteButton from "./DeleteButton";
 import ThemePicker from "./ThemePicker";
 
-const SIDEBAR_WIDTH = 240;
+export const SIDEBAR_WIDTH = 240;
 
 const menuItems = [
   { text: "USERS", icon: <People />, path: "/users" },
@@ -42,7 +42,7 @@ function useFirstMessage(conversationId: string) {
   return firstUserMsg?.text ?? null;
 }
 
-function ConversationItem({ agentId, conversation }: { agentId: string; conversation: { _id: string; title: string | null; createdAt: string } }) {
+function ConversationItem({ agentId, conversation, onNavigate }: { agentId: string; conversation: { _id: string; title: string | null; createdAt: string }; onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -121,6 +121,7 @@ function ConversationItem({ agentId, conversation }: { agentId: string; conversa
         component={Link}
         to={`/agent/${agentId}/chat/${conversation._id}`}
         selected={isActive}
+        onClick={onNavigate}
         sx={{
           borderRadius: 1.5,
           py: 0.5,
@@ -185,7 +186,7 @@ function ConversationItem({ agentId, conversation }: { agentId: string; conversa
   );
 }
 
-function AgentSection({ agent, searchQuery, collapseKey }: { agent: { _id: string; name: string }; searchQuery?: string; collapseKey?: number }) {
+function AgentSection({ agent, searchQuery, collapseKey, onNavigate }: { agent: { _id: string; name: string }; searchQuery?: string; collapseKey?: number; onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -221,6 +222,7 @@ function AgentSection({ agent, searchQuery, collapseKey }: { agent: { _id: strin
     if ('data' in result && result.data) {
       setExpanded(true);
       navigate(`/agent/${agent._id}/chat/${result.data._id}`);
+      onNavigate?.();
     }
   };
 
@@ -327,6 +329,7 @@ function AgentSection({ agent, searchQuery, collapseKey }: { agent: { _id: strin
                 key={conv._id}
                 agentId={agent._id}
                 conversation={conv}
+                onNavigate={onNavigate}
               />
             ))
           )}
@@ -336,7 +339,7 @@ function AgentSection({ agent, searchQuery, collapseKey }: { agent: { _id: strin
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const theme = useTheme();
   const { sidebar } = theme.palette;
@@ -467,6 +470,7 @@ export default function Sidebar() {
               <ListItemButton
                 component={Link}
                 to={item.path}
+                onClick={onNavigate}
                 selected={isSelected}
                 sx={{
                   borderRadius: 2,
@@ -666,6 +670,7 @@ export default function Sidebar() {
                   agent={agent}
                   searchQuery={searchQuery || undefined}
                   collapseKey={collapseKey}
+                  onNavigate={onNavigate}
                 />
               ))}
             </List>
