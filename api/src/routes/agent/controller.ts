@@ -204,19 +204,6 @@ const sync: RequestHandler = async (req, res, next) => {
 
     const allConversations = await Conversation.find({ sessionKey: { $ne: null } }).lean();
 
-    const convIdsWithDashboardMessages = (
-      await Message.distinct('conversationId', {
-        conversationId: { $in: allConversations.map((c) => c._id) },
-        externalId: null,
-      })
-    );
-    if (convIdsWithDashboardMessages.length) {
-      await Message.deleteMany({
-        conversationId: { $in: convIdsWithDashboardMessages },
-        externalId: { $ne: null },
-      });
-    }
-
     let syncedMessages = 0;
 
     await Promise.all(
@@ -237,17 +224,24 @@ const sync: RequestHandler = async (req, res, next) => {
 
           if (!openclawMessages?.length) return;
 
-          const hasDashboardMessages = await Message.exists({
-            conversationId: conv._id,
-            externalId: null,
-          });
-          if (hasDashboardMessages) return;
-
           const validMessages = openclawMessages.filter((m) => m.externalId);
           if (!validMessages.length) return;
 
+          // Check which externalIds already exist in ANY conversation — not just this one.
+          // OpenClaw shares one JSONL per agent, so the file may contain messages
+          // that were already saved under a different conversation for the same agent.
+          const globallyExisting = new Set(
+            (await Message.find(
+              { externalId: { $in: validMessages.map((m) => m.externalId) } },
+              { externalId: 1 },
+            ).lean()).map((m) => m.externalId),
+          );
+
+          const toInsert = validMessages.filter((m) => !globallyExisting.has(m.externalId));
+          if (!toInsert.length) return;
+
           const result = await Message.bulkWrite(
-            validMessages.map((m) => ({
+            toInsert.map((m) => ({
               updateOne: {
                 filter: { conversationId: conv._id, externalId: m.externalId },
                 update: {

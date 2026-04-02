@@ -57,7 +57,7 @@ export const agentsApi = baseApi.injectEndpoints({
         url: '/agent/sync',
         method: 'POST',
       }),
-      invalidatesTags: ['Agent', 'Conversation'],
+      invalidatesTags: ['Agent', 'Conversation', 'Message'],
     }),
   }),
 });

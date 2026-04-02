@@ -148,6 +148,7 @@ const chat: Chat = async (req, res, next) => {
     // Strip <final>...</final> wrapper that OpenClaw adds to streamed responses.
     const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
 
+    let assistantMsgId: string | null = null;
     if (cleanText || fullThinking) {
       try {
         const assistantMessage = new Message({
@@ -158,12 +159,43 @@ const chat: Chat = async (req, res, next) => {
           createdBy: req.user!._id,
           createdAt: new Date(),
         });
-        await assistantMessage.save();
+        const saved = await assistantMessage.save();
+        assistantMsgId = String(saved._id);
       } catch (saveErr) {
         console.error('[chat] failed to save assistant message:', saveErr);
       }
     } else {
       console.warn('[chat] stream ended with empty text/thinking, assistant message not saved');
+    }
+
+    // Backfill externalId from the JSONL so the sync can deduplicate correctly.
+    // This allows messages sent via the official OpenClaw client to be imported
+    // without duplicating messages sent via the dashboard.
+    try {
+      const agentIdForProxy = agent?.openclawAgentId || 'main';
+      const msgRes = await fetch(
+        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(usedSessionKey)}/messages`,
+      );
+      if (msgRes.ok) {
+        const { messages: jsonlMessages } = await msgRes.json() as {
+          ok: boolean;
+          messages: { externalId: string; role: string; text: string }[];
+        };
+        if (jsonlMessages?.length) {
+          // Match the last user and assistant messages from the JSONL to set externalId
+          const lastUserJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'user');
+          const lastAssistantJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'assistant');
+
+          if (lastUserJsonl?.externalId) {
+            await Message.findByIdAndUpdate(userMessage._id, { externalId: lastUserJsonl.externalId });
+          }
+          if (lastAssistantJsonl?.externalId && assistantMsgId) {
+            await Message.findByIdAndUpdate(assistantMsgId, { externalId: lastAssistantJsonl.externalId });
+          }
+        }
+      }
+    } catch {
+      // Non-critical — sync will still work, just can't deduplicate this pair
     }
 
     return res.end();
