@@ -3,6 +3,7 @@ import { RequestHandler } from 'express';
 import Agent from '../../models/agent';
 import Conversation from '../../models/conversation';
 import Message from '../../models/message';
+import { MessageRole } from '../../@types/message';
 import { List, Get, Create, Update, Destroy } from '../../@types/agent';
 
 const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
@@ -216,36 +217,38 @@ const sync: RequestHandler = async (req, res, next) => {
 
           if (!openclawMessages?.length) return;
 
+          // If the conversation has any dashboard-created messages, skip to avoid duplicates.
           const hasDashboardMessages = await Message.exists({
             conversationId: conv._id,
             externalId: null,
           });
           if (hasDashboardMessages) return;
 
-          const existingExternalIds = new Set(
-            (await Message.find(
-              { conversationId: conv._id, externalId: { $in: openclawMessages.map((m) => m.externalId) } },
-              { externalId: 1 },
-            ).lean()).map((m) => m.externalId),
+          const validMessages = openclawMessages.filter((m) => m.externalId);
+          if (!validMessages.length) return;
+
+          // Upsert by (conversationId, externalId) — fully idempotent, safe under concurrent syncs.
+          const result = await Message.bulkWrite(
+            validMessages.map((m) => ({
+              updateOne: {
+                filter: { conversationId: conv._id, externalId: m.externalId },
+                update: {
+                  $setOnInsert: {
+                    conversationId: conv._id,
+                    externalId: m.externalId,
+                    text: m.text,
+                    thinking: m.thinking || null,
+                    files: [],
+                    role: m.role as MessageRole,
+                    createdBy: req.user!._id,
+                    createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
+                  },
+                },
+                upsert: true,
+              },
+            })),
           );
-
-          const toInsert = openclawMessages.filter((m) => m.externalId && !existingExternalIds.has(m.externalId));
-
-          if (toInsert.length) {
-            await Message.insertMany(
-              toInsert.map((m) => ({
-                conversationId: conv._id,
-                externalId: m.externalId,
-                text: m.text,
-                thinking: m.thinking || null,
-                files: [],
-                role: m.role,
-                createdBy: req.user!._id,
-                createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
-              })),
-            );
-            syncedMessages += toInsert.length;
-          }
+          syncedMessages += result.upsertedCount;
         } catch {
           // skip conversations whose messages can't be fetched
         }

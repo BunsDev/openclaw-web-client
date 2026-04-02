@@ -19,8 +19,6 @@ const messageSchema = new Schema<IMessage>({
   externalId: {
     type: String,
     default: null,
-    index: true,
-    sparse: true,
   },
   text: {
     type: String,
@@ -57,6 +55,9 @@ const messageSchema = new Schema<IMessage>({
 }, {
   versionKey: false,
 });
+
+// Unique per conversation — prevents duplicate synced messages even under concurrent requests.
+messageSchema.index({ conversationId: 1, externalId: 1 }, { unique: true, sparse: true });
 
 /* eslint-disable prefer-arrow-callback,func-names */
 

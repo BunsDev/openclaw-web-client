@@ -15,20 +15,16 @@ function runSilent(cmd, args = []) {
 
 console.log('Stopping openclaw client...\n');
 
-// Stop and remove containers
 console.log('Stopping Docker containers...');
 for (const name of CONTAINERS) {
   runSilent('docker', ['rm', '-f', name]);
 }
 
-// Remove network
 runSilent('docker', ['network', 'rm', NETWORK]);
 console.log('Docker containers stopped.');
 
-// Also stop any compose containers (in case `npm run dev` was used)
 runSilent('docker', ['compose', 'down']);
 
-// Stop proxy
 console.log('\nStopping OpenClaw proxy...');
 if (fs.existsSync(PID_FILE)) {
   try {
@@ -48,18 +44,14 @@ if (fs.existsSync(PID_FILE)) {
   }
 }
 
-// Free any lingering processes on the known ports as a safety net
-const PORTS = [18801, 18802];
-for (const port of PORTS) {
-  try {
-    const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
-    if (pids) {
-      for (const pid of pids.split('\n')) {
-        try { process.kill(parseInt(pid, 10), 'SIGKILL'); } catch { /* already gone */ }
-      }
-      console.log(`Freed port ${port}.`);
+try {
+  const pids = execFileSync('lsof', ['-ti', ':18801'], { encoding: 'utf-8' }).trim();
+  if (pids) {
+    for (const pid of pids.split('\n')) {
+      try { process.kill(parseInt(pid, 10), 'SIGKILL'); } catch { /* already gone */ }
     }
-  } catch { /* port already free */ }
-}
+    console.log('Freed port 18801.');
+  }
+} catch { /* port already free */ }
 
 console.log('\nAll services stopped.');
