@@ -66,7 +66,7 @@ const chat: Chat = async (req, res, next) => {
 
     const formData = new FormData();
     if (text) formData.append('message', text);
-    formData.append('sessionKey', String(conv.agentId));
+    formData.append('sessionKey', conv.sessionKey || String(conv.agentId));
     formData.append('openclawAgentId', agent?.openclawAgentId || 'main');
 
     uploadedFiles.forEach((uf) => {

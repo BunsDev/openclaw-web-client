@@ -17,6 +17,12 @@ router.route('/agent')
     controller.create,
   );
 
+router.route('/agent/sync')
+  .post(
+    auth,
+    controller.sync,
+  );
+
 router.route('/agent/:id([0-9a-fA-F]{24})')
   .get(
     auth,

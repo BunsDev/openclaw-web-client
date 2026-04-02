@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
+import { RequestHandler } from 'express';
 import Agent from '../../models/agent';
 import Conversation from '../../models/conversation';
+import Message from '../../models/message';
 import { List, Get, Create, Update, Destroy } from '../../@types/agent';
 
 const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
@@ -98,10 +100,169 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
+const sync: RequestHandler = async (req, res, next) => {
+  try {
+    const proxyRes = await fetch(`${OPENCLAW_PROXY_URL}/api/agents/list`);
+    if (!proxyRes.ok) {
+      return res.status(502).json({ error: 'Failed to reach OpenClaw proxy' });
+    }
+
+    const { agents: openclawAgents } = await proxyRes.json() as {
+      ok: boolean;
+      agents: { agentId: string; name: string }[];
+    };
+
+    let syncedAgents = 0;
+
+    if (openclawAgents?.length) {
+      const existingAgentIds = new Set(
+        (await Agent.find({ openclawAgentId: { $in: openclawAgents.map((a) => a.agentId) } }).lean())
+          .map((a) => a.openclawAgentId),
+      );
+
+      const newAgents = openclawAgents.filter((a) => !existingAgentIds.has(a.agentId));
+      await Promise.all(
+        newAgents.map((a) => new Agent({
+          name: a.name,
+          openclawAgentId: a.agentId,
+          createdBy: req.user!._id,
+          createdAt: new Date(),
+        }).save()),
+      );
+      syncedAgents = newAgents.length;
+    }
+
+    const allAgents = await Agent.find().lean();
+
+    let syncedConversations = 0;
+
+    await Promise.all(
+      allAgents.map(async (agent) => {
+        try {
+          const sessRes = await fetch(
+            `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions`,
+          );
+          if (!sessRes.ok) return;
+
+          const { sessions } = await sessRes.json() as {
+            ok: boolean;
+            sessions: { sessionKey: string; sessionId: string; updatedAt: number; firstMessage: string | null }[];
+          };
+
+          if (!sessions?.length) return;
+
+          const existingConvs = await Conversation.find({
+            agentId: agent._id,
+            sessionKey: { $in: sessions.map((s) => s.sessionKey) },
+          }).lean();
+          const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
+
+          await Promise.all(
+            sessions.map(async (s) => {
+              const existing = existingByKey.get(s.sessionKey);
+              if (!existing) {
+                await new Conversation({
+                  agentId: agent._id,
+                  sessionKey: s.sessionKey,
+                  title: s.firstMessage || null,
+                  createdBy: req.user!._id,
+                  createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+                }).save();
+                syncedConversations += 1;
+              } else if (!existing.title && s.firstMessage) {
+                // Backfill title on already-synced conversations that have none
+                await Conversation.findByIdAndUpdate(existing._id, { title: s.firstMessage });
+              }
+            }),
+          );
+        } catch {
+          // skip agents whose sessions can't be fetched
+        }
+      }),
+    );
+
+    const allConversations = await Conversation.find({ sessionKey: { $ne: null } }).lean();
+
+    const convIdsWithDashboardMessages = (
+      await Message.distinct('conversationId', {
+        conversationId: { $in: allConversations.map((c) => c._id) },
+        externalId: null,
+      })
+    );
+    if (convIdsWithDashboardMessages.length) {
+      await Message.deleteMany({
+        conversationId: { $in: convIdsWithDashboardMessages },
+        externalId: { $ne: null },
+      });
+    }
+
+    let syncedMessages = 0;
+
+    await Promise.all(
+      allConversations.map(async (conv) => {
+        try {
+          const agent = allAgents.find((a) => String(a._id) === String(conv.agentId));
+          if (!agent) return;
+
+          const msgRes = await fetch(
+            `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions/${encodeURIComponent(conv.sessionKey!)}/messages`,
+          );
+          if (!msgRes.ok) return;
+
+          const { messages: openclawMessages } = await msgRes.json() as {
+            ok: boolean;
+            messages: { externalId: string; role: string; text: string; thinking: string | null; timestamp: string | null }[];
+          };
+
+          if (!openclawMessages?.length) return;
+
+          const hasDashboardMessages = await Message.exists({
+            conversationId: conv._id,
+            externalId: null,
+          });
+          if (hasDashboardMessages) return;
+
+          const existingExternalIds = new Set(
+            (await Message.find(
+              { conversationId: conv._id, externalId: { $in: openclawMessages.map((m) => m.externalId) } },
+              { externalId: 1 },
+            ).lean()).map((m) => m.externalId),
+          );
+
+          const toInsert = openclawMessages.filter((m) => m.externalId && !existingExternalIds.has(m.externalId));
+
+          if (toInsert.length) {
+            await Message.insertMany(
+              toInsert.map((m) => ({
+                conversationId: conv._id,
+                externalId: m.externalId,
+                text: m.text,
+                thinking: m.thinking || null,
+                files: [],
+                role: m.role,
+                createdBy: req.user!._id,
+                createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
+              })),
+            );
+            syncedMessages += toInsert.length;
+          }
+        } catch {
+          // skip conversations whose messages can't be fetched
+        }
+      }),
+    );
+
+    return res.json({ syncedAgents, syncedConversations, syncedMessages });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export {
   list,
   get,
   create,
   update,
   destroy,
+  sync,
 };

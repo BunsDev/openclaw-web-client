@@ -12,6 +12,10 @@ const conversationSchema = new Schema<IConversation>({
     type: String,
     default: null,
   },
+  sessionKey: {
+    type: String,
+    default: null,
+  },
   createdBy: {
     type: Schema.Types.ObjectId,
     required: true,

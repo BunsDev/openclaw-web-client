@@ -16,6 +16,12 @@ const messageSchema = new Schema<IMessage>({
     ref: 'Conversation',
     index: true,
   },
+  externalId: {
+    type: String,
+    default: null,
+    index: true,
+    sparse: true,
+  },
   text: {
     type: String,
     required: true,

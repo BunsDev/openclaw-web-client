@@ -13,6 +13,12 @@ export interface AgentsResponse {
   items: Agent[];
 }
 
+export interface SyncAgentsResponse {
+  syncedAgents: number;
+  syncedConversations: number;
+  syncedMessages: number;
+}
+
 export const agentsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getAgents: build.query<AgentsResponse, void>({
@@ -46,6 +52,13 @@ export const agentsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Agent'],
     }),
+    syncAgents: build.mutation<SyncAgentsResponse, void>({
+      query: () => ({
+        url: '/agent/sync',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Agent', 'Conversation'],
+    }),
   }),
 });
 
@@ -55,4 +68,5 @@ export const {
   useCreateAgentMutation,
   useUpdateAgentMutation,
   useDeleteAgentMutation,
+  useSyncAgentsMutation,
 } = agentsApi;

@@ -6,6 +6,7 @@ export type IConversation = {
   _id: Types.ObjectId;
   agentId: Types.ObjectId;
   title: string | null;
+  sessionKey: string | null;
   createdBy: Types.ObjectId;
   createdAt: Date | string;
   deletedAt: Date | string | null;

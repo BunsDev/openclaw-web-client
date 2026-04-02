@@ -15,6 +15,7 @@ export type MessageFile = {
 export type IMessage = {
   _id: Types.ObjectId;
   conversationId: Types.ObjectId;
+  externalId: string | null;
   text: string;
   thinking: string | null;
   files: MessageFile[];

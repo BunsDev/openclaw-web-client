@@ -48,4 +48,18 @@ if (fs.existsSync(PID_FILE)) {
   }
 }
 
+// Free any lingering processes on the known ports as a safety net
+const PORTS = [18801, 18802];
+for (const port of PORTS) {
+  try {
+    const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
+    if (pids) {
+      for (const pid of pids.split('\n')) {
+        try { process.kill(parseInt(pid, 10), 'SIGKILL'); } catch { /* already gone */ }
+      }
+      console.log(`Freed port ${port}.`);
+    }
+  } catch { /* port already free */ }
+}
+
 console.log('\nAll services stopped.');

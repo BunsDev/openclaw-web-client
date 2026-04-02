@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Collapse,
@@ -13,7 +13,7 @@ import {
   IconButton,
   CircularProgress,
 } from "@mui/material";
-import { People, ChatBubbleOutline, Add, ExpandMore, ExpandLess, SmartToy, DeleteOutline, Search, Edit, Check } from "@mui/icons-material";
+import { People, ChatBubbleOutline, Add, ExpandMore, ExpandLess, SmartToy, DeleteOutline, Search, Edit, Check, KeyboardDoubleArrowUp, SwapVert } from "@mui/icons-material";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   useGetAgentsQuery,
@@ -24,6 +24,7 @@ import {
   useUpdateConversationMutation,
   useDeleteConversationMutation,
   useGetMessagesQuery,
+  useSyncAgentsMutation,
 } from "../store";
 import DeleteButton from "./DeleteButton";
 import ThemePicker from "./ThemePicker";
@@ -184,7 +185,7 @@ function ConversationItem({ agentId, conversation }: { agentId: string; conversa
   );
 }
 
-function AgentSection({ agent, searchQuery }: { agent: { _id: string; name: string }; searchQuery?: string }) {
+function AgentSection({ agent, searchQuery, collapseKey }: { agent: { _id: string; name: string }; searchQuery?: string; collapseKey?: number }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -192,6 +193,13 @@ function AgentSection({ agent, searchQuery }: { agent: { _id: string; name: stri
   const [expanded, setExpanded] = useState(() =>
     location.pathname.startsWith(`/agent/${agent._id}/`)
   );
+
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (collapseKey && !isAgentActive) setExpanded(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapseKey]);
   const [hovered, setHovered] = useState(false);
 
   const { data: convData } = useGetConversationsQuery(agent._id);
@@ -336,11 +344,29 @@ export default function Sidebar() {
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [collapseKey, setCollapseKey] = useState(0);
+  const [sortAlpha, setSortAlpha] = useState(false);
 
   const { data: agentsData, isLoading: agentsLoading } = useGetAgentsQuery();
   const [createAgent, { isLoading: isCreating }] = useCreateAgentMutation();
+  const [syncAgents, { isLoading: isSyncing }] = useSyncAgentsMutation();
+  const [syncDone, setSyncDone] = useState(false);
+  const syncDoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const agents = agentsData?.items ?? [];
+  const agents = sortAlpha
+    ? [...(agentsData?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name))
+    : (agentsData?.items ?? []);
+
+  useEffect(() => {
+    syncAgents().then(() => {
+      setSyncDone(true);
+      syncDoneTimer.current = setTimeout(() => setSyncDone(false), 2500);
+    });
+    return () => {
+      if (syncDoneTimer.current) clearTimeout(syncDoneTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreateAgent = async () => {
     const name = newAgentName.trim();
@@ -513,14 +539,78 @@ export default function Sidebar() {
           >
             Agents
           </Typography>
-          <IconButton
-            size="small"
-            onClick={() => setShowNewAgent(!showNewAgent)}
-            sx={{ color: sidebar.text, p: 0.3, '&:hover': { color: 'success.main' } }}
-          >
-            <Add sx={{ fontSize: 16 }} />
-          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {isSyncing && (
+              <CircularProgress size={11} sx={{ color: sidebar.text, opacity: 0.6 }} />
+            )}
+            {!isSyncing && syncDone && (
+              <Box
+                sx={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  bgcolor: 'success.main',
+                  opacity: 1,
+                  animation: 'fadeOut 2.5s ease-in forwards',
+                  '@keyframes fadeOut': { '0%': { opacity: 1 }, '60%': { opacity: 1 }, '100%': { opacity: 0 } },
+                }}
+              />
+            )}
+            <IconButton
+              size="small"
+              onClick={() => setSortAlpha((v) => !v)}
+              title={sortAlpha ? 'Unsort' : 'Sort A–Z'}
+              sx={{
+                color: sortAlpha ? 'primary.main' : sidebar.text,
+                p: 0.3,
+                '&:hover': { color: 'primary.main' },
+              }}
+            >
+              <SwapVert sx={{ fontSize: 15 }} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setCollapseKey((k) => k + 1)}
+              title="Collapse all"
+              sx={{ color: sidebar.text, p: 0.3, '&:hover': { color: sidebar.selectedText } }}
+            >
+              <KeyboardDoubleArrowUp sx={{ fontSize: 15 }} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setShowNewAgent(!showNewAgent)}
+              sx={{ color: sidebar.text, p: 0.3, '&:hover': { color: 'success.main' } }}
+            >
+              <Add sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Box>
         </Box>
+
+        {isSyncing && (
+          <Box
+            sx={{
+              mb: 1,
+              px: 0.5,
+              overflow: 'hidden',
+              height: 2,
+              borderRadius: 1,
+              bgcolor: sidebar.border,
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              sx={{
+                height: '100%',
+                borderRadius: 1,
+                bgcolor: sidebar.selectedBorder,
+                animation: 'indeterminate 1.4s ease-in-out infinite',
+                '@keyframes indeterminate': {
+                  '0%':   { width: '0%',   marginLeft: '0%' },
+                  '50%':  { width: '60%',  marginLeft: '20%' },
+                  '100%': { width: '0%',   marginLeft: '100%' },
+                },
+              }}
+            />
+          </Box>
+        )}
 
         {showNewAgent && (
           <Box sx={{ mb: 1, flexShrink: 0 }}>
@@ -575,6 +665,7 @@ export default function Sidebar() {
                   key={agent._id}
                   agent={agent}
                   searchQuery={searchQuery || undefined}
+                  collapseKey={collapseKey}
                 />
               ))}
             </List>
