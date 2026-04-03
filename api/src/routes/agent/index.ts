@@ -23,6 +23,25 @@ router.route('/agent/sync')
     controller.sync,
   );
 
+router.route('/agent/:id([0-9a-fA-F]{24})/workspace')
+  .get(
+    auth,
+    validate.id,
+    controller.workspaceMeta,
+  );
+
+router.route('/agent/:id([0-9a-fA-F]{24})/workspace/file/:filename')
+  .get(
+    auth,
+    validate.workspaceFilename,
+    controller.getWorkspaceFile,
+  )
+  .put(
+    auth,
+    validate.workspacePut,
+    controller.putWorkspaceFile,
+  );
+
 router.route('/agent/:id([0-9a-fA-F]{24})')
   .get(
     auth,

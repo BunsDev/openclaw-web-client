@@ -23,6 +23,22 @@ function agentDir(agentId) {
   return path.join(OPENCLAW_HOME, "agents", agentId);
 }
 
+/** OpenClaw workspace markdown files (must match API client allowlist). */
+const WORKSPACE_MARKDOWN_FILES = [
+  "AGENTS.md",
+  "SOUL.md",
+  "TOOLS.md",
+  "IDENTITY.md",
+  "USER.md",
+  "HEARTBEAT.md",
+  "BOOTSTRAP.md",
+  "MEMORY.md",
+];
+
+function isAllowedWorkspaceFilename(name) {
+  return typeof name === "string" && WORKSPACE_MARKDOWN_FILES.includes(name);
+}
+
 function runAgent(agentId, message, sessionKey, res) {
   const args = ["agent", "--agent", agentId, "-m", message];
   if (sessionKey) args.push("--session-id", sessionKey);
@@ -352,6 +368,45 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
     return res.json({ ok: true, messages });
   } catch (err) {
     console.error(`[messages] failed for ${agentId}/${sessionKey}:`, err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/agents/:agentId/workspace", (req, res) => {
+  const { agentId } = req.params;
+  const root = agentWorkspace(agentId);
+  const files = WORKSPACE_MARKDOWN_FILES.map((name) => ({
+    name,
+    exists: fs.existsSync(path.join(root, name)),
+  }));
+  return res.json({ ok: true, workspacePath: root, files });
+});
+
+app.get("/api/agents/:agentId/workspace/file/:filename", (req, res) => {
+  const { agentId, filename } = req.params;
+  if (!isAllowedWorkspaceFilename(filename)) {
+    return res.status(400).json({ ok: false, error: "Invalid workspace file" });
+  }
+  const fp = path.join(agentWorkspace(agentId), filename);
+  const exists = fs.existsSync(fp);
+  const content = exists ? fs.readFileSync(fp, "utf8") : "";
+  return res.json({ ok: true, path: fp, exists, content });
+});
+
+app.put("/api/agents/:agentId/workspace/file/:filename", (req, res) => {
+  const { agentId, filename } = req.params;
+  if (!isAllowedWorkspaceFilename(filename)) {
+    return res.status(400).json({ ok: false, error: "Invalid workspace file" });
+  }
+  const content = typeof req.body?.content === "string" ? req.body.content : "";
+  const dir = agentWorkspace(agentId);
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const fp = path.join(dir, filename);
+    fs.writeFileSync(fp, content, "utf8");
+    return res.json({ ok: true, path: fp });
+  } catch (err) {
+    console.error(`[workspace] write failed ${agentId}/${filename}:`, err.message);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

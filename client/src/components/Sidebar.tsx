@@ -545,7 +545,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             {isSyncing && (
-              <CircularProgress size={11} sx={{ color: sidebar.text, opacity: 0.6 }} />
+              <CircularProgress
+                size={11}
+                sx={{ color: sidebar.text, opacity: 0.6 }}
+              />
             )}
             {!isSyncing && syncDone && (
               <Box

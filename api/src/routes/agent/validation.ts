@@ -2,6 +2,17 @@ import { body, param } from 'express-validator';
 import { List } from '../../@types/agent';
 import validate from '../../middlewares/validator';
 
+export const WORKSPACE_FILENAMES = [
+  'AGENTS.md',
+  'SOUL.md',
+  'TOOLS.md',
+  'IDENTITY.md',
+  'USER.md',
+  'HEARTBEAT.md',
+  'BOOTSTRAP.md',
+  'MEMORY.md',
+] as const;
+
 export default {
   sanitizeQuery: ((req, res, next) => {
     req.query.page = req.query.page as number >= 0 ? req.query.page : 0;
@@ -24,5 +35,16 @@ export default {
     param('id').isMongoId().withMessage('Incorrect request url'),
     body('name').notEmpty().withMessage('Please enter the agent name')
       .isLength({ min: 1, max: 100 }).withMessage('Agent name must contain between 1 and 100 characters'),
+  ]),
+
+  workspaceFilename: validate([
+    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('filename').isIn([...WORKSPACE_FILENAMES]).withMessage('Invalid workspace file'),
+  ]),
+
+  workspacePut: validate([
+    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('filename').isIn([...WORKSPACE_FILENAMES]).withMessage('Invalid workspace file'),
+    body('content').isString().withMessage('content is required'),
   ]),
 };

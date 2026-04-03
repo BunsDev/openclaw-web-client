@@ -273,6 +273,71 @@ const sync: RequestHandler = async (req, res, next) => {
   }
 };
 
+const workspaceMeta: RequestHandler = async (req, res, next) => {
+  try {
+    const agent = await Agent.findById(req.params.id).lean();
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const proxyRes = await fetch(
+      `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/workspace`,
+    );
+    const data = await proxyRes.json() as Record<string, unknown>;
+    if (!proxyRes.ok) {
+      return res.status(proxyRes.status >= 400 ? proxyRes.status : 502).json(data);
+    }
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getWorkspaceFile: RequestHandler = async (req, res, next) => {
+  try {
+    const agent = await Agent.findById(req.params.id).lean();
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const { filename } = req.params;
+    const proxyRes = await fetch(
+      `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/workspace/file/${encodeURIComponent(filename)}`,
+    );
+    const data = await proxyRes.json() as Record<string, unknown>;
+    if (!proxyRes.ok) {
+      return res.status(proxyRes.status >= 400 ? proxyRes.status : 502).json(data);
+    }
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const putWorkspaceFile: RequestHandler = async (req, res, next) => {
+  try {
+    const agent = await Agent.findById(req.params.id).lean();
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const { filename } = req.params;
+    const { content } = req.body as { content: string };
+    const proxyRes = await fetch(
+      `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/workspace/file/${encodeURIComponent(filename)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      },
+    );
+    const data = await proxyRes.json() as Record<string, unknown>;
+    if (!proxyRes.ok) {
+      return res.status(proxyRes.status >= 400 ? proxyRes.status : 502).json(data);
+    }
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export {
   list,
   get,
@@ -280,4 +345,7 @@ export {
   update,
   destroy,
   sync,
+  workspaceMeta,
+  getWorkspaceFile,
+  putWorkspaceFile,
 };
