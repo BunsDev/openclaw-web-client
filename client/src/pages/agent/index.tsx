@@ -189,7 +189,11 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
       >
         {hovered && (
           <Box sx={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 0.25 }}>
-            <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}>
+            <IconButton
+              size="small"
+              onClick={handleCopy}
+              sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}
+            >
               {copied ? <Done sx={{ fontSize: 13, color: 'success.main' }} /> : <ContentCopy sx={{ fontSize: 13 }} />}
             </IconButton>
             {onDelete && (
@@ -197,7 +201,11 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
                 onConfirm={onDelete}
                 message="Delete this message?"
                 renderTrigger={(onClick) => (
-                  <IconButton size="small" onClick={onClick} sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' }, p: 0.3 }}>
+                  <IconButton
+                    size="small"
+                    onClick={onClick}
+                    sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' }, p: 0.3 }}
+                  >
                     <DeleteOutline sx={{ fontSize: 14 }} />
                   </IconButton>
                 )}
@@ -334,64 +342,59 @@ export default function AgentChat() {
     abortRef.current = controller;
 
     try {
-      const formData = new FormData();
-      formData.append('conversationId', conversationId);
-      if (trimmed) formData.append('text', trimmed);
-      filesToSend.forEach((f) => formData.append('files', f));
+      const form = new FormData();
+      form.append('conversationId', conversationId);
+      if (trimmed) form.append('text', trimmed);
+      filesToSend.forEach((f) => form.append('files', f));
 
-      const response = await fetch(`${API_BASE}/message/chat`, {
+      const res = await fetch(`${API_BASE}/message/chat`, {
         method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: form,
         signal: controller.signal,
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        console.error('Chat stream failed:', err);
-        setIsStreaming(false);
-        refetch();
+      if (!res.ok || !res.body) {
+        console.error('Chat request failed:', res.status);
         return;
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        setIsStreaming(false);
-        refetch();
-        return;
-      }
-
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedText = '';
-      let accumulatedThinking = '';
+      let lineBuf = '';
+      let accText = '';
+      let accThinking = '';
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr || jsonStr === '[DONE]') continue;
-          try {
-            const event = JSON.parse(jsonStr);
-            if (event.type === 'response.output_text.delta' && event.delta) {
-              accumulatedText += event.delta;
-              setStreamingText(accumulatedText);
-            } else if (event.type === 'response.thinking.delta' && event.delta) {
-              accumulatedThinking += event.delta;
-              setStreamingThinking(accumulatedThinking);
-            }
-          } catch {
-            // skip non-JSON lines
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
+        const jsonStr = line.slice(6).trim();
+        if (!jsonStr || jsonStr === '[DONE]') return;
+        try {
+          const event = JSON.parse(jsonStr);
+          if (event.type === 'response.output_text.delta' && event.delta) {
+            accText += event.delta;
+            setStreamingText(accText);
+          } else if (event.type === 'response.thinking.delta' && event.delta) {
+            accThinking += event.delta;
+            setStreamingThinking(accThinking);
           }
+        } catch { /* skip */ }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (lineBuf.trim()) processLine(lineBuf);
+          break;
         }
+        const chunk = decoder.decode(value, { stream: true });
+        lineBuf += chunk;
+        const parts = lineBuf.split('\n');
+        lineBuf = parts.pop()!;
+        parts.forEach(processLine);
       }
+
+      await refetch();
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Stream error:', err);
@@ -402,7 +405,6 @@ export default function AgentChat() {
       setPendingUserText('');
       setPendingFilesPreviews((prev) => { prev.forEach((f) => URL.revokeObjectURL(f.url)); return []; });
       abortRef.current = null;
-      refetch();
     }
   }, [text, pendingFiles, conversationId, isStreaming, refetch]);
 

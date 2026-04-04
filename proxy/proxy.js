@@ -1,5 +1,7 @@
 import express from "express";
+import { WebSocket as WsWebSocket } from "ws";
 import { spawn, execSync } from "child_process";
+import crypto from "crypto";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -13,37 +15,274 @@ const PROXY_PORT = parseInt(process.env.PROXY_PORT || "18801", 10);
 const SHARED_FILES_DIR = path.join(os.tmpdir(), "openclaw-files");
 if (!fs.existsSync(SHARED_FILES_DIR)) fs.mkdirSync(SHARED_FILES_DIR, { recursive: true });
 
-const upload = multer({ dest: SHARED_FILES_DIR, limits: { fileSize: 10 * 1024 * 1024 } });
-
-function agentWorkspace(agentId) {
-  return path.join(OPENCLAW_HOME, "agents", agentId, "workspace");
+function base64UrlEncode(buf) {
+  return buf.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
 }
 
-function agentDir(agentId) {
-  return path.join(OPENCLAW_HOME, "agents", agentId);
+function derivePublicKeyRaw(pem) {
+  const key = crypto.createPublicKey(pem);
+  const spki = key.export({ type: "spki", format: "der" });
+  return spki.subarray(spki.length - 32);
 }
 
-/** OpenClaw workspace markdown files (must match API client allowlist). */
-const WORKSPACE_MARKDOWN_FILES = [
-  "AGENTS.md",
-  "SOUL.md",
-  "TOOLS.md",
-  "IDENTITY.md",
-  "USER.md",
-  "HEARTBEAT.md",
-  "BOOTSTRAP.md",
-  "MEMORY.md",
+function signPayload(privPem, payload) {
+  return base64UrlEncode(crypto.sign(null, Buffer.from(payload, "utf8"), crypto.createPrivateKey(privPem)));
+}
+
+function loadGatewayCredentials() {
+  try {
+    const identityPath = path.join(OPENCLAW_HOME, "identity", "device.json");
+    const authPath = path.join(OPENCLAW_HOME, "identity", "device-auth.json");
+    const configPath = path.join(OPENCLAW_HOME, "openclaw.json");
+    const device = JSON.parse(fs.readFileSync(identityPath, "utf-8"));
+    const auth = JSON.parse(fs.readFileSync(authPath, "utf-8"));
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    return { device, auth, gatewayPort: config.gateway?.port || 18789 };
+  } catch (err) {
+    console.warn("[gateway] could not load credentials:", err.message);
+    return null;
+  }
+}
+
+class GatewayClient {
+  constructor() {
+    this.ws = null;
+    this.authenticated = false;
+    this.pending = new Map();
+    this.eventListeners = new Map();
+    this.credentials = null;
+    this.reconnectTimer = null;
+    this.connectPromise = null;
+  }
+
+  async ensureConnected() {
+    if (this.ws?.readyState === WsWebSocket.OPEN && this.authenticated) return true;
+    if (this.connectPromise) return this.connectPromise;
+    this.connectPromise = this._connect();
+    try {
+      return await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
+  }
+
+  _connect() {
+    return new Promise((resolve) => {
+      this.credentials = loadGatewayCredentials();
+      if (!this.credentials) { resolve(false); return; }
+
+      const { device, auth, gatewayPort } = this.credentials;
+      const url = `ws://127.0.0.1:${gatewayPort}`;
+      console.log(`[gateway] connecting to ${url}...`);
+
+      const ws = new WsWebSocket(url);
+      this.ws = ws;
+      this.authenticated = false;
+
+      const timeout = setTimeout(() => {
+        console.warn("[gateway] connect timeout");
+        ws.close();
+        resolve(false);
+      }, 10000);
+
+      ws.on("open", () => console.log("[gateway] ws open"));
+
+      ws.on("message", (data) => {
+        let msg;
+        try { msg = JSON.parse(data.toString()); } catch { return; }
+
+        if (msg.type === "event" && msg.event === "connect.challenge") {
+          const nonce = msg.payload.nonce;
+          const role = "operator";
+          const scopes = auth.tokens?.operator?.scopes || ["operator.admin", "operator.read", "operator.write"];
+          const signedAtMs = Date.now();
+          const deviceToken = auth.tokens?.operator?.token || "";
+          const payload = ["v3", device.deviceId, "gateway-client", "backend", role, scopes.join(","), String(signedAtMs), deviceToken, nonce, process.platform, ""].join("|");
+          const signature = signPayload(device.privateKeyPem, payload);
+          ws.send(JSON.stringify({
+            type: "req", id: crypto.randomUUID(), method: "connect",
+            params: {
+              minProtocol: 3, maxProtocol: 3,
+              client: { id: "gateway-client", version: "1.0.0", platform: process.platform, mode: "backend" },
+              caps: [], role, scopes,
+              auth: { deviceToken },
+              device: { id: device.deviceId, publicKey: base64UrlEncode(derivePublicKeyRaw(device.publicKeyPem)), signature, signedAt: signedAtMs, nonce },
+            },
+          }));
+          return;
+        }
+
+        if (msg.type === "res") {
+          if (!this.authenticated && msg.ok) {
+            this.authenticated = true;
+            clearTimeout(timeout);
+            console.log("[gateway] authenticated");
+            resolve(true);
+            return;
+          }
+          if (!this.authenticated && !msg.ok) {
+            clearTimeout(timeout);
+            console.error("[gateway] auth failed:", msg.error);
+            resolve(false);
+            return;
+          }
+          const p = this.pending.get(msg.id);
+          if (p) {
+            if (p.expectFinal && msg.payload?.status === "accepted") {
+              p.runId = msg.payload.runId;
+              return;
+            }
+            this.pending.delete(msg.id);
+            if (msg.ok) p.resolve(msg.payload);
+            else p.reject(new Error(msg.error?.message || "gateway error"));
+          }
+          return;
+        }
+
+        if (msg.type === "event") {
+          for (const [, listener] of this.eventListeners) {
+            listener(msg);
+          }
+        }
+      });
+
+      ws.on("close", () => {
+        console.log("[gateway] disconnected");
+        this.authenticated = false;
+        this.ws = null;
+        for (const [, p] of this.pending) p.reject(new Error("gateway disconnected"));
+        this.pending.clear();
+        this.eventListeners.clear();
+        clearTimeout(timeout);
+        if (!this.connectPromise) resolve(false);
+        this._scheduleReconnect();
+      });
+
+      ws.on("error", (err) => {
+        console.error("[gateway] ws error:", err.message);
+      });
+    });
+  }
+
+  _scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.ensureConnected().catch(() => {});
+    }, 5000);
+  }
+
+  request(method, params, opts = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WsWebSocket.OPEN) {
+        reject(new Error("gateway not connected"));
+        return;
+      }
+      const id = crypto.randomUUID();
+      const timeoutMs = opts.timeoutMs || 120000;
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error("timeout")); }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v); },
+        reject: (e) => { clearTimeout(timer); reject(e); },
+        expectFinal: opts.expectFinal || false,
+      });
+      this.ws.send(JSON.stringify({ type: "req", id, method, params }));
+    });
+  }
+
+  onEvent(key, fn) { this.eventListeners.set(key, fn); }
+  offEvent(key) { this.eventListeners.delete(key); }
+}
+
+const gateway = new GatewayClient();
+gateway.ensureConnected().then((ok) => {
+  if (ok) console.log("[gateway] persistent connection ready");
+  else console.warn("[gateway] initial connection failed, will use CLI fallback");
+});
+
+function sseEmitter(res) {
+  return {
+    send(type, delta) {
+      res.write(`data: ${JSON.stringify({ type, delta })}\n\n`);
+    },
+    done() {
+      res.write("data: [DONE]\n\n");
+      res.end();
+    },
+    error(msg) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: msg });
+      } else {
+        res.end();
+      }
+    },
+  };
+}
+
+function runAgentViaGateway(agentId, message, sessionKey, emitter) {
+  const runId = crypto.randomUUID();
+  const listenerKey = `agent-${runId}`;
+
+  gateway.onEvent(listenerKey, (msg) => {
+    if (msg.event !== "agent" && msg.event !== "chat") return;
+    const p = msg.payload;
+    if (p.runId !== runId) return;
+
+    if (msg.event === "agent" && p.stream === "assistant" && p.data?.delta) {
+      emitter.send("response.output_text.delta", p.data.delta);
+    }
+    if (msg.event === "agent" && p.stream === "thinking" && p.data?.delta) {
+      emitter.send("response.thinking.delta", p.data.delta);
+    }
+  });
+
+  const params = { message, agentId, idempotencyKey: runId };
+  if (sessionKey) params.sessionId = sessionKey;
+
+  gateway.request("agent", params, { expectFinal: true, timeoutMs: 120000 })
+    .then(() => {
+      gateway.offEvent(listenerKey);
+      emitter.done();
+    })
+    .catch((err) => {
+      console.error("[gateway] agent error:", err.message);
+      gateway.offEvent(listenerKey);
+      emitter.error(err.message);
+    });
+
+  return { kill: () => gateway.offEvent(listenerKey) };
+}
+
+const noiseRegexes = [
+  /\[.*?model-providers.*?\]/,
+  /\[.*?auth-profiles?\]/,
+  /\[.*?auth\]/,
+  /bootstrap.*config.*fallback/i,
+  /inherited.*from.*main/i,
+  /ExperimentalWarning/,
+  /punycode/,
+  /deprecated/i,
+  /no config backend key found/i,
 ];
 
-function isAllowedWorkspaceFilename(name) {
-  return typeof name === "string" && WORKSPACE_MARKDOWN_FILES.includes(name);
+const noiseStrings = [
+  "bootstrap", "fallback", "config backend", "model-providers",
+  "auth]", "auth-profiles]", "inherited", "deprecated",
+  "ExperimentalWarning", "punycode",
+];
+
+function stripNoise(text) {
+  return text
+    .split("\n")
+    .filter((line) => !noiseRegexes.some((rx) => rx.test(line)))
+    .join("\n");
 }
 
-function runAgent(agentId, message, sessionKey, res) {
+function runAgentWithEmitter(agentId, message, sessionKey, emitter) {
   const args = ["agent", "--agent", agentId, "-m", message];
   if (sessionKey) args.push("--session-id", sessionKey);
 
-  console.log(`[chat] spawning: openclaw ${args.join(" ")}`);
+  console.log(`[chat] CLI fallback: openclaw ${args.join(" ")}`);
 
   const child = spawn("openclaw", args, {
     cwd: os.homedir(),
@@ -55,29 +294,10 @@ function runAgent(agentId, message, sessionKey, res) {
   let buf = "";
   let mode = "idle";
 
-  const noisePatterns = [
-    /\[.*?model-providers.*?\]/,
-    /\[.*?auth-profiles?\]/,
-    /\[.*?auth\]/,
-    /bootstrap.*config.*fallback/i,
-    /inherited.*from.*main/i,
-    /ExperimentalWarning/,
-    /punycode/,
-    /deprecated/i,
-    /no config backend key found/i,
-  ];
-
-  function stripNoise(text) {
-    return text
-      .split("\n")
-      .filter((line) => !noisePatterns.some((rx) => rx.test(line)))
-      .join("\n");
-  }
-
   function emit(text, isThinking) {
     if (!text) return;
     const type = isThinking ? "response.thinking.delta" : "response.output_text.delta";
-    res.write(`data: ${JSON.stringify({ type, delta: text })}\n\n`);
+    emitter.send(type, text);
     hasOutput = true;
   }
 
@@ -150,41 +370,151 @@ function runAgent(agentId, message, sessionKey, res) {
     const isUnknownAgent = stderrBuf.includes("Unknown agent id");
     if (isUnknownAgent && agentId !== "main") {
       console.warn(`[chat] agent "${agentId}" not found, falling back to "main"`);
-      runAgent("main", message, sessionKey, res);
+      runAgentWithEmitter("main", message, sessionKey, emitter);
       return;
     }
 
     if (!hasOutput && stderrBuf.trim()) {
-      const noisePatterns = [
-        "bootstrap", "fallback", "config backend", "model-providers",
-        "auth]", "auth-profiles]", "inherited", "deprecated",
-        "ExperimentalWarning", "punycode",
-      ];
       const errorLines = stderrBuf
         .split("\n")
         .filter((l) => {
           const trimmed = l.trim();
           if (!trimmed) return false;
-          if (noisePatterns.some((p) => trimmed.includes(p))) return false;
+          if (noiseStrings.some((p) => trimmed.includes(p))) return false;
           return trimmed.includes("Error") || trimmed.includes("error") || trimmed.includes("failed") || trimmed.includes("No API key");
         })
         .join(" | ");
       if (errorLines) {
-        res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: `[Error] ${errorLines}` })}\n\n`);
+        emitter.send("response.output_text.delta", `[Error] ${errorLines}`);
       }
     }
-    res.write("data: [DONE]\n\n");
-    res.end();
+    emitter.done();
   });
 
   child.on("error", (err) => {
     console.error("[openclaw] spawn error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.end();
-    }
+    emitter.error(err.message);
   });
+
+  return child;
+}
+
+const upload = multer({ dest: SHARED_FILES_DIR, limits: { fileSize: 10 * 1024 * 1024 } });
+
+function agentWorkspace(agentId) {
+  return path.join(OPENCLAW_HOME, "agents", agentId, "workspace");
+}
+
+function agentDir(agentId) {
+  return path.join(OPENCLAW_HOME, "agents", agentId);
+}
+
+const WORKSPACE_MARKDOWN_FILES = [
+  "AGENTS.md",
+  "SOUL.md",
+  "TOOLS.md",
+  "IDENTITY.md",
+  "USER.md",
+  "HEARTBEAT.md",
+  "BOOTSTRAP.md",
+  "MEMORY.md",
+];
+
+function isAllowedWorkspaceFilename(name) {
+  return typeof name === "string" && WORKSPACE_MARKDOWN_FILES.includes(name);
+}
+
+function extractUserText(raw) {
+  const lines = raw.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    const match = line.match(/^\[.+?\]\s+(.+)/);
+    if (match) return match[1].trim();
+  }
+  return raw.trim();
+}
+
+function extractAssistantText(raw) {
+  return raw.replace(/<\/?final>/gi, "").trim();
+}
+
+function parseMessagesFromJsonl(jsonlPath) {
+  if (!jsonlPath || !fs.existsSync(jsonlPath)) return [];
+  const raw = [];
+  try {
+    const lines = fs.readFileSync(jsonlPath, "utf-8").split("\n");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+
+      if (entry.type !== "message") continue;
+      const { role } = entry.message || {};
+      if (role !== "user" && role !== "assistant") continue;
+
+      const content = Array.isArray(entry.message.content) ? entry.message.content : [];
+
+      const rawText = content
+        .filter((c) => c.type === "text" && c.text)
+        .map((c) => c.text)
+        .join("\n")
+        .trim();
+
+      const text = role === "user"
+        ? extractUserText(rawText)
+        : extractAssistantText(rawText);
+
+      const thinking = content
+        .filter((c) => c.type === "thinking" && c.thinking)
+        .map((c) => c.thinking)
+        .join("\n")
+        .trim() || null;
+
+      if (!text) continue;
+
+      raw.push({
+        externalId: entry.id,
+        role,
+        text,
+        thinking,
+        timestamp: entry.timestamp || null,
+      });
+    }
+  } catch { /* ignore read errors */ }
+
+  const messages = [];
+  for (const msg of raw) {
+    const prev = messages[messages.length - 1];
+    if (msg.role === "assistant" && prev?.role === "assistant") {
+      prev.text = prev.text + msg.text;
+      if (msg.thinking) prev.thinking = (prev.thinking || "") + msg.thinking;
+      prev.externalId = msg.externalId;
+      prev.timestamp = msg.timestamp || prev.timestamp;
+    } else {
+      messages.push({ ...msg });
+    }
+  }
+  return messages;
+}
+
+function readFirstUserMessage(jsonlPath) {
+  if (!jsonlPath || !fs.existsSync(jsonlPath)) return null;
+  try {
+    const lines = fs.readFileSync(jsonlPath, "utf-8").split("\n");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const entry = JSON.parse(line);
+      if (entry.type === "message" && entry.message?.role === "user") {
+        const content = entry.message.content || [];
+        const textPart = Array.isArray(content)
+          ? content.find((c) => c.type === "text")
+          : null;
+        const rawText = textPart?.text || (typeof content === "string" ? content : null);
+        if (rawText) return extractUserText(rawText).slice(0, 200);
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
 }
 
 app.get("/api/agents/list", (req, res) => {
@@ -197,7 +527,6 @@ app.get("/api/agents/list", (req, res) => {
     ).toString().trim();
 
     const parsed = JSON.parse(raw);
-    // Normalise to [{ agentId, name }]
     const agents = Array.isArray(parsed)
       ? parsed.map((a) => ({ agentId: a.id || a.agentId || a.name, name: a.name || a.id || a.agentId }))
       : [];
@@ -233,87 +562,6 @@ app.get("/api/agents/list", (req, res) => {
   }
 });
 
-
-function extractUserText(raw) {
-  const lines = raw.split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i].trim();
-    const match = line.match(/^\[.+?\]\s+(.+)/);
-    if (match) return match[1].trim();
-  }
-  return raw.trim();
-}
-
-function extractAssistantText(raw) {
-  return raw.replace(/<\/?final>/gi, "").trim();
-}
-
-function parseMessagesFromJsonl(jsonlPath) {
-  if (!jsonlPath || !fs.existsSync(jsonlPath)) return [];
-  const messages = [];
-  try {
-    const lines = fs.readFileSync(jsonlPath, "utf-8").split("\n");
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-
-      if (entry.type !== "message") continue;
-      const { role } = entry.message || {};
-      if (role !== "user" && role !== "assistant") continue;
-
-      const content = Array.isArray(entry.message.content) ? entry.message.content : [];
-
-      const rawText = content
-        .filter((c) => c.type === "text" && c.text)
-        .map((c) => c.text)
-        .join("\n")
-        .trim();
-
-      const text = role === "user"
-        ? extractUserText(rawText)
-        : extractAssistantText(rawText);
-
-      const thinking = content
-        .filter((c) => c.type === "thinking" && c.thinking)
-        .map((c) => c.thinking)
-        .join("\n")
-        .trim() || null;
-
-      if (!text) continue;
-
-      messages.push({
-        externalId: entry.id,
-        role,
-        text,
-        thinking,
-        timestamp: entry.timestamp || null,
-      });
-    }
-  } catch { /* ignore read errors */ }
-  return messages;
-}
-
-function readFirstUserMessage(jsonlPath) {
-  if (!jsonlPath || !fs.existsSync(jsonlPath)) return null;
-  try {
-    const lines = fs.readFileSync(jsonlPath, "utf-8").split("\n");
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const entry = JSON.parse(line);
-      if (entry.type === "message" && entry.message?.role === "user") {
-        const content = entry.message.content || [];
-        const textPart = Array.isArray(content)
-          ? content.find((c) => c.type === "text")
-          : null;
-        const rawText = textPart?.text || (typeof content === "string" ? content : null);
-        if (rawText) return extractUserText(rawText).slice(0, 200);
-      }
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
 app.get("/api/agents/:agentId/sessions", (req, res) => {
   const { agentId } = req.params;
   const sessionsFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
@@ -324,9 +572,6 @@ app.get("/api/agents/:agentId/sessions", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    // OpenClaw's key format: "agent:<agentId>:<routeLabel>"
-    // The actual session ID (used for --session-id and file naming) is in val.sessionId.
-    // Our DB stores conv._id as sessionKey, and that matches val.sessionId.
     const sessions = Object.entries(raw).map(([, val]) => {
       const firstMessage = readFirstUserMessage(val.sessionFile);
       return {
@@ -353,7 +598,6 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    // sessionKey from our DB is the sessionId (conv._id). Find by sessionId in values.
     const sessionEntry = Object.values(raw).find((v) => v.sessionId === sessionKey)
       || raw[`agent:${agentId}:${sessionKey}`];
 
@@ -493,7 +737,7 @@ app.post("/api/agents/remove", (req, res) => {
   }
 });
 
-app.post("/api/chat/stream", upload.array("files", 5), (req, res) => {
+app.post("/api/chat/stream", upload.array("files", 5), async (req, res) => {
   const { message, sessionKey, openclawAgentId } = req.body;
   const agentId = openclawAgentId || "main";
   const files = req.files || [];
@@ -523,8 +767,18 @@ app.post("/api/chat/stream", upload.array("files", 5), (req, res) => {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.socket?.setNoDelay(true);
+  res.flushHeaders();
 
-  runAgent(agentId, fullMessage, sessionKey, res);
+  const gwReady = await gateway.ensureConnected();
+  if (gwReady) {
+    console.log("[chat] using gateway direct connection");
+    runAgentViaGateway(agentId, fullMessage, sessionKey || null, sseEmitter(res));
+  } else {
+    console.log("[chat] gateway unavailable, using CLI fallback");
+    runAgentWithEmitter(agentId, fullMessage, sessionKey || null, sseEmitter(res));
+  }
 });
 
 app.listen(PROXY_PORT, () => {

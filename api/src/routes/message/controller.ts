@@ -138,14 +138,30 @@ const chat: Chat = async (req, res, next) => {
 
     await pump();
 
-    // Persist the sessionKey we actually used — covers old conversations that pre-date the
-    // creation-time assignment and still have sessionKey: null.
-    const usedSessionKey = conv.sessionKey || String(conv._id);
-    if (!conv.sessionKey) {
-      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: usedSessionKey });
+    const agentIdForProxy = agent?.openclawAgentId || 'main';
+    let realSessionKey = conv.sessionKey || String(conv._id);
+    try {
+      const sessRes = await fetch(
+        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions`,
+      );
+      if (sessRes.ok) {
+        const { sessions } = await sessRes.json() as {
+          ok: boolean;
+          sessions: { sessionKey: string; updatedAt: number }[];
+        };
+        if (sessions?.length) {
+          const latest = sessions.reduce((a, b) => (b.updatedAt > a.updatedAt ? b : a));
+          if (latest.sessionKey && latest.sessionKey !== realSessionKey) {
+            realSessionKey = latest.sessionKey;
+          }
+        }
+      }
+    } catch { /* non-critical */ }
+
+    if (conv.sessionKey !== realSessionKey) {
+      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: realSessionKey });
     }
 
-    // Strip <final>...</final> wrapper that OpenClaw adds to streamed responses.
     const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
 
     let assistantMsgId: string | null = null;
@@ -168,13 +184,9 @@ const chat: Chat = async (req, res, next) => {
       console.warn('[chat] stream ended with empty text/thinking, assistant message not saved');
     }
 
-    // Backfill externalId from the JSONL so the sync can deduplicate correctly.
-    // This allows messages sent via the official OpenClaw client to be imported
-    // without duplicating messages sent via the dashboard.
     try {
-      const agentIdForProxy = agent?.openclawAgentId || 'main';
       const msgRes = await fetch(
-        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(usedSessionKey)}/messages`,
+        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(realSessionKey)}/messages`,
       );
       if (msgRes.ok) {
         const { messages: jsonlMessages } = await msgRes.json() as {
@@ -182,7 +194,6 @@ const chat: Chat = async (req, res, next) => {
           messages: { externalId: string; role: string; text: string }[];
         };
         if (jsonlMessages?.length) {
-          // Match the last user and assistant messages from the JSONL to set externalId
           const lastUserJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'user');
           const lastAssistantJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'assistant');
 
