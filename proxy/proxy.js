@@ -195,10 +195,64 @@ class GatewayClient {
 }
 
 const gateway = new GatewayClient();
-gateway.ensureConnected().then((ok) => {
+
+/**
+ * Auto-setup: ensure the device has full operator scopes (incl. operator.write)
+ * so the gateway fast-path works for `agent` calls.
+ *
+ * Flow: health call → approve pending pairing → health call again → connect.
+ * All via `openclaw` CLI so the local device-auth.json stays in sync.
+ */
+async function ensureDevicePaired() {
+  const creds = loadGatewayCredentials();
+  const scopes = creds?.auth?.tokens?.operator?.scopes || [];
+  if (scopes.includes("operator.write")) {
+    console.log("[setup] device-auth already has operator.write");
+    return;
+  }
+
+  console.log("[setup] device-auth missing operator.write — auto-pairing...");
+  const opts = { cwd: os.homedir(), env: { ...process.env, NO_COLOR: "1" }, timeout: 15000 };
+
+  try {
+    // Trigger a gateway connect (creates pairing request if needed)
+    execSync("openclaw gateway call health --json 2>/dev/null", opts);
+  } catch { /* may fail with pairing required — that's fine */ }
+
+  try {
+    // Approve the most recent pending pairing request
+    const out = execSync("openclaw devices approve --latest --json 2>&1", opts).toString();
+    console.log("[setup] approved pending device:", out.includes('"requestId"') ? "ok" : out.trim().slice(0, 200));
+  } catch (err) {
+    const msg = err.stderr?.toString() || err.stdout?.toString() || err.message;
+    if (msg.includes("no pending")) {
+      console.log("[setup] no pending pairing requests");
+    } else {
+      console.warn("[setup] approve failed:", msg.slice(0, 200));
+    }
+  }
+
+  try {
+    // Reconnect to pick up the new token (updates device-auth.json)
+    execSync("openclaw gateway call health --json 2>/dev/null", opts);
+  } catch { /* non-critical */ }
+
+  // Verify
+  const updated = loadGatewayCredentials();
+  const newScopes = updated?.auth?.tokens?.operator?.scopes || [];
+  if (newScopes.includes("operator.write")) {
+    console.log("[setup] device-auth now has operator.write — gateway fast-path enabled");
+  } else {
+    console.warn("[setup] device-auth still missing operator.write — will use CLI fallback for chat");
+  }
+}
+
+(async () => {
+  await ensureDevicePaired();
+  const ok = await gateway.ensureConnected();
   if (ok) console.log("[gateway] persistent connection ready");
   else console.warn("[gateway] initial connection failed, will use CLI fallback");
-});
+})();
 
 function sseEmitter(res) {
   return {
@@ -772,11 +826,23 @@ app.post("/api/chat/stream", upload.array("files", 5), async (req, res) => {
   res.flushHeaders();
 
   const gwReady = await gateway.ensureConnected();
-  if (gwReady) {
+  const creds = gwReady ? loadGatewayCredentials() : null;
+  const hasWriteScope = creds
+    ? (creds.auth.tokens?.operator?.scopes || []).includes("operator.write")
+    : false;
+
+  if (gwReady && hasWriteScope) {
     console.log("[chat] using gateway direct connection");
     runAgentViaGateway(agentId, fullMessage, sessionKey || null, sseEmitter(res));
   } else {
-    console.log("[chat] gateway unavailable, using CLI fallback");
+    if (gwReady && !hasWriteScope) {
+      console.log(
+        "[chat] gateway connected but device-auth lacks operator.write — using CLI fallback. "
+        + "Fix: openclaw devices list → openclaw devices approve <id>",
+      );
+    } else {
+      console.log("[chat] gateway unavailable, using CLI fallback");
+    }
     runAgentWithEmitter(agentId, fullMessage, sessionKey || null, sseEmitter(res));
   }
 });
