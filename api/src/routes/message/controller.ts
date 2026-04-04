@@ -139,27 +139,10 @@ const chat: Chat = async (req, res, next) => {
     await pump();
 
     const agentIdForProxy = agent?.openclawAgentId || 'main';
-    let realSessionKey = conv.sessionKey || String(conv._id);
-    try {
-      const sessRes = await fetch(
-        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions`,
-      );
-      if (sessRes.ok) {
-        const { sessions } = await sessRes.json() as {
-          ok: boolean;
-          sessions: { sessionKey: string; updatedAt: number }[];
-        };
-        if (sessions?.length) {
-          const latest = sessions.reduce((a, b) => (b.updatedAt > a.updatedAt ? b : a));
-          if (latest.sessionKey && latest.sessionKey !== realSessionKey) {
-            realSessionKey = latest.sessionKey;
-          }
-        }
-      }
-    } catch { /* non-critical */ }
+    const convKey = conv.sessionKey || String(conv._id);
 
-    if (conv.sessionKey !== realSessionKey) {
-      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: realSessionKey });
+    if (!conv.sessionKey) {
+      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: convKey });
     }
 
     const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
@@ -186,7 +169,7 @@ const chat: Chat = async (req, res, next) => {
 
     try {
       const msgRes = await fetch(
-        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(realSessionKey)}/messages`,
+        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(convKey)}/messages`,
       );
       if (msgRes.ok) {
         const { messages: jsonlMessages } = await msgRes.json() as {

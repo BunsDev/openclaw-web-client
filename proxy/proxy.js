@@ -291,7 +291,11 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
   });
 
   const params = { message, agentId, idempotencyKey: runId };
-  if (sessionKey) params.sessionId = sessionKey;
+  if (sessionKey) {
+    const fullKey = `agent:${agentId}:${sessionKey}`;
+    params.sessionId = sessionKey;
+    params.sessionKey = fullKey;
+  }
 
   gateway.request("agent", params, { expectFinal: true, timeoutMs: 120000 })
     .then(() => {
@@ -626,15 +630,19 @@ app.get("/api/agents/:agentId/sessions", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    const sessions = Object.entries(raw).map(([, val]) => {
-      const firstMessage = readFirstUserMessage(val.sessionFile);
-      return {
-        sessionKey: val.sessionId,
-        sessionId: val.sessionId,
-        updatedAt: val.updatedAt,
-        firstMessage,
-      };
-    });
+    const prefix = `agent:${agentId}:`;
+    const sessions = Object.entries(raw)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, val]) => {
+        const customKey = key.slice(prefix.length);
+        const firstMessage = readFirstUserMessage(val.sessionFile);
+        return {
+          sessionKey: customKey,
+          sessionId: val.sessionId,
+          updatedAt: val.updatedAt,
+          firstMessage,
+        };
+      });
     return res.json({ ok: true, sessions });
   } catch (err) {
     console.error(`[sessions] failed to read sessions for ${agentId}:`, err.message);
@@ -652,8 +660,8 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
 
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
-    const sessionEntry = Object.values(raw).find((v) => v.sessionId === sessionKey)
-      || raw[`agent:${agentId}:${sessionKey}`];
+    const sessionEntry = raw[`agent:${agentId}:${sessionKey}`]
+      || Object.values(raw).find((v) => v.sessionId === sessionKey);
 
     if (!sessionEntry) {
       return res.json({ ok: true, messages: [] });
