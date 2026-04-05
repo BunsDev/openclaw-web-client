@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   Box,
@@ -139,11 +139,12 @@ function FileAttachments({ files, isUser }: { files: MessageFile[]; isUser: bool
 
 type MessageLike = Message | { text: string; role: string; thinking?: string | null; files?: MessageFile[] };
 
-function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
+const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinkingText, messageId, onDelete }: {
   message: MessageLike;
   isStreaming?: boolean;
   thinkingText?: string;
-  onDelete?: () => void;
+  messageId?: string;
+  onDelete?: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -196,9 +197,9 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
             >
               {copied ? <Done sx={{ fontSize: 13, color: 'success.main' }} /> : <ContentCopy sx={{ fontSize: 13 }} />}
             </IconButton>
-            {onDelete && (
+            {onDelete && messageId && (
               <DeleteButton
-                onConfirm={onDelete}
+                onConfirm={() => onDelete(messageId)}
                 message="Delete this message?"
                 renderTrigger={(onClick) => (
                   <IconButton
@@ -261,7 +262,7 @@ function MessageBubble({ message, isStreaming, thinkingText, onDelete }: {
       </Paper>
     </Box>
   );
-}
+});
 
 export default function AgentChat() {
   const { agentId, conversationId } = useParams<{ agentId: string; conversationId: string }>();
@@ -275,6 +276,7 @@ export default function AgentChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: agent } = useGetAgentQuery(agentId!, { skip: !agentId });
   const { data, isLoading, refetch } = useGetMessagesQuery(conversationId!, { skip: !conversationId });
@@ -287,7 +289,16 @@ export default function AgentChat() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, streamingText, streamingThinking, pendingUserText, pendingFilesPreviews]);
+  }, [messages.length, pendingUserText, pendingFilesPreviews]);
+
+  const scrollTickRef = useRef(0);
+  useEffect(() => {
+    if (!streamingText && !streamingThinking) return;
+    const now = Date.now();
+    if (now - scrollTickRef.current < 200) return;
+    scrollTickRef.current = now;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [streamingText, streamingThinking]);
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -305,12 +316,14 @@ export default function AgentChat() {
   }, []);
 
   const handleAttach = () => fileInputRef.current?.click();
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value), []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (!selected) return;
     setPendingFiles((prev) => [...prev, ...Array.from(selected)].slice(0, 5));
     e.target.value = '';
+    inputRef.current?.focus();
   };
 
   const removeFile = (idx: number) => {
@@ -405,8 +418,13 @@ export default function AgentChat() {
       setPendingUserText('');
       setPendingFilesPreviews((prev) => { prev.forEach((f) => URL.revokeObjectURL(f.url)); return []; });
       abortRef.current = null;
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [text, pendingFiles, conversationId, isStreaming, refetch]);
+
+  const handleDelete = useCallback((msgId: string) => {
+    deleteMessage({ id: msgId, conversationId: conversationId! });
+  }, [deleteMessage, conversationId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -503,7 +521,8 @@ export default function AgentChat() {
               <MessageBubble
                 key={msg._id}
                 message={msg}
-                onDelete={() => deleteMessage({ id: msg._id, conversationId: conversationId! })}
+                messageId={msg._id}
+                onDelete={handleDelete}
               />
             ))}
             {isStreaming && (pendingUserText || pendingFilesPreviews.length > 0) && (
@@ -593,6 +612,7 @@ export default function AgentChat() {
             <AttachFile sx={{ fontSize: 18 }} />
           </IconButton>
           <TextField
+            inputRef={inputRef}
             fullWidth
             multiline
             minRows={1}
@@ -600,7 +620,7 @@ export default function AgentChat() {
             variant="standard"
             placeholder="Type a message..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             disabled={isStreaming}
             slotProps={{ input: { disableUnderline: true, sx: { py: 1, fontSize: '0.9rem' } } }}

@@ -134,6 +134,5 @@ fs.writeFileSync(PID_FILE, String(proxy.pid));
 console.log(`Proxy started (PID: ${proxy.pid}), log: proxy/proxy.log`);
 
 console.log('\nAll services are up!');
-console.log('  Client:  http://localhost:18800');
-console.log('  API:     http://localhost:18802');
-console.log('  Proxy:   http://localhost:18801 (host, runs openclaw CLI)');
+console.log('🚀 OpenClaw Web Client is running on http://localhost:18800');
+console.log('⭐️ If you like this UI, please consider starring the repo: https://github.com/lotsoftick/openclaw_client');
