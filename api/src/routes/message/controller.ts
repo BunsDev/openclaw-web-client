@@ -7,6 +7,16 @@ import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@t
 
 const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
 
+/** Strip OpenClaw / gateway XML-like wrappers from a complete message (never on streaming chunks). */
+function stripOpenClawMarkup(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/<\/?redacted_thinking\b[^>]*>/gi, '')
+    .replace(/<\/?output\b[^>]*>/gi, '')
+    .replace(/<\/?final\b[^>]*>/gi, '')
+    .replace(/<\/?(?:think|thinking)\b[^>]*>/gi, '');
+}
+
 const uploadsDir = path.join(__dirname, '../../public/uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -154,15 +164,17 @@ const chat: Chat = async (req, res, next) => {
       }).catch(() => {});
     }
 
-    const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
+    const cleanText = stripOpenClawMarkup(fullText).trim();
 
     let assistantMsgId: string | null = null;
-    if (cleanText || fullThinking) {
+    const cleanThinking = fullThinking ? stripOpenClawMarkup(fullThinking).trim() : '';
+
+    if (cleanText || cleanThinking) {
       try {
         const assistantMessage = new Message({
           conversationId,
           text: cleanText || '...',
-          thinking: fullThinking || null,
+          thinking: cleanThinking || null,
           role: 'assistant',
           createdBy: req.user!._id,
           createdAt: new Date(),

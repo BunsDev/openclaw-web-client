@@ -323,13 +323,12 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
     if (p.runId !== runId) return;
 
     if (msg.event === "agent" && p.data?.delta) {
-      const clean = p.data.delta
-        .replace(/<\/?(?:think|thinking|output|response|final|result)\s*\/?>/gi, "");
-      if (!clean) return;
+      const delta = p.data.delta;
+      if (!delta) return;
       if (p.stream === "assistant") {
-        emitter.send("response.output_text.delta", clean);
+        emitter.send("response.output_text.delta", delta);
       } else if (p.stream === "reasoning") {
-        emitter.send("response.thinking.delta", clean);
+        emitter.send("response.thinking.delta", delta);
       }
     }
   });
