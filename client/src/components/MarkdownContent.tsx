@@ -22,17 +22,14 @@ function syncHljsStylesheet(isDarkUi: boolean) {
   }
 }
 
-/**
- * Strip gateway wrapper tags — both well-formed (<final>) and malformed
- * variants (<final, / <final  / trailing </ etc.) that leak through.
- */
+/** Strip gateway wrapper tags at boundaries only — preserves literal tags in content. */
 function stripWrapperTags(text: string): string {
   if (!text) return text;
   const TAG = 'final|output|think|thinking|redacted_thinking';
   return text
-    .replace(new RegExp(`<\\/?(?:${TAG})>`, 'gi'), '')
-    .replace(new RegExp(`^<(?:${TAG})[^a-z>]`, 'gi'), '')
-    .replace(/<\/\s*$/, '')
+    .replace(new RegExp(`^<(?:${TAG})\\b[^>]*>`, 'i'), '')
+    .replace(new RegExp(`</(?:${TAG})\\s*>\\s*$`, 'i'), '')
+    .replace(/<\/[a-z]*\s*$/i, '')
     .trim();
 }
 

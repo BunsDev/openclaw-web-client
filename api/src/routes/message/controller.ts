@@ -10,9 +10,9 @@ const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:1
 function stripWrapperTags(text: string): string {
   const TAG = 'final|output|think|thinking|redacted_thinking';
   return text
-    .replace(new RegExp(`<\\/?(?:${TAG})>`, 'gi'), '')
-    .replace(new RegExp(`^<(?:${TAG})[^a-z>]`, 'gi'), '')
-    .replace(/<\/\s*$/, '')
+    .replace(new RegExp(`^<(?:${TAG})\\b[^>]*>`, 'i'), '')
+    .replace(new RegExp(`</(?:${TAG})\\s*>\\s*$`, 'i'), '')
+    .replace(/<\/[a-z]*\s*$/i, '')
     .trim();
 }
 

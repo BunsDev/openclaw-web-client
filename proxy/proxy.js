@@ -313,19 +313,18 @@ function getSessionSettings(agentId, sessionKey) {
   } catch { return defaults; }
 }
 
-const WRAPPER_TAG_RE = (() => {
-  const TAG = "final|output|think|thinking|redacted_thinking";
-  return {
-    complete: new RegExp(`<\\/?(?:${TAG})>`, "gi"),
-    leadMalformed: new RegExp(`^<(?:${TAG})[^a-z>]`, "gi"),
-  };
-})();
+const GW_TAG = "final|output|think|thinking|redacted_thinking";
+const GW_RE_OPEN = new RegExp(`^<(?:${GW_TAG})\\b[^>]*>`, "i");
+const GW_RE_CLOSE = new RegExp(`</(?:${GW_TAG})\\s*>\\s*$`, "i");
+const GW_RE_PARTIAL_CLOSE = /<\/[a-z]*\s*$/i;
+const GW_RE_PARTIAL_TAG = new RegExp(`^<\\/?\\s*(?:${GW_TAG})\\s*$`, "i");
 
 function stripGatewayTags(text) {
   if (!text) return text;
   return text
-    .replace(WRAPPER_TAG_RE.complete, "")
-    .replace(WRAPPER_TAG_RE.leadMalformed, "");
+    .replace(GW_RE_OPEN, "")
+    .replace(GW_RE_CLOSE, "")
+    .replace(GW_RE_PARTIAL_CLOSE, "");
 }
 
 function runAgentViaGateway(agentId, message, sessionKey, emitter) {
@@ -347,17 +346,30 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
       if (fullText == null) return;
 
       const clean = stripGatewayTags(fullText);
+      if (!clean || GW_RE_PARTIAL_TAG.test(clean)) return;
+
       const alreadySent = stream === "assistant" ? assistantSent : reasoningSent;
 
-      if (clean.length > alreadySent.length) {
-        const newContent = clean.substring(alreadySent.length);
+      if (alreadySent.length === 0 || clean.startsWith(alreadySent)) {
+        if (clean.length > alreadySent.length) {
+          const newContent = clean.substring(alreadySent.length);
+          if (stream === "assistant") assistantSent = clean;
+          else reasoningSent = clean;
+          emitter.send(
+            stream === "assistant"
+              ? "response.output_text.delta"
+              : "response.thinking.delta",
+            newContent
+          );
+        }
+      } else {
         if (stream === "assistant") assistantSent = clean;
         else reasoningSent = clean;
         emitter.send(
           stream === "assistant"
             ? "response.output_text.delta"
             : "response.thinking.delta",
-          newContent
+          clean
         );
       }
     }
