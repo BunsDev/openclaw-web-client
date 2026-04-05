@@ -324,9 +324,7 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
 
     if (msg.event === "agent" && p.data?.delta) {
       const clean = p.data.delta
-        .replace(/<\/?(?:think|thinking|output|response|final|result)[^>]*>/gi, "")
-        .replace(/<(?:think|thinking|output|response|final|result)\b[^>]*$/gi, "")
-        .replace(/^[^<]*(?:think|thinking|output|response|final|result)\s*>/gi, "");
+        .replace(/<\/?(?:think|thinking|output|response|final|result)\s*\/?>/gi, "");
       if (!clean) return;
       if (p.stream === "assistant") {
         emitter.send("response.output_text.delta", clean);
@@ -365,31 +363,6 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
     });
 
   return { kill: () => gateway.offEvent(listenerKey) };
-}
-
-const noiseRegexes = [
-  /\[.*?model-providers.*?\]/,
-  /\[.*?auth-profiles?\]/,
-  /\[.*?auth\]/,
-  /bootstrap.*config.*fallback/i,
-  /inherited.*from.*main/i,
-  /ExperimentalWarning/,
-  /punycode/,
-  /deprecated/i,
-  /no config backend key found/i,
-];
-
-const noiseStrings = [
-  "bootstrap", "fallback", "config backend", "model-providers",
-  "auth]", "auth-profiles]", "inherited", "deprecated",
-  "ExperimentalWarning", "punycode",
-];
-
-function stripNoise(text) {
-  return text
-    .split("\n")
-    .filter((line) => !noiseRegexes.some((rx) => rx.test(line)))
-    .join("\n");
 }
 
 function runAgentWithEmitter(agentId, message, sessionKey, emitter) {
@@ -473,7 +446,7 @@ function runAgentWithEmitter(agentId, message, sessionKey, emitter) {
   }
 
   child.stdout.on("data", (data) => {
-    const cleaned = stripNoise(data.toString());
+    const cleaned = data.toString();
     if (!cleaned) return;
     buf += cleaned;
     processBuf();
@@ -499,7 +472,6 @@ function runAgentWithEmitter(agentId, message, sessionKey, emitter) {
         .filter((l) => {
           const trimmed = l.trim();
           if (!trimmed) return false;
-          if (noiseStrings.some((p) => trimmed.includes(p))) return false;
           return trimmed.includes("Error") || trimmed.includes("error") || trimmed.includes("failed") || trimmed.includes("No API key");
         })
         .join(" | ");
