@@ -224,12 +224,7 @@ const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinki
         )}
         {hasTextContent && (
           isUser ? (
-            <Typography
-              variant="body1"
-              sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-            >
-              {message.text}
-            </Typography>
+            <MarkdownContent inheritColor>{message.text!}</MarkdownContent>
           ) : (
             <MarkdownContent isStreaming={isStreaming}>{message.text!}</MarkdownContent>
           )

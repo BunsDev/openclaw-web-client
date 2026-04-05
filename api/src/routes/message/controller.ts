@@ -7,14 +7,13 @@ import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@t
 
 const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
 
-/** Strip OpenClaw / gateway XML-like wrappers from a complete message (never on streaming chunks). */
-function stripOpenClawMarkup(text: string): string {
-  if (!text) return text;
+function stripWrapperTags(text: string): string {
+  const TAG = 'final|output|think|thinking|redacted_thinking';
   return text
-    .replace(/<\/?redacted_thinking\b[^>]*>/gi, '')
-    .replace(/<\/?output\b[^>]*>/gi, '')
-    .replace(/<\/?final\b[^>]*>/gi, '')
-    .replace(/<\/?(?:think|thinking)\b[^>]*>/gi, '');
+    .replace(new RegExp(`<\\/?(?:${TAG})>`, 'gi'), '')
+    .replace(new RegExp(`^<(?:${TAG})[^a-z>]`, 'gi'), '')
+    .replace(/<\/\s*$/, '')
+    .trim();
 }
 
 const uploadsDir = path.join(__dirname, '../../public/uploads');
@@ -164,17 +163,17 @@ const chat: Chat = async (req, res, next) => {
       }).catch(() => {});
     }
 
-    const cleanText = stripOpenClawMarkup(fullText).trim();
+    const assistantText = stripWrapperTags(fullText).trim();
+    const assistantThinking = fullThinking ? stripWrapperTags(fullThinking).trim() : '';
 
     let assistantMsgId: string | null = null;
-    const cleanThinking = fullThinking ? stripOpenClawMarkup(fullThinking).trim() : '';
 
-    if (cleanText || cleanThinking) {
+    if (assistantText || assistantThinking) {
       try {
         const assistantMessage = new Message({
           conversationId,
-          text: cleanText || '...',
-          thinking: cleanThinking || null,
+          text: assistantText || '...',
+          thinking: assistantThinking || null,
           role: 'assistant',
           createdBy: req.user!._id,
           createdAt: new Date(),

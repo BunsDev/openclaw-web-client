@@ -313,9 +313,26 @@ function getSessionSettings(agentId, sessionKey) {
   } catch { return defaults; }
 }
 
+const WRAPPER_TAG_RE = (() => {
+  const TAG = "final|output|think|thinking|redacted_thinking";
+  return {
+    complete: new RegExp(`<\\/?(?:${TAG})>`, "gi"),
+    leadMalformed: new RegExp(`^<(?:${TAG})[^a-z>]`, "gi"),
+  };
+})();
+
+function stripGatewayTags(text) {
+  if (!text) return text;
+  return text
+    .replace(WRAPPER_TAG_RE.complete, "")
+    .replace(WRAPPER_TAG_RE.leadMalformed, "");
+}
+
 function runAgentViaGateway(agentId, message, sessionKey, emitter) {
   const runId = crypto.randomUUID();
   const listenerKey = `agent-${runId}`;
+  let assistantSent = "";
+  let reasoningSent = "";
 
   gateway.onEvent(listenerKey, (msg) => {
     const p = msg.payload;
@@ -323,12 +340,25 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
     if (p.runId !== runId) return;
 
     if (msg.event === "agent" && p.data?.delta) {
-      const delta = p.data.delta;
-      if (!delta) return;
-      if (p.stream === "assistant") {
-        emitter.send("response.output_text.delta", delta);
-      } else if (p.stream === "reasoning") {
-        emitter.send("response.thinking.delta", delta);
+      const stream = p.stream;
+      if (stream !== "assistant" && stream !== "reasoning") return;
+
+      const fullText = p.data.text;
+      if (fullText == null) return;
+
+      const clean = stripGatewayTags(fullText);
+      const alreadySent = stream === "assistant" ? assistantSent : reasoningSent;
+
+      if (clean.length > alreadySent.length) {
+        const newContent = clean.substring(alreadySent.length);
+        if (stream === "assistant") assistantSent = clean;
+        else reasoningSent = clean;
+        emitter.send(
+          stream === "assistant"
+            ? "response.output_text.delta"
+            : "response.thinking.delta",
+          newContent
+        );
       }
     }
   });
