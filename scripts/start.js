@@ -57,10 +57,10 @@ run('node', [path.join(ROOT, 'scripts', 'setup.js')]);
 console.log('\nInstalling proxy dependencies...');
 run('npm', ['install'], PROXY_DIR);
 
-// 3. Build images (--no-cache ensures fresh builds after re-cloning)
+// 3. Build images (Docker layer cache rebuilds only when source files change)
 console.log('\nBuilding Docker images...');
-run('docker', ['build', '--no-cache', '-t', 'openclaw-api', path.join(ROOT, 'api')]);
-run('docker', ['build', '--no-cache', '-t', 'openclaw-client', '--target', 'app', path.join(ROOT, 'client')]);
+run('docker', ['build', '-t', 'openclaw-api', path.join(ROOT, 'api')]);
+run('docker', ['build', '-t', 'openclaw-client', '--target', 'app', path.join(ROOT, 'client')]);
 
 // 4. Create network
 runSilent('docker', ['network', 'create', NETWORK]);
@@ -75,7 +75,7 @@ const rootEnv = readEnvFile(path.join(ROOT, '.env'));
 const apiEnvPath = path.join(ROOT, 'api', '.env');
 
 // 7. Start MongoDB
-console.log('\nStarting MongoDB...');
+console.log('\n🍃 Starting MongoDB...');
 run('docker', [
   'run', '-d',
   '--name', 'openclaw-mongo',
@@ -89,7 +89,7 @@ run('docker', [
 ]);
 
 // 8. Start API
-console.log('Starting API...');
+console.log('⚡ Starting API...');
 run('docker', [
   'run', '-d',
   '--name', 'openclaw-api',
@@ -102,7 +102,7 @@ run('docker', [
 ]);
 
 // 9. Start Client
-console.log('Starting Client...');
+console.log('🌐 Starting Client...');
 run('docker', [
   'run', '-d',
   '--name', 'openclaw-client',
