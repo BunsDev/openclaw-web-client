@@ -57,10 +57,10 @@ run('node', [path.join(ROOT, 'scripts', 'setup.js')]);
 console.log('\nInstalling proxy dependencies...');
 run('npm', ['install'], PROXY_DIR);
 
-// 3. Build images (Docker layer cache makes this instant after first build)
+// 3. Build images (--no-cache ensures fresh builds after re-cloning)
 console.log('\nBuilding Docker images...');
-run('docker', ['build', '-t', 'openclaw-api', path.join(ROOT, 'api')]);
-run('docker', ['build', '-t', 'openclaw-client', '--target', 'app', path.join(ROOT, 'client')]);
+run('docker', ['build', '--no-cache', '-t', 'openclaw-api', path.join(ROOT, 'api')]);
+run('docker', ['build', '--no-cache', '-t', 'openclaw-client', '--target', 'app', path.join(ROOT, 'client')]);
 
 // 4. Create network
 runSilent('docker', ['network', 'create', NETWORK]);
