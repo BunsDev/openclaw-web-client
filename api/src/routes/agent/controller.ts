@@ -147,7 +147,7 @@ const sync: RequestHandler = async (req, res, next) => {
 
           const { sessions } = await sessRes.json() as {
             ok: boolean;
-            sessions: { sessionKey: string; sessionId: string; updatedAt: number; firstMessage: string | null }[];
+            sessions: { sessionKey: string; sessionId: string; updatedAt: number; label: string | null; firstMessage: string | null }[];
           };
 
           if (!sessions?.length) return;
@@ -166,15 +166,16 @@ const sync: RequestHandler = async (req, res, next) => {
           await Promise.all(
             sessions.map(async (s) => {
               const existing = existingByKey.get(s.sessionKey);
+              const displayTitle = s.label || s.firstMessage || null;
               if (!existing) {
-                const adoptable = s.firstMessage
-                  ? unlinkedConvs.find((c) => c.title && c.title === s.firstMessage)
+                const adoptable = displayTitle
+                  ? unlinkedConvs.find((c) => c.title && (c.title === s.label || c.title === s.firstMessage))
                   : unlinkedConvs.find((c) => !c.title);
 
                 if (adoptable) {
                   await Conversation.findByIdAndUpdate(adoptable._id, {
                     sessionKey: s.sessionKey,
-                    title: adoptable.title || s.firstMessage || null,
+                    title: adoptable.title || displayTitle,
                   });
                   syncedConversations += 1;
                 } else {
@@ -183,7 +184,7 @@ const sync: RequestHandler = async (req, res, next) => {
                     { $setOnInsert: {
                       agentId: agent._id,
                       sessionKey: s.sessionKey,
-                      title: s.firstMessage || null,
+                      title: displayTitle,
                       createdBy: req.user!._id,
                       createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
                     } },
@@ -191,8 +192,8 @@ const sync: RequestHandler = async (req, res, next) => {
                   );
                   if (upserted) syncedConversations += 1;
                 }
-              } else if (!existing.title && s.firstMessage) {
-                await Conversation.findByIdAndUpdate(existing._id, { title: s.firstMessage });
+              } else if (!existing.title && displayTitle) {
+                await Conversation.findByIdAndUpdate(existing._id, { title: displayTitle });
               }
             }),
           );

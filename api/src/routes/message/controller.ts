@@ -64,7 +64,8 @@ const chat: Chat = async (req, res, next) => {
     });
     await userMessage.save();
 
-    if (!conv.title && text) {
+    const isFirstMessage = !conv.title && !!text;
+    if (isFirstMessage) {
       await Conversation.findByIdAndUpdate(conversationId, { title: text.slice(0, 200) });
     }
 
@@ -145,6 +146,14 @@ const chat: Chat = async (req, res, next) => {
       await Conversation.findByIdAndUpdate(conversationId, { sessionKey: convKey });
     }
 
+    if (isFirstMessage) {
+      fetch(`${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(convKey)}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: text!.slice(0, 200) }),
+      }).catch(() => {});
+    }
+
     const cleanText = fullText.replace(/<\/?final>/gi, '').trim();
 
     let assistantMsgId: string | null = null;
@@ -203,7 +212,22 @@ const chat: Chat = async (req, res, next) => {
 
 const destroy: Destroy = async (req, res, next) => {
   try {
+    const msg = await Message.findById(req.params.id).lean();
     await Message.findByIdAndUpdate(req.params.id, { deletedAt: new Date() });
+
+    if (msg?.externalId && msg.conversationId) {
+      const conv = await Conversation.findById(msg.conversationId).lean();
+      if (conv?.sessionKey) {
+        const agent = await Agent.findById(conv.agentId).lean();
+        if (agent?.openclawAgentId) {
+          const delUrl = `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}`
+            + `/sessions/${encodeURIComponent(conv.sessionKey)}`
+            + `/messages/${encodeURIComponent(msg.externalId)}`;
+          fetch(delUrl, { method: 'DELETE' }).catch(() => {});
+        }
+      }
+    }
+
     return res.json(null);
   } catch (error) {
     return next(error);

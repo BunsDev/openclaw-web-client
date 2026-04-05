@@ -701,6 +701,7 @@ app.get("/api/agents/:agentId/sessions", (req, res) => {
           sessionKey: customKey,
           sessionId: val.sessionId,
           updatedAt: val.updatedAt,
+          label: val.label || null,
           firstMessage,
         };
       });
@@ -735,6 +736,33 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
     return res.json({ ok: true, messages });
   } catch (err) {
     console.error(`[messages] failed for ${agentId}/${sessionKey}:`, err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete("/api/agents/:agentId/sessions/:sessionKey/messages/:externalId", (req, res) => {
+  const { agentId, sessionKey, externalId } = req.params;
+  const sessionsFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+  try {
+    if (!fs.existsSync(sessionsFile)) return res.json({ ok: true });
+    const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
+    const entry = raw[`agent:${agentId}:${sessionKey}`]
+      || Object.values(raw).find((v) => v.sessionId === sessionKey);
+    if (!entry?.sessionFile || !fs.existsSync(entry.sessionFile)) return res.json({ ok: true });
+
+    const lines = fs.readFileSync(entry.sessionFile, "utf-8").trimEnd().split("\n");
+    const filtered = lines.filter((line) => {
+      try {
+        const parsed = JSON.parse(line);
+        return parsed.id !== externalId;
+      } catch { return true; }
+    });
+
+    if (filtered.length < lines.length) {
+      fs.writeFileSync(entry.sessionFile, filtered.join("\n") + "\n");
+    }
+    return res.json({ ok: true });
+  } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -780,6 +808,9 @@ app.patch("/api/agents/:agentId/sessions/:sessionKey/settings", async (req, res)
   if (req.body.reasoningLevel !== undefined) {
     patch.reasoningLevel = req.body.reasoningLevel === "inherit" ? null : req.body.reasoningLevel;
   }
+  if (req.body.label !== undefined) {
+    patch.label = req.body.label || null;
+  }
 
   const gwReady = await gateway.ensureConnected();
   if (gwReady) {
@@ -801,8 +832,40 @@ app.patch("/api/agents/:agentId/sessions/:sessionKey/settings", async (req, res)
     if (patch.fastMode !== undefined) entry.fastMode = patch.fastMode;
     if (patch.verboseLevel !== undefined) entry.verboseLevel = patch.verboseLevel;
     if (patch.reasoningLevel !== undefined) entry.reasoningLevel = patch.reasoningLevel;
+    if (patch.label !== undefined) entry.label = patch.label;
     raw[fullKey] = entry;
     fs.writeFileSync(sessionsFile, JSON.stringify(raw, null, 2));
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/agents/:agentId/sessions/:sessionKey/delete", async (req, res) => {
+  const { agentId, sessionKey } = req.params;
+  const fullKey = `agent:${agentId}:${sessionKey}`;
+
+  const gwReady = await gateway.ensureConnected();
+  if (gwReady) {
+    try {
+      await gateway.request("sessions.delete", { key: fullKey }, { timeoutMs: 5000 });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("[sessions.delete] gateway error:", err.message);
+    }
+  }
+
+  try {
+    const sessionsFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+    if (fs.existsSync(sessionsFile)) {
+      const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
+      const entry = raw[fullKey];
+      if (entry?.sessionFile && fs.existsSync(entry.sessionFile)) {
+        fs.unlinkSync(entry.sessionFile);
+      }
+      delete raw[fullKey];
+      fs.writeFileSync(sessionsFile, JSON.stringify(raw, null, 2));
+    }
     return res.json({ ok: true });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
