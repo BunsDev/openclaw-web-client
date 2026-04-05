@@ -273,24 +273,76 @@ function sseEmitter(res) {
   };
 }
 
+function extractThinkingFromJsonl(agentId, sessionKey) {
+  try {
+    const sessFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+    if (!fs.existsSync(sessFile)) return null;
+    const raw = JSON.parse(fs.readFileSync(sessFile, "utf-8"));
+    const entry = raw[`agent:${agentId}:${sessionKey}`];
+    if (!entry?.sessionFile) return null;
+    if (!fs.existsSync(entry.sessionFile)) return null;
+    const lines = fs.readFileSync(entry.sessionFile, "utf-8").trim().split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]);
+        if (parsed.type === "message" && parsed.message?.role === "assistant") {
+          const thinkingPart = (parsed.message.content || []).find((p) => p.type === "thinking");
+          return thinkingPart?.thinking || null;
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* non-critical */ }
+  return null;
+}
+
+function getSessionSettings(agentId, sessionKey) {
+  const defaults = { thinkingLevel: "medium", fastMode: null, verboseLevel: "inherit", reasoningLevel: "inherit" };
+  if (!sessionKey) return defaults;
+  try {
+    const sessFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+    if (!fs.existsSync(sessFile)) return defaults;
+    const raw = JSON.parse(fs.readFileSync(sessFile, "utf-8"));
+    const entry = raw[`agent:${agentId}:${sessionKey}`];
+    if (!entry) return defaults;
+    return {
+      thinkingLevel: entry.thinkingLevel || defaults.thinkingLevel,
+      fastMode: entry.fastMode ?? defaults.fastMode,
+      verboseLevel: entry.verboseLevel || defaults.verboseLevel,
+      reasoningLevel: entry.reasoningLevel || defaults.reasoningLevel,
+    };
+  } catch { return defaults; }
+}
+
 function runAgentViaGateway(agentId, message, sessionKey, emitter) {
   const runId = crypto.randomUUID();
   const listenerKey = `agent-${runId}`;
 
   gateway.onEvent(listenerKey, (msg) => {
-    if (msg.event !== "agent" && msg.event !== "chat") return;
     const p = msg.payload;
+    if (msg.event !== "agent" && msg.event !== "chat") return;
     if (p.runId !== runId) return;
 
-    if (msg.event === "agent" && p.stream === "assistant" && p.data?.delta) {
-      emitter.send("response.output_text.delta", p.data.delta);
-    }
-    if (msg.event === "agent" && p.stream === "thinking" && p.data?.delta) {
-      emitter.send("response.thinking.delta", p.data.delta);
+    if (msg.event === "agent" && p.data?.delta) {
+      const clean = p.data.delta
+        .replace(/<\/?(?:think|thinking|output|response|final|result)[^>]*>/gi, "")
+        .replace(/<(?:think|thinking|output|response|final|result)\b[^>]*$/gi, "")
+        .replace(/^[^<]*(?:think|thinking|output|response|final|result)\s*>/gi, "");
+      if (!clean) return;
+      if (p.stream === "assistant") {
+        emitter.send("response.output_text.delta", clean);
+      } else if (p.stream === "reasoning") {
+        emitter.send("response.thinking.delta", clean);
+      }
     }
   });
 
-  const params = { message, agentId, idempotencyKey: runId };
+  const sessionSettings = getSessionSettings(agentId, sessionKey);
+  const params = {
+    message,
+    agentId,
+    idempotencyKey: runId,
+    thinking: sessionSettings.thinkingLevel || "medium",
+  };
   if (sessionKey) {
     const fullKey = `agent:${agentId}:${sessionKey}`;
     params.sessionId = sessionKey;
@@ -300,6 +352,10 @@ function runAgentViaGateway(agentId, message, sessionKey, emitter) {
   gateway.request("agent", params, { expectFinal: true, timeoutMs: 120000 })
     .then(() => {
       gateway.offEvent(listenerKey);
+      if (sessionKey) {
+        const thinking = extractThinkingFromJsonl(agentId, sessionKey);
+        if (thinking) emitter.send("response.thinking.delta", thinking);
+      }
       emitter.done();
     })
     .catch((err) => {
@@ -337,7 +393,12 @@ function stripNoise(text) {
 }
 
 function runAgentWithEmitter(agentId, message, sessionKey, emitter) {
-  const args = ["agent", "--agent", agentId, "-m", message];
+  const sessionSettings = getSessionSettings(agentId, sessionKey);
+  const thinkingArg = sessionSettings.thinkingLevel === "inherit" ? "medium" : sessionSettings.thinkingLevel;
+  const args = ["agent", "--agent", agentId, "-m", message, "--thinking", thinkingArg];
+  if (sessionSettings.reasoningLevel && sessionSettings.reasoningLevel !== "inherit") {
+    args.push("--reasoning", sessionSettings.reasoningLevel);
+  }
   if (sessionKey) args.push("--session-id", sessionKey);
 
   console.log(`[chat] CLI fallback: openclaw ${args.join(" ")}`);
@@ -674,6 +735,76 @@ app.get("/api/agents/:agentId/sessions/:sessionKey/messages", (req, res) => {
     return res.json({ ok: true, messages });
   } catch (err) {
     console.error(`[messages] failed for ${agentId}/${sessionKey}:`, err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/agents/:agentId/sessions/:sessionKey/settings", (req, res) => {
+  const { agentId, sessionKey } = req.params;
+  const sessionsFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+  if (!fs.existsSync(sessionsFile)) {
+    return res.json({ ok: true, settings: {} });
+  }
+  try {
+    const raw = JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
+    const entry = raw[`agent:${agentId}:${sessionKey}`];
+    if (!entry) return res.json({ ok: true, settings: {} });
+    return res.json({
+      ok: true,
+      settings: {
+        thinkingLevel: entry.thinkingLevel || "inherit",
+        fastMode: entry.fastMode ?? null,
+        verboseLevel: entry.verboseLevel || "inherit",
+        reasoningLevel: entry.reasoningLevel || "inherit",
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.patch("/api/agents/:agentId/sessions/:sessionKey/settings", async (req, res) => {
+  const { agentId, sessionKey } = req.params;
+  const fullKey = `agent:${agentId}:${sessionKey}`;
+  const patch = { key: fullKey };
+
+  if (req.body.thinkingLevel !== undefined) {
+    patch.thinkingLevel = req.body.thinkingLevel === "inherit" ? null : req.body.thinkingLevel;
+  }
+  if (req.body.fastMode !== undefined) {
+    patch.fastMode = req.body.fastMode === null ? null : !!req.body.fastMode;
+  }
+  if (req.body.verboseLevel !== undefined) {
+    patch.verboseLevel = req.body.verboseLevel === "inherit" ? null : req.body.verboseLevel;
+  }
+  if (req.body.reasoningLevel !== undefined) {
+    patch.reasoningLevel = req.body.reasoningLevel === "inherit" ? null : req.body.reasoningLevel;
+  }
+
+  const gwReady = await gateway.ensureConnected();
+  if (gwReady) {
+    try {
+      await gateway.request("sessions.patch", patch, { timeoutMs: 5000 });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("[sessions.patch] gateway error:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  // Fallback: write directly to sessions.json
+  try {
+    const sessionsFile = path.join(OPENCLAW_HOME, "agents", agentId, "sessions", "sessions.json");
+    const raw = fs.existsSync(sessionsFile) ? JSON.parse(fs.readFileSync(sessionsFile, "utf-8")) : {};
+    const entry = raw[fullKey] || { sessionId: crypto.randomUUID(), updatedAt: Date.now() };
+    if (patch.thinkingLevel !== undefined) entry.thinkingLevel = patch.thinkingLevel;
+    if (patch.fastMode !== undefined) entry.fastMode = patch.fastMode;
+    if (patch.verboseLevel !== undefined) entry.verboseLevel = patch.verboseLevel;
+    if (patch.reasoningLevel !== undefined) entry.reasoningLevel = patch.reasoningLevel;
+    raw[fullKey] = entry;
+    fs.writeFileSync(sessionsFile, JSON.stringify(raw, null, 2));
+    return res.json({ ok: true });
+  } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

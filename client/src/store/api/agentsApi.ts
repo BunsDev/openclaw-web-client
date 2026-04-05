@@ -32,6 +32,18 @@ export interface WorkspaceFileResponse {
   content: string;
 }
 
+export interface SessionSettings {
+  thinkingLevel: string;
+  fastMode: boolean | null;
+  verboseLevel: string;
+  reasoningLevel: string;
+}
+
+export interface SessionSettingsResponse {
+  ok: boolean;
+  settings: Partial<SessionSettings>;
+}
+
 export const WORKSPACE_TAB_FILES = [
   { label: 'AGENTS', file: 'AGENTS.md' },
   { label: 'SOUL', file: 'SOUL.md' },
@@ -104,6 +116,19 @@ export const agentsApi = baseApi.injectEndpoints({
         { type: 'Workspace', id: agentId },
       ],
     }),
+    getSessionSettings: build.query<SessionSettingsResponse, { agentId: string; conversationId: string }>({
+      query: ({ agentId, conversationId }) =>
+        `/agent/${agentId}/conversation/${conversationId}/session-settings`,
+      providesTags: (_res, _err, { conversationId }) => [{ type: 'SessionSettings', id: conversationId }],
+    }),
+    patchSessionSettings: build.mutation<{ ok: boolean }, { agentId: string; conversationId: string; settings: Partial<SessionSettings> }>({
+      query: ({ agentId, conversationId, settings }) => ({
+        url: `/agent/${agentId}/conversation/${conversationId}/session-settings`,
+        method: 'PATCH',
+        body: settings,
+      }),
+      invalidatesTags: (_res, _err, { conversationId }) => [{ type: 'SessionSettings', id: conversationId }],
+    }),
   }),
 });
 
@@ -117,4 +142,6 @@ export const {
   useGetWorkspaceMetaQuery,
   useGetWorkspaceFileQuery,
   useSaveWorkspaceFileMutation,
+  useGetSessionSettingsQuery,
+  usePatchSessionSettingsMutation,
 } = agentsApi;

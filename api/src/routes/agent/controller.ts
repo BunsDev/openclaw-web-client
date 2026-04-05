@@ -312,6 +312,52 @@ const getWorkspaceFile: RequestHandler = async (req, res, next) => {
   }
 };
 
+const getSessionSettings: RequestHandler = async (req, res, next) => {
+  try {
+    const agent = await Agent.findById(req.params.id).lean();
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const conv = await Conversation.findById(req.params.conversationId).lean();
+    if (!conv?.sessionKey) {
+      return res.json({ ok: true, settings: {} });
+    }
+    const proxyRes = await fetch(
+      `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions/${encodeURIComponent(conv.sessionKey)}/settings`,
+    );
+    const data = await proxyRes.json() as Record<string, unknown>;
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const patchSessionSettings: RequestHandler = async (req, res, next) => {
+  try {
+    const agent = await Agent.findById(req.params.id).lean();
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const conv = await Conversation.findById(req.params.conversationId).lean();
+    const sessionKey = conv?.sessionKey || String(conv?._id);
+    const proxyRes = await fetch(
+      `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions/${encodeURIComponent(sessionKey)}/settings`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      },
+    );
+    const data = await proxyRes.json() as Record<string, unknown>;
+    if (!proxyRes.ok) {
+      return res.status(proxyRes.status >= 400 ? proxyRes.status : 502).json(data);
+    }
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const putWorkspaceFile: RequestHandler = async (req, res, next) => {
   try {
     const agent = await Agent.findById(req.params.id).lean();
@@ -348,4 +394,6 @@ export {
   workspaceMeta,
   getWorkspaceFile,
   putWorkspaceFile,
+  getSessionSettings,
+  patchSessionSettings,
 };

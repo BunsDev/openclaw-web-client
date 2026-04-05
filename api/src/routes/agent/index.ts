@@ -42,6 +42,16 @@ router.route('/agent/:id([0-9a-fA-F]{24})/workspace/file/:filename')
     controller.putWorkspaceFile,
   );
 
+router.route('/agent/:id([0-9a-fA-F]{24})/conversation/:conversationId([0-9a-fA-F]{24})/session-settings')
+  .get(
+    auth,
+    controller.getSessionSettings,
+  )
+  .patch(
+    auth,
+    controller.patchSessionSettings,
+  );
+
 router.route('/agent/:id([0-9a-fA-F]{24})')
   .get(
     auth,
