@@ -71,13 +71,14 @@ const chat: Chat = async (req, res, next) => {
     }
 
     const agent = await Agent.findById(conv.agentId).lean();
+    const agentIdForFiles = agent?.openclawAgentId || 'main';
 
     const files: MessageFile[] = uploadedFiles.map((f) => ({
-      filename: f.filename,
+      filename: f.originalname,
       originalName: f.originalname,
       mimetype: f.mimetype,
       size: f.size,
-      url: `/api/public/uploads/${f.filename}`,
+      url: `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForFiles)}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
     }));
 
     const userMessage = new Message({
