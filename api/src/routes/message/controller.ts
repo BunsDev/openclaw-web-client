@@ -6,6 +6,7 @@ import Agent from '../../models/agent';
 import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@types/message';
 
 const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
+const OPENCLAW_PROXY_PUBLIC_URL = process.env.OPENCLAW_PROXY_PUBLIC_URL || 'http://localhost:18801';
 
 function stripWrapperTags(text: string): string {
   const TAG = 'final|output|think|thinking|redacted_thinking';
@@ -78,7 +79,7 @@ const chat: Chat = async (req, res, next) => {
       originalName: f.originalname,
       mimetype: f.mimetype,
       size: f.size,
-      url: `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForFiles)}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
+      url: `${OPENCLAW_PROXY_PUBLIC_URL}/api/agents/${encodeURIComponent(agentIdForFiles)}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
     }));
 
     const userMessage = new Message({
