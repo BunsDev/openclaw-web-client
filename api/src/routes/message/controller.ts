@@ -21,13 +21,30 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+const DEFAULT_PAGE_SIZE = 50;
+
 const listByConversation: ListByConversation = async (req, res, next) => {
   try {
-    const items = await Message.find({ conversationId: req.params.conversationId })
-      .sort({ createdAt: 'asc' })
+    const { conversationId } = req.params;
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '', 10) || DEFAULT_PAGE_SIZE, 1), 200);
+    const { before } = req.query;
+
+    const filter: Record<string, unknown> = { conversationId };
+    if (before) {
+      filter.createdAt = { $lt: new Date(before) };
+    }
+
+    const items = await Message.find(filter)
+      .sort({ createdAt: 'desc' })
+      .limit(limit + 1)
       .lean();
 
-    return res.json({ total: items.length, items });
+    const hasMore = items.length > limit;
+    if (hasMore) items.pop();
+
+    items.reverse();
+
+    return res.json({ total: items.length, items, hasMore });
   } catch (error) {
     return next(error);
   }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   Box,
@@ -17,7 +17,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check, ContentCopy, Done, Settings, TuneOutlined } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation, useGetSessionSettingsQuery, usePatchSessionSettingsMutation } from '../../store';
-import type { Message, MessageFile } from '../../store/api/messagesApi';
+import type { Message, MessageFile, MessagesResponse } from '../../store/api/messagesApi';
 import DeleteButton from '../../components/DeleteButton';
 import MarkdownContent from '../../components/MarkdownContent';
 
@@ -411,24 +411,58 @@ export default function AgentChat() {
   const [streamingText, setStreamingText] = useState('');
   const [streamingThinking, setStreamingThinking] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [loadMoreCursor, setLoadMoreCursor] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isLoadingMore = useRef(false);
+  const prevScrollHeight = useRef(0);
 
   const { data: agent } = useGetAgentQuery(agentId!, { skip: !agentId });
-  const { data, isLoading, refetch } = useGetMessagesQuery(conversationId!, { skip: !conversationId });
+  const { data, isLoading, isFetching, refetch } = useGetMessagesQuery(
+    { conversationId: conversationId!, before: loadMoreCursor },
+    { skip: !conversationId },
+  );
   const [updateAgent] = useUpdateAgentMutation();
   const [deleteMessage] = useDeleteMessageMutation();
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [showSessionSettings, setShowSessionSettings] = useState(false);
 
-  const messages = data?.items ?? [];
+  const messages = useMemo(() => data?.items ?? [], [data?.items]);
+  const hasMore = (data as MessagesResponse | undefined)?.hasMore ?? false;
+  const initialScrollDone = useRef(false);
+  const lastConvId = useRef(conversationId);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, pendingUserText, pendingFilesPreviews]);
+    if (lastConvId.current !== conversationId) {
+      lastConvId.current = conversationId;
+      initialScrollDone.current = false;
+    }
+
+    if (isLoadingMore.current) {
+      const container = scrollContainerRef.current;
+      if (container) {
+        const newHeight = container.scrollHeight;
+        container.scrollTop = newHeight - prevScrollHeight.current;
+        prevScrollHeight.current = 0;
+      }
+      isLoadingMore.current = false;
+      return;
+    }
+    if (!initialScrollDone.current && messages.length > 0) {
+      initialScrollDone.current = true;
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      }, 80);
+      return;
+    }
+    if (pendingUserText || pendingFilesPreviews.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, conversationId, pendingUserText, pendingFilesPreviews]);
 
   const scrollTickRef = useRef(0);
   useEffect(() => {
@@ -439,6 +473,16 @@ export default function AgentChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [streamingText, streamingThinking]);
 
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || isLoadingMore.current || isFetching || !hasMore || isStreaming) return;
+    if (container.scrollTop < 150 && messages.length > 0) {
+      isLoadingMore.current = true;
+      prevScrollHeight.current = container.scrollHeight;
+      setLoadMoreCursor(messages[0].createdAt);
+    }
+  }, [isFetching, hasMore, isStreaming, messages]);
+
   useEffect(() => {
     abortRef.current?.abort();
     setIsStreaming(false);
@@ -448,6 +492,7 @@ export default function AgentChat() {
     setPendingFiles([]);
     setPendingFilesPreviews([]);
     setText('');
+    setLoadMoreCursor(undefined);
   }, [conversationId]);
 
   useEffect(() => {
@@ -660,8 +705,12 @@ export default function AgentChat() {
         />
       )}
 
-      <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', px: { xs: 2, sm: 2, md: 3 }, py: 2 }}>
-        {isLoading ? (
+      <Box
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', px: { xs: 2, sm: 2, md: 3 }, py: 2 }}
+      >
+        {isLoading && !loadMoreCursor ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={28} />
           </Box>
@@ -671,6 +720,28 @@ export default function AgentChat() {
           </Box>
         ) : (
           <>
+            {hasMore && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5 }}>
+                {isFetching && loadMoreCursor ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                    onClick={() => {
+                      if (messages.length > 0) {
+                        isLoadingMore.current = true;
+                        prevScrollHeight.current = scrollContainerRef.current?.scrollHeight ?? 0;
+                        setLoadMoreCursor(messages[0].createdAt);
+                      }
+                    }}
+                  >
+                    Load older messages
+                  </Typography>
+                )}
+              </Box>
+            )}
             {messages.map((msg) => (
               <MessageBubble
                 key={msg._id}
