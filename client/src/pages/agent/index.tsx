@@ -18,10 +18,11 @@ import { alpha } from '@mui/material/styles';
 import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check, ContentCopy, Done, Settings, TuneOutlined } from '@mui/icons-material';
 import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation, useGetSessionSettingsQuery, usePatchSessionSettingsMutation } from '../../store';
 import type { Message, MessageFile, MessagesResponse } from '../../store/api/messagesApi';
+import { API_BASE_URL } from '../../store/api/baseApi';
 import DeleteButton from '../../components/DeleteButton';
 import MarkdownContent from '../../components/MarkdownContent';
 
-const API_BASE = 'http://localhost:18802/api';
+const API_BASE = API_BASE_URL;
 
 function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -89,7 +90,9 @@ function FileAttachments({ files, isUser }: { files: MessageFile[]; isUser: bool
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 0.5 }}>
       {files.map((f) => {
         const isImage = f.mimetype.startsWith('image/');
-        const fileUrl = f.url.startsWith('blob:') ? f.url : `${API_BASE.replace('/api', '')}${f.url}`;
+        const fileUrl = f.url.startsWith('blob:') || f.url.startsWith('http')
+          ? f.url
+          : `${API_BASE.replace('/api', '')}${f.url}`;
         if (isImage) {
           return (
             <Box

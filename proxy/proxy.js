@@ -924,6 +924,14 @@ app.put("/api/agents/:agentId/workspace/file/:filename", (req, res) => {
   }
 });
 
+app.get("/api/agents/:agentId/workspace/uploads/:filename", (req, res) => {
+  const { agentId, filename } = req.params;
+  const safe = path.basename(filename);
+  const fp = path.join(agentWorkspace(agentId), safe);
+  if (!fs.existsSync(fp)) return res.status(404).json({ ok: false, error: "File not found" });
+  return res.sendFile(fp);
+});
+
 app.post("/api/agents/register", (req, res) => {
   const { agentId } = req.body;
   if (!agentId || typeof agentId !== "string") {
