@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { LessThan } from 'typeorm';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { Message, Conversation, Agent } from '../../entities';
 import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@types/message';
 import * as ocService from '../../services/openclawService';

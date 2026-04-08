@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { RequestHandler } from 'express';
 import createError from 'http-errors';
-import { AppDataSource } from '../data-source';
+import AppDataSource from '../data-source';
 import { User, BlackList } from '../entities';
 import { JwtPayload } from '../@types/blacklist';
 

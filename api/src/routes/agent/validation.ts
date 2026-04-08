@@ -1,7 +1,7 @@
 import { body, param } from 'express-validator';
 import { List } from '../../@types/agent';
 import validate from '../../middlewares/validator';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { Agent } from '../../entities';
 
 export const WORKSPACE_FILENAMES = [

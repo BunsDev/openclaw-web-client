@@ -13,6 +13,7 @@ const DIST = path.join(os.homedir(), '.openclaw_client');
 const API_DIST = path.join(DIST, 'api');
 const CLIENT_DIST = path.join(DIST, 'client');
 const LOG_FILE = path.join(DIST, 'openclaw.log');
+const DATA_DIR = path.join(DIST, 'data');
 
 function run(cmd, args = [], cwd = ROOT) {
   execFileSync(cmd, args, { cwd, stdio: 'pipe' });
@@ -45,8 +46,6 @@ cpSync(path.join(API_SRC, 'package-lock.json'), path.join(API_DIST, 'package-loc
 // Copy client dist
 cpSync(path.join(CLIENT_SRC, 'dist'), path.join(CLIENT_DIST, 'dist'), { recursive: true, force: true });
 
-// Ensure shared data directory exists (canonical DB lives here, not under api/build)
-const DATA_DIR = path.join(DIST, 'data');
 mkdirSync(DATA_DIR, { recursive: true });
 const canonicalDbPath = path.join(DATA_DIR, 'openclaw.sqlite');
 

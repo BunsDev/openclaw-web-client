@@ -1,5 +1,5 @@
 import { Like, Not, IsNull } from 'typeorm';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { User } from '../../entities';
 import { List, Get, Create, Update, Destroy } from '../../@types/user';
 

@@ -1,6 +1,6 @@
 import { In, IsNull, Not } from 'typeorm';
 import { RequestHandler } from 'express';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { Agent, Conversation, Message } from '../../entities';
 import { MessageRole } from '../../@types/message';
 import { List, Get, Create, Update, Destroy } from '../../@types/agent';

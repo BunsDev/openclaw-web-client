@@ -11,7 +11,7 @@ import expressErrorHandler from './middlewares/errorHandler';
 import corsConf from './middlewares/cors';
 import routes from './routes';
 import seedAdminUser from './seed';
-import { AppDataSource } from './data-source';
+import AppDataSource from './data-source';
 import { ensureDevicePaired, gateway } from './services/openclawGateway';
 
 dotenv.config();

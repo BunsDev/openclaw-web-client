@@ -2,7 +2,7 @@ import { body, param } from 'express-validator';
 import { Not } from 'typeorm';
 import { List } from '../../@types/user';
 import validate from '../../middlewares/validator';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { User } from '../../entities';
 
 export default {

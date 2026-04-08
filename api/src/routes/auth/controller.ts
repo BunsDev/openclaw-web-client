@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import createError from 'http-errors';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { AppDataSource } from '../../data-source';
+import AppDataSource from '../../data-source';
 import { User, BlackList } from '../../entities';
 import { Login, Logout, GetCurentUser } from '../../@types/user';
 import { JwtPayload } from '../../@types/blacklist';
