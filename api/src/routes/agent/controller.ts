@@ -6,6 +6,10 @@ import { MessageRole } from '../../@types/message';
 import { List, Get, Create, Update, Destroy } from '../../@types/agent';
 import * as ocService from '../../services/openclawService';
 
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent';
+}
+
 const list: List = async (req, res, next) => {
   try {
     const { page = 0, limit = 40, sortField = 'createdAt', sortType = 'desc' } = req.query;
@@ -15,7 +19,7 @@ const list: List = async (req, res, next) => {
 
     if (req.query.search) {
       const search = req.query.search as string;
-      if (!isNaN(Number(search))) {
+      if (!Number.isNaN(Number(search))) {
         qb.andWhere('agent._id = :id', { id: Number(search) });
       } else {
         qb.andWhere('agent.name LIKE :s', { s: `%${search}%` });
@@ -108,10 +112,6 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-function toSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent';
-}
-
 const sync: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -135,7 +135,7 @@ const sync: RequestHandler = async (req, res, next) => {
             name: a.name,
             openclawAgentId: a.agentId,
             createdBy: req.user!._id,
-            createdAt: new Date(),
+            createdAt: a.createdAt,
           })),
         );
         syncedAgents = newAgents.length;
@@ -144,52 +144,48 @@ const sync: RequestHandler = async (req, res, next) => {
 
     // Phase 2: Sync conversations (skip JSONL parsing for first messages)
     const allAgents = await agentRepo.find();
-    let syncedConversations = 0;
 
-    for (const agent of allAgents) {
-      try {
-        const sessions = ocService.listSessions(agent.openclawAgentId, true);
-        if (!sessions.length) continue;
+    const convResults = await Promise.allSettled(allAgents.map(async (agent) => {
+      const sessions = ocService.listSessions(agent.openclawAgentId, true);
+      if (!sessions.length) return 0;
 
-        const existingConvs = await convRepo.find({
-          where: {
+      const existingConvs = await convRepo.find({
+        where: {
+          agentId: agent._id,
+          sessionKey: In(sessions.map((s) => s.sessionKey)),
+        },
+      });
+      const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
+
+      const newSessions = sessions.filter((s) => !existingByKey.get(s.sessionKey));
+      if (newSessions.length) {
+        await convRepo.save(
+          newSessions.map((s) => convRepo.create({
             agentId: agent._id,
-            sessionKey: In(sessions.map((s) => s.sessionKey)),
-          },
-        });
-        const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
-
-        const newSessions = sessions.filter((s) => !existingByKey.get(s.sessionKey));
-        if (newSessions.length) {
-          await convRepo.save(
-            newSessions.map((s) => convRepo.create({
-              agentId: agent._id,
-              sessionKey: s.sessionKey,
-              title: s.label || null,
-              createdBy: req.user!._id,
-              createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
-            })),
-          );
-          syncedConversations += newSessions.length;
-        }
-
-        // Update titles for conversations that don't have one yet
-        for (const s of sessions) {
-          const existing = existingByKey.get(s.sessionKey);
-          if (existing && !existing.title && s.label) {
-            await convRepo.update(existing._id, { title: s.label });
-          }
-        }
-      } catch {
-        // skip agents whose sessions can't be read
+            sessionKey: s.sessionKey,
+            title: s.label || null,
+            createdBy: req.user!._id,
+            createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+          })),
+        );
       }
-    }
+
+      const titleUpdates = sessions
+        .map((s) => ({ session: s, existing: existingByKey.get(s.sessionKey) }))
+        .filter(({ session, existing }) => existing && !existing.title && session.label);
+      await Promise.all(
+        titleUpdates.map(({ session, existing }) => convRepo.update(existing!._id, { title: session.label })),
+      );
+
+      return newSessions.length;
+    }));
+    const syncedConversations = convResults
+      .reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
 
     // Phase 3: Sync messages (only for conversations missing messages)
     const allConversations = await convRepo.find({
       where: { sessionKey: Not(IsNull()) },
     });
-    let syncedMessages = 0;
 
     const agentMap = new Map(allAgents.map((a) => [a._id, a]));
 
@@ -205,45 +201,43 @@ const sync: RequestHandler = async (req, res, next) => {
       .getRawMany();
     const countMap = new Map(msgCounts.map((r) => [r.conversationId, Number(r.cnt)]));
 
-    for (const conv of allConversations) {
-      try {
-        const agent = agentMap.get(conv.agentId);
-        if (!agent) continue;
+    const msgResults = await Promise.allSettled(allConversations.map(async (conv) => {
+      const agent = agentMap.get(conv.agentId);
+      if (!agent) return 0;
 
-        const openclawMessages = ocService.getSessionMessages(agent.openclawAgentId, conv.sessionKey!);
-        const validMessages = openclawMessages.filter((m) => m.externalId);
-        if (!validMessages.length) continue;
+      const openclawMessages = ocService.getSessionMessages(agent.openclawAgentId, conv.sessionKey!);
+      const validMessages = openclawMessages.filter((m) => m.externalId);
+      if (!validMessages.length) return 0;
 
-        const dbCount = countMap.get(conv._id) || 0;
-        if (dbCount >= validMessages.length) continue;
+      const dbCount = countMap.get(conv._id) || 0;
+      if (dbCount >= validMessages.length) return 0;
 
-        const existingIds = new Set(
-          (await msgRepo.find({
-            where: { conversationId: conv._id },
-            select: ['externalId'],
-          })).map((m) => m.externalId),
-        );
+      const existingIds = new Set(
+        (await msgRepo.find({
+          where: { conversationId: conv._id },
+          select: ['externalId'],
+        })).map((m) => m.externalId),
+      );
 
-        const toInsert = validMessages.filter((m) => !existingIds.has(m.externalId));
-        if (!toInsert.length) continue;
+      const toInsert = validMessages.filter((m) => !existingIds.has(m.externalId));
+      if (!toInsert.length) return 0;
 
-        await msgRepo.save(
-          toInsert.map((m) => msgRepo.create({
-            conversationId: conv._id,
-            externalId: m.externalId,
-            text: m.text,
-            thinking: m.thinking || null,
-            files: [],
-            role: m.role as MessageRole,
-            createdBy: req.user!._id,
-            createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
-          })),
-        );
-        syncedMessages += toInsert.length;
-      } catch {
-        // skip conversations whose messages can't be read
-      }
-    }
+      await msgRepo.save(
+        toInsert.map((m) => msgRepo.create({
+          conversationId: conv._id,
+          externalId: m.externalId,
+          text: m.text,
+          thinking: m.thinking || null,
+          files: [],
+          role: m.role as MessageRole,
+          createdBy: req.user!._id,
+          createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
+        })),
+      );
+      return toInsert.length;
+    }));
+    const syncedMessages = msgResults
+      .reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
 
     return res.json({ syncedAgents, syncedConversations, syncedMessages });
   } catch (error) {

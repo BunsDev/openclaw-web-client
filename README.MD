@@ -64,7 +64,7 @@ On first startup, a default admin user is created:
 | Command         | Description                                                          |
 |-----------------|----------------------------------------------------------------------|
 | `npm run dev`   | Install deps + start API (nodemon) and Client (Vite) in dev mode     |
-| `npm start`     | Install deps + build both + run in production mode                   |
+| `npm start`     | Build, deploy to `~/.openclaw_client/`, run detached in production   |
 | `npm run stop`  | Kill processes on ports 18800/18802                                  |
 | `npm run setup` | Only generate `api/.env` (no start)                                  |
 
@@ -74,7 +74,7 @@ On first startup, a default admin user is created:
 npm run stop
 ```
 
-Or press `Ctrl+C` in the terminal running `dev` or `start` — both services shut down together.
+Or press `Ctrl+C` in the terminal running `dev`.
 
 ## Configuration
 
@@ -92,3 +92,23 @@ Generated automatically on first run in `api/.env` (see `api/.env.example` for r
 The client uses `VITE_API_BASE_URL` (defaults to `http://localhost:18802/api`). Set it in `client/.env` if deploying to a different host.
 
 To regenerate secrets, delete `api/.env` and run `npm run dev` or `npm run setup` again.
+
+### Production Layout
+
+When running `npm start`, built artifacts are deployed to `~/.openclaw_client/`:
+
+```
+~/.openclaw_client/
+├── api/
+│   ├── build/          # Compiled API (JavaScript)
+│   ├── node_modules/   # Production dependencies only
+│   └── .env            # Auto-generated on first deploy
+├── client/
+│   ├── dist/           # Built static frontend
+│   └── serve.mjs       # Lightweight static file server
+├── data/
+│   └── openclaw.sqlite # SQLite database
+└── openclaw.log        # Combined log output
+```
+
+The source directory is only needed for building. Production processes run entirely from `~/.openclaw_client/`.

@@ -394,7 +394,7 @@ export function isAllowedWorkspaceFilename(name: string): boolean {
   return typeof name === 'string' && WORKSPACE_MARKDOWN_FILES.includes(name);
 }
 
-export function listAgents(): { agentId: string; name: string }[] {
+export function listAgents(): { agentId: string; name: string; createdAt: Date }[] {
   const agentsDir = path.join(OPENCLAW_HOME, 'agents');
   if (!fs.existsSync(agentsDir)) return [];
 
@@ -412,7 +412,8 @@ export function listAgents(): { agentId: string; name: string }[] {
             name = identity.name || aid;
           } catch { /* keep agentId as name */ }
         }
-        return { agentId: aid, name };
+        const stat = fs.statSync(path.join(agentsDir, aid));
+        return { agentId: aid, name, createdAt: stat.birthtime };
       });
   } catch {
     return [];

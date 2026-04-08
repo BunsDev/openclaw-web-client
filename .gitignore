@@ -4,5 +4,6 @@ api/.env
 node_modules/
 api/data/
 api/build/
+client/dist/
 api/src/public/uploads/
 openclaw.log
