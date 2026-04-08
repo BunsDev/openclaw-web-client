@@ -11,33 +11,14 @@ A web-based chat interface for [OpenClaw](https://openclaw.ai) AI agents. Create
 - **File uploads** — Attach files to messages; files are saved directly to the agent's workspace for context-aware responses.
 - **Conversation management** — Multiple conversations per agent, editable titles, searchable sidebar.
 - **User authentication** — JWT-based auth with a default admin account created on first run.
+- **Theming** — 14 built-in color themes with a sidebar picker.
 
-## Architecture
-
-```
-┌─── Docker ─────────────────────────────┐
-│  Client (React)       → localhost:18800│
-│  API (Express/Node)   → localhost:18802│
-│  MongoDB              → localhost:27017│
-└─────────────────────────┬──────────────┘
-                          │
-              ┌───────────▼───────────┐
-              │  Proxy (host:18801)   │
-              │  spawns openclaw CLI  │
-              └───────────────────────┘
-```
-
-- **Client** — React 19 + Vite + Material UI + Redux Toolkit Query
-- **API** — Express + TypeScript + Mongoose
-- **MongoDB** — Data store for users, agents, conversations, and messages
-- **Proxy** — Lightweight Express server that runs on the host and executes OpenClaw CLI commands
-
-The proxy runs on the host (not in Docker) so it can access the locally installed OpenClaw CLI and your `~/.openclaw` configuration.
+- **Client** — React 19 + Vite + Material UI + Redux Toolkit Query, organized with [Feature-Sliced Design](https://feature-sliced.design/)
+- **API** — Express + TypeScript + TypeORM + SQLite — single server that also handles OpenClaw gateway communication and CLI execution
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
-- [Node.js](https://nodejs.org/) 18+ (for the proxy)
+- [Node.js](https://nodejs.org/) 18+
 - [OpenClaw CLI](https://openclaw.ai) installed and authenticated on your machine
 
 Verify OpenClaw is set up:
@@ -52,24 +33,24 @@ openclaw auth status
 ```bash
 git clone https://github.com/lotsoftick/openclaw_client.git
 cd openclaw_client
-npm start
+npm run start
 ```
 
-That's it. On first run it will automatically:
+On first run it will automatically:
 
-1. Generate environment files (`.env`, `api/.env`) with random secrets
-2. Install proxy dependencies
-3. Start Docker containers (client, API, MongoDB)
-4. Start the OpenClaw proxy on the host
+1. Generate `api/.env` with a random JWT secret and default settings
+2. Install API and client dependencies
+3. Start both services with hot reload (API via nodemon, client via Vite)
 
 Once running:
 
-| Service  | URL                        |
-|----------|----------------------------|
-| Client   | http://localhost:18800     |
-| API      | http://localhost:18802     |
+| Service  | URL                            |
+|----------|--------------------------------|
+| Client   | http://localhost:18800          |
+| API      | http://localhost:18802          |
 | API Docs | http://localhost:18802/api/docs |
-| Proxy    | http://localhost:18801     |
+
+> **Note:** API Docs (Swagger) are only available in development mode (`npm run dev`).
 
 ## Default Login
 
@@ -78,50 +59,36 @@ On first startup, a default admin user is created:
 - **Email:** `admin@admin.com`
 - **Password:** `123456`
 
+## npm Scripts
+
+| Command         | Description                                                          |
+|-----------------|----------------------------------------------------------------------|
+| `npm run dev`   | Install deps + start API (nodemon) and Client (Vite) in dev mode     |
+| `npm start`     | Install deps + build both + run in production mode                   |
+| `npm run stop`  | Kill processes on ports 18800/18802                                  |
+| `npm run setup` | Only generate `api/.env` (no start)                                  |
+
 ## Stopping
 
 ```bash
-npm stop
+npm run stop
 ```
 
-This stops all Docker containers and kills the proxy process.
+Or press `Ctrl+C` in the terminal running `dev` or `start` — both services shut down together.
 
 ## Configuration
 
 ### Environment Variables
 
-Generated automatically on first run:
+Generated automatically on first run in `api/.env` (see `api/.env.example` for reference):
 
-**`api/.env`**
-| Variable     | Description                          |
-|--------------|--------------------------------------|
-| `NODE_ENV`   | Environment mode (`development`)     |
-| `JWT_SECRET` | Random secret for JWT signing        |
-| `MONGO_LINK` | MongoDB connection string with auth  |
+| Variable           | Default                        | Description                              |
+|--------------------|--------------------------------|------------------------------------------|
+| `NODE_ENV`         | `development`                  | Environment mode                         |
+| `JWT_SECRET`       | *(random)*                     | Secret for JWT signing                   |
+| `DB_PATH`          | `./data/openclaw.sqlite`       | Path to SQLite database file             |
+| `ALLOWED_DOMAIN`   | `http://localhost:18800`       | CORS allowed origin(s), comma-separated  |
 
-**`.env`** (project root — used by Docker Compose)
-| Variable         | Description              |
-|------------------|--------------------------|
-| `MONGO_USER`     | MongoDB root username    |
-| `MONGO_PASSWORD` | MongoDB root password    |
+The client uses `VITE_API_BASE_URL` (defaults to `http://localhost:18802/api`). Set it in `client/.env` if deploying to a different host.
 
-To regenerate secrets, delete both env files and run `npm start` again.
-
-### Proxy Environment Variables
-
-Optional — set before running `proxy.js`:
-
-| Variable        | Default                    | Description                     |
-|-----------------|----------------------------|---------------------------------|
-| `PROXY_PORT`    | `18801`                    | Port the proxy listens on       |
-| `OPENCLAW_HOME` | `~/.openclaw`              | Path to OpenClaw config directory |
-
-### npm Scripts
-
-| Command     | Description                          |
-|-------------|--------------------------------------|
-| `npm start` | Build images + run containers + proxy (fast after first build) |
-| `npm stop`  | Stop all containers + proxy          |
-| `npm run setup` | Only generate env files (no start) |
-
-
+To regenerate secrets, delete `api/.env` and run `npm run dev` or `npm run setup` again.

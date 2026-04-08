@@ -52,7 +52,7 @@ paths:
         - bearerAuth: []
       operationId: createAgent
       summary: Create a new agent
-      description: Creates an agent and registers it with the OpenClaw proxy.
+      description: Creates an agent and registers it with the OpenClaw gateway.
       requestBody:
         required: true
         content:
@@ -81,7 +81,7 @@ paths:
       operationId: getAgent
       summary: Get an agent by ID
       parameters:
-        - $ref: '#/components/parameters/objectId'
+        - $ref: '#/components/parameters/id'
       responses:
         200:
           description: Agent object
@@ -101,7 +101,7 @@ paths:
       operationId: updateAgent
       summary: Update an agent's name
       parameters:
-        - $ref: '#/components/parameters/objectId'
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -131,7 +131,7 @@ paths:
       operationId: deleteAgent
       summary: Soft-delete an agent and its conversations
       parameters:
-        - $ref: '#/components/parameters/objectId'
+        - $ref: '#/components/parameters/id'
       responses:
         200:
           $ref: '#/components/responses/empty'
@@ -145,13 +145,12 @@ paths:
 components:
   ##
   parameters:
-    objectId:
+    id:
       in: path
       name: id
       required: true
       schema:
-        type: string
-        pattern: "^[0-9a-fA-F]{24}$"
+        type: integer
   ##
   schemas:
     #
@@ -159,15 +158,13 @@ components:
       type: object
       properties:
         _id:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         name:
           type: string
         openclawAgentId:
           type: string
         createdBy:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         createdAt:
           type: string
           format: date-time

@@ -1,9 +1,8 @@
-import { Types } from 'mongoose';
 import { RequestHandler } from 'express';
 import { QueryFilters, RequestParams, APIResponse } from './shared';
 
 export type IUser = {
-  _id: Types.ObjectId;
+  _id: number;
   name: string;
   lastName: string;
   password: string;
@@ -27,7 +26,6 @@ export type GetCurentUser = RequestHandler<never, CUser, never, never>;
 export type Login = RequestHandler<never, CUser, UserRequestBody, never>;
 export type Logout = RequestHandler<never, never, never, never>;
 
-// CRUD types for user management
 export type UserFilters = QueryFilters<'name' | 'email' | 'createdAt' | 'updatedAt'>;
 
 export type CreateUserBody = {

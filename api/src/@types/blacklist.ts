@@ -1,8 +1,6 @@
-import { Types } from 'mongoose';
-
 export type IBlackList = {
-  _id: Types.ObjectId;
-  userId: Types.ObjectId;
+  _id: number;
+  userId: number;
   hash: string;
   createdAt: Date;
 };

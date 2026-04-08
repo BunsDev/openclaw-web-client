@@ -1,409 +1,22 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   Box,
   TextField,
   IconButton,
   Typography,
-  Paper,
-  CircularProgress,
-  Collapse,
   Chip,
-  useTheme,
-  Select,
-  MenuItem,
-  type SelectChangeEvent,
+  CircularProgress,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
-import { Send, ExpandMore, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, DeleteOutline, Edit, Check, ContentCopy, Done, Settings, TuneOutlined } from '@mui/icons-material';
-import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation, useGetSessionSettingsQuery, usePatchSessionSettingsMutation } from '../../store';
-import type { Message, MessageFile, MessagesResponse } from '../../store/api/messagesApi';
-import { API_BASE_URL } from '../../store/api/baseApi';
-import DeleteButton from '../../components/DeleteButton';
-import MarkdownContent from '../../components/MarkdownContent';
+import { Send, AttachFile, Close, InsertDriveFileOutlined, ImageOutlined, Edit, Check, Settings, TuneOutlined } from '@mui/icons-material';
+import { useGetMessagesQuery, useGetAgentQuery, useUpdateAgentMutation, useDeleteMessageMutation } from '../../app/store';
+import type { MessageFile, MessagesResponse } from '../../entities/message/api';
+import { API_BASE_URL, baseApi } from '../../shared/api/baseApi';
+import { useAppDispatch } from '../../app/store/hooks';
+import MessageBubble from './MessageBubble';
+import SessionSettingsBar from './SessionSettingsBar';
 
 const API_BASE = API_BASE_URL;
-
-function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!text) return null;
-
-  return (
-    <Box sx={{ mb: 0.5 }}>
-      <Box
-        onClick={() => setExpanded(!expanded)}
-        sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          cursor: 'pointer',
-          gap: 0.3,
-          opacity: 0.6,
-          '&:hover': { opacity: 0.9 },
-        }}
-      >
-        <ExpandMore
-          sx={{
-            fontSize: 14,
-            transition: 'transform 0.2s',
-            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-          }}
-        />
-        <Typography
-          variant="caption"
-          sx={{ fontStyle: 'italic', fontWeight: 500, fontSize: '0.7rem' }}
-        >
-          {isStreaming ? 'Thinking...' : 'Thought process'}
-        </Typography>
-      </Box>
-      <Collapse in={expanded}>
-        <Box
-          sx={{
-            mt: 0.5,
-            pl: 1.5,
-            borderLeft: '2px solid',
-            borderColor: 'divider',
-            fontStyle: 'italic',
-            fontSize: '11px',
-            color: 'text.secondary',
-            '& *': { fontSize: 'inherit' },
-          }}
-        >
-          <MarkdownContent isStreaming={isStreaming}>{text}</MarkdownContent>
-        </Box>
-      </Collapse>
-    </Box>
-  );
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function FileAttachments({ files, isUser }: { files: MessageFile[]; isUser: boolean }) {
-  const theme = useTheme();
-  const { userText } = theme.palette.chat;
-  if (!files?.length) return null;
-  return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 0.5 }}>
-      {files.map((f) => {
-        const isImage = f.mimetype.startsWith('image/');
-        const fileUrl = f.url.startsWith('blob:') || f.url.startsWith('http')
-          ? f.url
-          : `${API_BASE.replace('/api', '')}${f.url}`;
-        if (isImage) {
-          return (
-            <Box
-              key={f.filename}
-              component="a"
-              href={fileUrl}
-              target="_blank"
-              rel="noopener"
-              sx={{ display: 'block', maxWidth: 200, borderRadius: 1, overflow: 'hidden' }}
-            >
-              <Box
-                component="img"
-                src={fileUrl}
-                alt={f.originalName}
-                sx={{ width: '100%', height: 'auto', display: 'block', maxHeight: 160, objectFit: 'cover' }}
-              />
-            </Box>
-          );
-        }
-        return (
-          <Chip
-            key={f.filename}
-            component="a"
-            href={fileUrl}
-            target="_blank"
-            rel="noopener"
-            icon={<InsertDriveFileOutlined sx={{ fontSize: 14 }} />}
-            label={`${f.originalName} (${formatFileSize(f.size)})`}
-            size="small"
-            clickable
-            sx={{
-              maxWidth: 220,
-              bgcolor: isUser ? alpha(userText, 0.12) : 'background.paper',
-              color: isUser ? userText : 'text.primary',
-              fontSize: '0.72rem',
-            }}
-          />
-        );
-      })}
-    </Box>
-  );
-}
-
-type MessageLike = Message | { text: string; role: string; thinking?: string | null; files?: MessageFile[] };
-
-const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinkingText, messageId, onDelete }: {
-  message: MessageLike;
-  isStreaming?: boolean;
-  thinkingText?: string;
-  messageId?: string;
-  onDelete?: (id: string) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const theme = useTheme();
-  const isUser = message.role === 'user';
-  const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
-  const files = ('files' in message ? message.files : undefined) ?? [];
-  const hasTextContent = message.text && !message.text.startsWith('[Attached ');
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.text || '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: isUser ? 'flex-end' : 'flex-start',
-        mb: 1.5,
-        width: '100%',
-        minWidth: 0,
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <Paper
-        elevation={0}
-        sx={{
-          px: 2,
-          py: 1,
-          minWidth: 0,
-          maxWidth: { xs: '90%', sm: '80%', md: 'min(70%, 100%)' },
-          position: 'relative',
-          bgcolor: isUser ? theme.palette.chat.userBubble : theme.palette.chat.assistantBubble,
-          color: isUser ? theme.palette.chat.userText : 'text.primary',
-          borderRadius: 3,
-          borderTopRightRadius: isUser ? 4 : undefined,
-          borderTopLeftRadius: isUser ? undefined : 4,
-        }}
-      >
-        {hovered && (
-          <Box sx={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 0.25 }}>
-            <IconButton
-              size="small"
-              onClick={handleCopy}
-              sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}
-            >
-              {copied ? <Done sx={{ fontSize: 13, color: 'success.main' }} /> : <ContentCopy sx={{ fontSize: 13 }} />}
-            </IconButton>
-            {onDelete && messageId && (
-              <DeleteButton
-                onConfirm={() => onDelete(messageId)}
-                message="Delete this message?"
-                renderTrigger={(onClick) => (
-                  <IconButton
-                    size="small"
-                    onClick={onClick}
-                    sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' }, p: 0.3 }}
-                  >
-                    <DeleteOutline sx={{ fontSize: 14 }} />
-                  </IconButton>
-                )}
-              />
-            )}
-          </Box>
-        )}
-        {!isUser && thinking && (
-          <ThinkingBlock
-            text={thinking}
-            isStreaming={isStreaming && !message.text}
-          />
-        )}
-        {files.length > 0 && (
-          <FileAttachments
-            files={files}
-            isUser={isUser}
-          />
-        )}
-        {hasTextContent && (
-          isUser ? (
-            <MarkdownContent inheritColor>{message.text!}</MarkdownContent>
-          ) : (
-            <MarkdownContent isStreaming={isStreaming}>{message.text!}</MarkdownContent>
-          )
-        )}
-        {isStreaming && !hasTextContent && (
-          <Box
-            component="span"
-            sx={{
-              display: 'inline-block',
-              width: 6,
-              height: 16,
-              bgcolor: 'text.secondary',
-              animation: 'blink 1s step-end infinite',
-              '@keyframes blink': { '50%': { opacity: 0 } },
-            }}
-          />
-        )}
-        {'createdAt' in message && (
-          <Typography
-            variant="caption"
-            sx={{ opacity: 0.7 }}
-          >
-            {new Date(message.createdAt).toLocaleTimeString()}
-          </Typography>
-        )}
-      </Paper>
-    </Box>
-  );
-});
-
-const THINKING_OPTIONS = ['inherit', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
-const FAST_OPTIONS = [
-  { value: 'inherit', label: 'inherit' },
-  { value: 'true', label: 'on' },
-  { value: 'false', label: 'off' },
-] as const;
-const VERBOSE_OPTIONS = [
-  { value: 'inherit', label: 'inherit' },
-  { value: 'off', label: 'off (explicit)' },
-  { value: 'on', label: 'on' },
-  { value: 'full', label: 'full' },
-] as const;
-const REASONING_OPTIONS = ['inherit', 'off', 'on', 'stream'] as const;
-
-function SettingChip({ label, value, options, onChange }: {
-  label: string;
-  value: string;
-  options: readonly (string | { value: string; label: string })[];
-  onChange: (v: string) => void;
-}) {
-  const isActive = value !== 'inherit';
-  return (
-    <Box
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: '6px',
-        border: '1px solid',
-        borderColor: isActive ? 'primary.main' : 'divider',
-        bgcolor: (t) => isActive ? alpha(t.palette.primary.main, 0.06) : 'transparent',
-        overflow: 'hidden',
-        transition: 'border-color 0.15s, background 0.15s',
-      }}
-    >
-      <Typography
-        sx={{
-          fontSize: '0.68rem',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.03em',
-          color: isActive ? 'primary.main' : 'text.disabled',
-          pl: 1,
-          pr: 0.3,
-          whiteSpace: 'nowrap',
-          userSelect: 'none',
-        }}
-      >
-        {label}
-      </Typography>
-      <Select
-        size="small"
-        value={value}
-        onChange={(e: SelectChangeEvent) => onChange(e.target.value)}
-        variant="standard"
-        disableUnderline
-        sx={{
-          fontSize: '0.72rem',
-          fontWeight: 500,
-          color: isActive ? 'text.primary' : 'text.secondary',
-          minWidth: 40,
-          '& .MuiSelect-select': {
-            py: '2px',
-            pl: '2px',
-            pr: '18px !important',
-          },
-          '& .MuiSvgIcon-root': { fontSize: 14, right: 2, color: 'text.disabled' },
-        }}
-      >
-        {options.map((opt) => {
-          const val = typeof opt === 'string' ? opt : opt.value;
-          const lbl = typeof opt === 'string' ? opt : opt.label;
-          return (
-            <MenuItem
-              key={val}
-              value={val}
-              sx={{ fontSize: '0.75rem', minHeight: 28 }}
-            >
-              {lbl}
-            </MenuItem>
-          );
-        })}
-      </Select>
-    </Box>
-  );
-}
-
-const SessionSettingsBar = memo(function SessionSettingsBar({ agentId, conversationId }: { agentId: string; conversationId: string }) {
-  const { data } = useGetSessionSettingsQuery({ agentId, conversationId }, { skip: !agentId || !conversationId });
-  const [patchSettings] = usePatchSessionSettingsMutation();
-  const settings = data?.settings;
-
-  const handleChange = useCallback((field: string, value: string) => {
-    const body: Record<string, unknown> = {};
-    if (field === 'fastMode') {
-      body[field] = value === 'inherit' ? null : value === 'true';
-    } else {
-      body[field] = value;
-    }
-    patchSettings({ agentId, conversationId, settings: body });
-  }, [agentId, conversationId, patchSettings]);
-
-  const thinking = settings?.thinkingLevel || 'inherit';
-  const fast = settings?.fastMode === true ? 'true' : settings?.fastMode === false ? 'false' : 'inherit';
-  const verbose = settings?.verboseLevel || 'inherit';
-  const reasoning = settings?.reasoningLevel || 'inherit';
-
-  return (
-    <Box
-      sx={{
-        px: { xs: 1.5, md: 2 },
-        py: 0.75,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0.75,
-        flexWrap: 'wrap',
-      }}
-    >
-      <SettingChip
-        label="Thinking"
-        value={thinking}
-        options={THINKING_OPTIONS}
-        onChange={(v) => handleChange('thinkingLevel', v)}
-      />
-      <SettingChip
-        label="Fast"
-        value={fast}
-        options={FAST_OPTIONS}
-        onChange={(v) => handleChange('fastMode', v)}
-      />
-      <SettingChip
-        label="Verbose"
-        value={verbose}
-        options={VERBOSE_OPTIONS}
-        onChange={(v) => handleChange('verboseLevel', v)}
-      />
-      <SettingChip
-        label="Reasoning"
-        value={reasoning}
-        options={REASONING_OPTIONS}
-        onChange={(v) => handleChange('reasoningLevel', v)}
-      />
-    </Box>
-  );
-});
 
 export default function AgentChat() {
   const { agentId, conversationId } = useParams<{ agentId: string; conversationId: string }>();
@@ -430,6 +43,7 @@ export default function AgentChat() {
   );
   const [updateAgent] = useUpdateAgentMutation();
   const [deleteMessage] = useDeleteMessageMutation();
+  const dispatch = useAppDispatch();
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [showSessionSettings, setShowSessionSettings] = useState(false);
@@ -595,6 +209,9 @@ export default function AgentChat() {
       }
 
       await refetch();
+      if (messages.length === 0) {
+        dispatch(baseApi.util.invalidateTags(['Conversation']));
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Stream error:', err);
@@ -607,7 +224,7 @@ export default function AgentChat() {
       abortRef.current = null;
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [text, pendingFiles, conversationId, isStreaming, refetch]);
+  }, [text, pendingFiles, conversationId, isStreaming, refetch, dispatch, messages.length]);
 
   const handleDelete = useCallback((msgId: string) => {
     deleteMessage({ id: msgId, conversationId: conversationId! });

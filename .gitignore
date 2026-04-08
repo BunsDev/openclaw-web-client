@@ -1,6 +1,8 @@
 .env
 api/.env
 .DS_Store
-.proxy.pid
 node_modules/
-proxy/proxy.log
+api/data/
+api/build/
+api/src/public/uploads/
+openclaw.log

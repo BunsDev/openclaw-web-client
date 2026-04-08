@@ -10,13 +10,13 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Visibility, PostAdd } from '@mui/icons-material';
-import MarkdownContent from '../../components/MarkdownContent';
+import MarkdownContent from '../../shared/ui/MarkdownContent';
 import {
   useGetWorkspaceMetaQuery,
   useGetWorkspaceFileQuery,
   useSaveWorkspaceFileMutation,
   WORKSPACE_TAB_FILES,
-} from '../../store/api/agentsApi';
+} from '../../entities/agent/api';
 
 export default function WorkspaceFileTabs({ agentId }: { agentId: string }) {
   const { data: meta } = useGetWorkspaceMetaQuery(agentId);
@@ -253,7 +253,7 @@ export default function WorkspaceFileTabs({ agentId }: { agentId: string }) {
           </Typography>
           {isError ? (
             <Typography color="error" variant="body2">
-              Could not load this file. Check that the OpenClaw proxy is running.
+              Could not load this file. Check that the API server and OpenClaw CLI are running.
             </Typography>
           ) : preview ? (
             <Box

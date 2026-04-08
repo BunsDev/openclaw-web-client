@@ -4,7 +4,6 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv {
       NODE_ENV: 'test' | 'development' | 'production';
-      MONGO_LINK: string;
       JWT_SECRET: string;
       ALLOWED_DOMAIN: string;
     }

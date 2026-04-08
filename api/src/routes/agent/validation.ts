@@ -1,6 +1,8 @@
 import { body, param } from 'express-validator';
 import { List } from '../../@types/agent';
 import validate from '../../middlewares/validator';
+import { AppDataSource } from '../../data-source';
+import { Agent } from '../../entities';
 
 export const WORKSPACE_FILENAMES = [
   'AGENTS.md',
@@ -23,27 +25,32 @@ export default {
   }) as List,
 
   id: validate([
-    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('id').isInt().withMessage('Incorrect request url'),
   ]),
 
   create: validate([
     body('name').notEmpty().withMessage('Please enter the agent name')
-      .isLength({ min: 1, max: 100 }).withMessage('Agent name must contain between 1 and 100 characters'),
+      .isLength({ min: 1, max: 100 }).withMessage('Agent name must contain between 1 and 100 characters')
+      .custom(async (name) => {
+        const agentRepo = AppDataSource.getRepository(Agent);
+        const existing = await agentRepo.findOneBy({ name });
+        if (existing) throw new Error('An agent with this name already exists');
+      }),
   ]),
 
   update: validate([
-    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('id').isInt().withMessage('Incorrect request url'),
     body('name').notEmpty().withMessage('Please enter the agent name')
       .isLength({ min: 1, max: 100 }).withMessage('Agent name must contain between 1 and 100 characters'),
   ]),
 
   workspaceFilename: validate([
-    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('id').isInt().withMessage('Incorrect request url'),
     param('filename').isIn([...WORKSPACE_FILENAMES]).withMessage('Invalid workspace file'),
   ]),
 
   workspacePut: validate([
-    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('id').isInt().withMessage('Incorrect request url'),
     param('filename').isIn([...WORKSPACE_FILENAMES]).withMessage('Invalid workspace file'),
     body('content').isString().withMessage('content is required'),
   ]),

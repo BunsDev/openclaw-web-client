@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import Message from '../../models/message';
-import Conversation from '../../models/conversation';
-import Agent from '../../models/agent';
+import { LessThan } from 'typeorm';
+import { AppDataSource } from '../../data-source';
+import { Message, Conversation, Agent } from '../../entities';
 import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@types/message';
+import * as ocService from '../../services/openclawService';
 
-const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
-const OPENCLAW_PROXY_PUBLIC_URL = process.env.OPENCLAW_PROXY_PUBLIC_URL || 'http://localhost:18801';
+const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:18802';
 
 function stripWrapperTags(text: string): string {
   const TAG = 'final|output|think|thinking|redacted_thinking';
@@ -30,15 +30,18 @@ const listByConversation: ListByConversation = async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit || '', 10) || DEFAULT_PAGE_SIZE, 1), 200);
     const { before } = req.query;
 
-    const filter: Record<string, unknown> = { conversationId };
+    const msgRepo = AppDataSource.getRepository(Message);
+
+    const where: Record<string, unknown> = { conversationId: Number(conversationId) };
     if (before) {
-      filter.createdAt = { $lt: new Date(before) };
+      where.createdAt = LessThan(new Date(before));
     }
 
-    const items = await Message.find(filter)
-      .sort({ createdAt: 'desc' })
-      .limit(limit + 1)
-      .lean();
+    const items = await msgRepo.find({
+      where: where as any,
+      order: { createdAt: 'DESC' },
+      take: limit + 1,
+    });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
@@ -53,9 +56,17 @@ const listByConversation: ListByConversation = async (req, res, next) => {
 
 const create: Create = async (req, res, next) => {
   try {
-    const message = new Message({ ...req.body, role: 'user', createdBy: req.user!._id, createdAt: new Date() });
-    const saved = await message.save();
-    return res.json(saved);
+    const msgRepo = AppDataSource.getRepository(Message);
+    const message = msgRepo.create({
+      conversationId: Number(req.body.conversationId),
+      text: req.body.text || '',
+      role: 'user' as const,
+      createdBy: req.user!._id,
+      createdAt: new Date(),
+    });
+    const saved = await msgRepo.save(message);
+    const { deletedAt: _d, ...result } = saved;
+    return res.json(result);
   } catch (error) {
     return next(error);
   }
@@ -66,12 +77,16 @@ const chat: Chat = async (req, res, next) => {
     const { conversationId, text } = req.body;
     const uploadedFiles = (req.files as Express.Multer.File[]) || [];
 
-    const conv = await Conversation.findById(conversationId).lean();
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const msgRepo = AppDataSource.getRepository(Message);
+
+    const conv = await convRepo.findOneBy({ _id: Number(conversationId) });
     if (!conv) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    const agent = await Agent.findById(conv.agentId).lean();
+    const agent = await agentRepo.findOneBy({ _id: conv.agentId });
     const agentIdForFiles = agent?.openclawAgentId || 'main';
 
     const files: MessageFile[] = uploadedFiles.map((f) => ({
@@ -79,181 +94,118 @@ const chat: Chat = async (req, res, next) => {
       originalName: f.originalname,
       mimetype: f.mimetype,
       size: f.size,
-      url: `${OPENCLAW_PROXY_PUBLIC_URL}/api/agents/${encodeURIComponent(agentIdForFiles)}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
+      url: `${API_PUBLIC_URL}/api/agent/${conv.agentId}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
     }));
 
-    const userMessage = new Message({
-      conversationId,
+    const userMessage = msgRepo.create({
+      conversationId: Number(conversationId),
       text: text || (files.length ? `[Attached ${files.length} file(s)]` : ''),
       files,
-      role: 'user',
+      role: 'user' as const,
       createdBy: req.user!._id,
       createdAt: new Date(),
     });
-    await userMessage.save();
+    const savedUser = await msgRepo.save(userMessage);
 
     const isFirstMessage = !conv.title && !!text;
     if (isFirstMessage) {
-      await Conversation.findByIdAndUpdate(conversationId, { title: text.slice(0, 200) });
+      await convRepo.update(Number(conversationId), { title: text.slice(0, 200) });
     }
 
-    const formData = new FormData();
-    if (text) formData.append('message', text);
-    formData.append('sessionKey', conv.sessionKey || String(conv._id));
-    formData.append('openclawAgentId', agent?.openclawAgentId || 'main');
+    const filePaths = uploadedFiles.map((uf) =>
+      ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname),
+    );
 
-    uploadedFiles.forEach((uf) => {
-      const fileBuffer = fs.readFileSync(uf.path);
-      const blob = new Blob([fileBuffer], { type: uf.mimetype });
-      formData.append('files', blob, uf.originalname);
+    const sessionKey = conv.sessionKey || String(conv._id);
+
+    // Set up SSE headers and stream via the service
+    await ocService.runChat(
+      agentIdForFiles,
+      text || '',
+      sessionKey,
+      filePaths,
+      res,
+    );
+
+    // runChat will have already ended the response via SSE.
+    // Post-stream work: save assistant message and link externalIds.
+    // Since runChat uses event listeners and resolves when done,
+    // we need a different approach. The SSE is handled by the service
+    // and the response is ended there. We handle post-stream in a
+    // "response finish" listener.
+
+    // Wait for the response to finish before doing post-stream work
+    await new Promise<void>((resolve) => {
+      res.on('finish', resolve);
+      res.on('close', resolve);
     });
-
-    const upstream = await fetch(`${OPENCLAW_PROXY_URL}/api/chat/stream`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      const errorText = await upstream.text();
-      return res.status(upstream.status).json({
-        error: 'OpenClaw stream failed',
-        details: errorText,
-      });
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '';
-    let fullThinking = '';
-    let lineBuf = '';
-
-    const processLine = (line: string) => {
-      if (!line.startsWith('data: ')) return;
-      const jsonStr = line.slice(6).trim();
-      if (!jsonStr || jsonStr === '[DONE]') return;
-      try {
-        const event = JSON.parse(jsonStr);
-        if (event.type === 'response.output_text.delta' && event.delta) {
-          fullText += event.delta;
-        } else if (event.type === 'response.thinking.delta' && event.delta) {
-          fullThinking += event.delta;
-        }
-      } catch {
-        // skip malformed lines
-      }
-    };
-
-    const parseChunk = (chunk: string) => {
-      lineBuf += chunk;
-      const parts = lineBuf.split('\n');
-      lineBuf = parts.pop()!;
-      parts.forEach(processLine);
-    };
-
-    const pump = (): Promise<void> => reader.read().then(({ done, value }) => {
-      if (done) {
-        if (lineBuf.trim()) processLine(lineBuf);
-        return undefined;
-      }
-      const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk);
-      parseChunk(chunk);
-      return pump();
-    });
-
-    await pump();
-
-    const agentIdForProxy = agent?.openclawAgentId || 'main';
-    const convKey = conv.sessionKey || String(conv._id);
 
     if (!conv.sessionKey) {
-      await Conversation.findByIdAndUpdate(conversationId, { sessionKey: convKey });
+      await convRepo.update(Number(conversationId), { sessionKey });
     }
 
     if (isFirstMessage) {
-      fetch(`${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(convKey)}/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: text!.slice(0, 200) }),
-      }).catch(() => {});
+      ocService.patchSessionSettings(agentIdForFiles, sessionKey, { label: text!.slice(0, 200) }).catch(() => {});
     }
 
-    const assistantText = stripWrapperTags(fullText).trim();
-    const assistantThinking = fullThinking ? stripWrapperTags(fullThinking).trim() : '';
-
-    let assistantMsgId: string | null = null;
-
-    if (assistantText || assistantThinking) {
-      try {
-        const assistantMessage = new Message({
-          conversationId,
-          text: assistantText || '...',
-          thinking: assistantThinking || null,
-          role: 'assistant',
-          createdBy: req.user!._id,
-          createdAt: new Date(),
-        });
-        const saved = await assistantMessage.save();
-        assistantMsgId = String(saved._id);
-      } catch (saveErr) {
-        console.error('[chat] failed to save assistant message:', saveErr);
-      }
-    } else {
-      console.warn('[chat] stream ended with empty text/thinking, assistant message not saved');
-    }
-
+    // Fetch messages from JSONL to get externalIds
     try {
-      const msgRes = await fetch(
-        `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agentIdForProxy)}/sessions/${encodeURIComponent(convKey)}/messages`,
-      );
-      if (msgRes.ok) {
-        const { messages: jsonlMessages } = await msgRes.json() as {
-          ok: boolean;
-          messages: { externalId: string; role: string; text: string }[];
-        };
-        if (jsonlMessages?.length) {
-          const lastUserJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'user');
-          const lastAssistantJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'assistant');
+      const jsonlMessages = ocService.getSessionMessages(agentIdForFiles, sessionKey);
+      if (jsonlMessages.length) {
+        const lastUserJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'user');
+        const lastAssistantJsonl = [...jsonlMessages].reverse().find((m) => m.role === 'assistant');
 
-          if (lastUserJsonl?.externalId) {
-            await Message.findByIdAndUpdate(userMessage._id, { externalId: lastUserJsonl.externalId });
-          }
-          if (lastAssistantJsonl?.externalId && assistantMsgId) {
-            await Message.findByIdAndUpdate(assistantMsgId, { externalId: lastAssistantJsonl.externalId });
+        if (lastUserJsonl?.externalId) {
+          await msgRepo.update(savedUser._id, { externalId: lastUserJsonl.externalId });
+        }
+
+        // Save assistant message from JSONL
+        if (lastAssistantJsonl) {
+          const assistantText = stripWrapperTags(lastAssistantJsonl.text).trim();
+          const assistantThinking = lastAssistantJsonl.thinking
+            ? stripWrapperTags(lastAssistantJsonl.thinking).trim()
+            : null;
+
+          if (assistantText || assistantThinking) {
+            const assistantMessage = msgRepo.create({
+              conversationId: Number(conversationId),
+              externalId: lastAssistantJsonl.externalId || null,
+              text: assistantText || '...',
+              thinking: assistantThinking || null,
+              role: 'assistant' as const,
+              createdBy: req.user!._id,
+              createdAt: new Date(),
+            });
+            await msgRepo.save(assistantMessage);
           }
         }
       }
     } catch {
-      // Non-critical — sync will still work, just can't deduplicate this pair
+      // Non-critical
     }
-
-    return res.end();
   } catch (error) {
     if (!res.headersSent) {
       return next(error);
     }
-    return res.end();
   }
 };
 
 const destroy: Destroy = async (req, res, next) => {
   try {
-    const msg = await Message.findById(req.params.id).lean();
-    await Message.findByIdAndUpdate(req.params.id, { deletedAt: new Date() });
+    const msgRepo = AppDataSource.getRepository(Message);
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const id = Number(req.params.id);
+
+    const msg = await msgRepo.findOneBy({ _id: id });
+    await msgRepo.softDelete(id);
 
     if (msg?.externalId && msg.conversationId) {
-      const conv = await Conversation.findById(msg.conversationId).lean();
+      const conv = await convRepo.findOneBy({ _id: msg.conversationId });
       if (conv?.sessionKey) {
-        const agent = await Agent.findById(conv.agentId).lean();
+        const agent = await agentRepo.findOneBy({ _id: conv.agentId });
         if (agent?.openclawAgentId) {
-          const delUrl = `${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}`
-            + `/sessions/${encodeURIComponent(conv.sessionKey)}`
-            + `/messages/${encodeURIComponent(msg.externalId)}`;
-          fetch(delUrl, { method: 'DELETE' }).catch(() => {});
+          ocService.deleteSessionMessage(agent.openclawAgentId, conv.sessionKey, msg.externalId);
         }
       }
     }

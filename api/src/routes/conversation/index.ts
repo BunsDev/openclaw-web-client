@@ -5,21 +5,25 @@ import auth from '../../middlewares/auth';
 
 const router = Router();
 
-router.route('/conversation/agent/:agentId([0-9a-fA-F]{24})')
+router.route('/conversation')
   .get(
     auth,
-    validate.agentId,
-    controller.listByAgent,
-  );
-
-router.route('/conversation')
+    controller.listAll,
+  )
   .post(
     auth,
     validate.create,
     controller.create,
   );
 
-router.route('/conversation/:id([0-9a-fA-F]{24})')
+router.route('/conversation/agent/:agentId(\\d+)')
+  .get(
+    auth,
+    validate.agentId,
+    controller.listByAgent,
+  );
+
+router.route('/conversation/:id(\\d+)')
   .patch(
     auth,
     validate.update,

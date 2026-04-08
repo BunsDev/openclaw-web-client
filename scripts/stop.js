@@ -1,57 +1,19 @@
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PID_FILE = path.join(ROOT, '.proxy.pid');
+const PORTS = [18800, 18802];
 
-const CONTAINERS = ['openclaw-mongo', 'openclaw-api', 'openclaw-client'];
-const NETWORK = 'openclaw-net';
+console.log('Stopping openclaw services...\n');
 
-function runSilent(cmd, args = []) {
-  try { execFileSync(cmd, args, { cwd: ROOT, stdio: 'ignore' }); } catch { /* ignore */ }
-}
-
-console.log('Stopping openclaw client...\n');
-
-console.log('Stopping Docker containers...');
-for (const name of CONTAINERS) {
-  runSilent('docker', ['rm', '-f', name]);
-}
-
-runSilent('docker', ['network', 'rm', NETWORK]);
-console.log('Docker containers stopped.');
-
-runSilent('docker', ['compose', 'down']);
-
-console.log('\nStopping OpenClaw proxy...');
-if (fs.existsSync(PID_FILE)) {
+for (const port of PORTS) {
   try {
-    const pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8').trim(), 10);
-    process.kill(pid);
-    console.log('Proxy stopped.');
-  } catch {
-    console.log('Proxy was not running.');
-  }
-  fs.unlinkSync(PID_FILE);
-} else {
-  try {
-    execFileSync('pkill', ['-f', 'node proxy.js'], { stdio: 'ignore' });
-    console.log('Proxy stopped.');
-  } catch {
-    console.log('Proxy was not running.');
-  }
-}
-
-try {
-  const pids = execFileSync('lsof', ['-ti', ':18801'], { encoding: 'utf-8' }).trim();
-  if (pids) {
-    for (const pid of pids.split('\n')) {
-      try { process.kill(parseInt(pid, 10), 'SIGKILL'); } catch { /* already gone */ }
+    const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
+    if (pids) {
+      for (const pid of pids.split('\n')) {
+        try { process.kill(parseInt(pid, 10)); } catch { /* already gone */ }
+      }
+      console.log(`Stopped process on port ${port}.`);
     }
-    console.log('Freed port 18801.');
-  }
-} catch { /* port already free */ }
+  } catch { /* port already free */ }
+}
 
 console.log('\nAll services stopped.');

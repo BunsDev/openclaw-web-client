@@ -15,7 +15,7 @@ components:
   ##
   responses:
     empty:
-      description: successfull empty responce
+      description: successful empty response
       content:
         application/json: {}
     500:

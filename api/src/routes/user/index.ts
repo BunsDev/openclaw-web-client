@@ -17,7 +17,7 @@ router.route('/user')
     controller.create,
   );
 
-router.route('/user/:id([0-9a-fA-F]{24})')
+router.route('/user/:id(\\d+)')
   .get(
     auth,
     validate.id,

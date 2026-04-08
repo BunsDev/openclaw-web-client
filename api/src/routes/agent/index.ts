@@ -23,14 +23,14 @@ router.route('/agent/sync')
     controller.sync,
   );
 
-router.route('/agent/:id([0-9a-fA-F]{24})/workspace')
+router.route('/agent/:id(\\d+)/workspace')
   .get(
     auth,
     validate.id,
     controller.workspaceMeta,
   );
 
-router.route('/agent/:id([0-9a-fA-F]{24})/workspace/file/:filename')
+router.route('/agent/:id(\\d+)/workspace/file/:filename')
   .get(
     auth,
     validate.workspaceFilename,
@@ -42,7 +42,12 @@ router.route('/agent/:id([0-9a-fA-F]{24})/workspace/file/:filename')
     controller.putWorkspaceFile,
   );
 
-router.route('/agent/:id([0-9a-fA-F]{24})/conversation/:conversationId([0-9a-fA-F]{24})/session-settings')
+router.route('/agent/:id(\\d+)/workspace/uploads/:filename')
+  .get(
+    controller.serveWorkspaceUpload,
+  );
+
+router.route('/agent/:id(\\d+)/conversation/:conversationId(\\d+)/session-settings')
   .get(
     auth,
     controller.getSessionSettings,
@@ -52,7 +57,7 @@ router.route('/agent/:id([0-9a-fA-F]{24})/conversation/:conversationId([0-9a-fA-
     controller.patchSessionSettings,
   );
 
-router.route('/agent/:id([0-9a-fA-F]{24})')
+router.route('/agent/:id(\\d+)')
   .get(
     auth,
     validate.id,

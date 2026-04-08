@@ -1,15 +1,25 @@
-import Conversation from '../../models/conversation';
-import Agent from '../../models/agent';
-import Message from '../../models/message';
-import { ListByAgent, Create, Update, Destroy } from '../../@types/conversation';
+import { AppDataSource } from '../../data-source';
+import { Agent, Conversation, Message } from '../../entities';
+import { ListAll, ListByAgent, Create, Update, Destroy } from '../../@types/conversation';
+import * as ocService from '../../services/openclawService';
 
-const OPENCLAW_PROXY_URL = process.env.OPENCLAW_PROXY_URL || 'http://localhost:18801';
+const listAll: ListAll = async (req, res, next) => {
+  try {
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const items = await convRepo.find({ order: { createdAt: 'DESC' } });
+    return res.json({ total: items.length, items });
+  } catch (error) {
+    return next(error);
+  }
+};
 
 const listByAgent: ListByAgent = async (req, res, next) => {
   try {
-    const items = await Conversation.find({ agentId: req.params.agentId })
-      .sort({ createdAt: 'desc' })
-      .lean();
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const items = await convRepo.find({
+      where: { agentId: Number(req.params.agentId) },
+      order: { createdAt: 'DESC' },
+    });
 
     return res.json({ total: items.length, items });
   } catch (error) {
@@ -19,15 +29,16 @@ const listByAgent: ListByAgent = async (req, res, next) => {
 
 const create: Create = async (req, res, next) => {
   try {
-    const conversation = new Conversation({
-      agentId: req.body.agentId,
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const conversation = convRepo.create({
+      agentId: Number(req.body.agentId),
       createdBy: req.user!._id,
       createdAt: new Date(),
     });
-    // Set sessionKey to the conversation's own id so the sync can always match it.
-    conversation.sessionKey = String(conversation._id);
-    const saved = await conversation.save();
-    return res.json(saved);
+    const saved = await convRepo.save(conversation);
+    saved.sessionKey = String(saved._id);
+    const updated = await convRepo.save(saved);
+    return res.json(updated);
   } catch (error) {
     return next(error);
   }
@@ -35,21 +46,22 @@ const create: Create = async (req, res, next) => {
 
 const update: Update = async (req, res, next) => {
   try {
-    const conversation = await Conversation.findByIdAndUpdate(
-      req.params.id,
-      { title: req.body.title },
-      { new: true },
-    ).lean();
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const id = Number(req.params.id);
+
+    await convRepo.update(id, { title: req.body.title });
+    const conversation = await convRepo.findOneBy({ _id: id });
     if (!conversation) return res.status(404).json(null);
 
     if (conversation.sessionKey) {
-      const agent = await Agent.findById(conversation.agentId).lean();
+      const agentRepo = AppDataSource.getRepository(Agent);
+      const agent = await agentRepo.findOneBy({ _id: conversation.agentId });
       if (agent?.openclawAgentId) {
-        fetch(`${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions/${encodeURIComponent(conversation.sessionKey)}/settings`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: req.body.title || null }),
-        }).catch(() => {});
+        ocService.patchSessionSettings(
+          agent.openclawAgentId,
+          conversation.sessionKey,
+          { label: req.body.title || null },
+        ).catch(() => {});
       }
     }
 
@@ -61,16 +73,23 @@ const update: Update = async (req, res, next) => {
 
 const destroy: Destroy = async (req, res, next) => {
   try {
-    const conv = await Conversation.findById(req.params.id).lean();
-    await Conversation.findByIdAndUpdate(req.params.id, { deletedAt: new Date() });
-    await Message.updateMany({ conversationId: req.params.id }, { deletedAt: new Date() });
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const msgRepo = AppDataSource.getRepository(Message);
+    const id = Number(req.params.id);
+
+    const conv = await convRepo.findOneBy({ _id: id });
+    await convRepo.softDelete(id);
+    await msgRepo.createQueryBuilder()
+      .update(Message)
+      .set({ deletedAt: new Date() })
+      .where('conversationId = :id', { id })
+      .execute();
 
     if (conv?.sessionKey) {
-      const agent = await Agent.findById(conv.agentId).lean();
+      const agentRepo = AppDataSource.getRepository(Agent);
+      const agent = await agentRepo.findOneBy({ _id: conv.agentId });
       if (agent?.openclawAgentId) {
-        fetch(`${OPENCLAW_PROXY_URL}/api/agents/${encodeURIComponent(agent.openclawAgentId)}/sessions/${encodeURIComponent(conv.sessionKey)}/delete`, {
-          method: 'POST',
-        }).catch(() => {});
+        ocService.deleteSession(agent.openclawAgentId, conv.sessionKey).catch(() => {});
       }
     }
 
@@ -81,6 +100,7 @@ const destroy: Destroy = async (req, res, next) => {
 };
 
 export {
+  listAll,
   listByAgent,
   create,
   update,

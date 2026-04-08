@@ -12,8 +12,7 @@ paths:
           name: agentId
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses:
         200:
           description: List of conversations
@@ -65,8 +64,7 @@ paths:
           name: id
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       requestBody:
         required: true
         content:
@@ -100,8 +98,7 @@ paths:
           name: id
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses:
         200:
           $ref: '#/components/responses/empty'
@@ -120,17 +117,14 @@ components:
       type: object
       properties:
         _id:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         agentId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         title:
           type: string
           nullable: true
         createdBy:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -151,8 +145,7 @@ components:
         - agentId
       properties:
         agentId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
           description: The agent this conversation belongs to.
     #
     conversationUpdateBody:

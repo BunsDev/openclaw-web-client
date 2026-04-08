@@ -15,8 +15,8 @@ import {
   useGetUserQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
-} from '../../store';
-import { useValidationErrors } from '../../store/hooks';
+} from '../../app/store';
+import { useValidationErrors } from '../../app/store/hooks';
 
 interface UserFormProps {
   open: boolean;

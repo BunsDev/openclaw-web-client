@@ -9,7 +9,7 @@ import {
 } from '@mui/material';
 import { useFormik, FormikProvider, Form } from 'formik';
 import { useNavigate } from 'react-router';
-import { useLoginMutation } from '../../store';
+import { useLoginMutation } from '../../app/store';
 
 export default function LoginPage() {
   const navigate = useNavigate();

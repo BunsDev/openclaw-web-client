@@ -62,14 +62,14 @@ components:
   responses:
     #
     profile:
-      description: successfull responce
+      description: successful response
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/profile'
     #
     profileRes:
-      description: successfull responce
+      description: successful response
       headers:
         access-token:
           required: true
@@ -96,8 +96,7 @@ components:
       - updatedAt
       properties:
         _id:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         email:
           type: string
           format: email

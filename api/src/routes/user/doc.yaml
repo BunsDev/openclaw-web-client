@@ -84,11 +84,10 @@ paths:
       parameters:
         - name: id
           in: path
-          description: User ID (MongoDB ObjectId)
+          description: User ID
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses:
         200:
           $ref: '#/components/responses/user'
@@ -108,11 +107,10 @@ paths:
       parameters:
         - name: id
           in: path
-          description: User ID (MongoDB ObjectId)
+          description: User ID
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       requestBody:
         required: true
         content:
@@ -138,11 +136,10 @@ paths:
       parameters:
         - name: id
           in: path
-          description: User ID (MongoDB ObjectId)
+          description: User ID
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses: 
         200:
           $ref: '#/components/responses/empty'
@@ -189,9 +186,8 @@ components:
         - createdAt
       properties:
         _id:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
-          description: MongoDB ObjectId
+          type: integer
+          description: User ID
         name:
           type: string
           description: User's first name

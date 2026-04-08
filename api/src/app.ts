@@ -1,6 +1,6 @@
+import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import express, { Application, Request, Response } from 'express';
-import mongoose from 'mongoose';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import bodyParser from 'body-parser';
@@ -11,6 +11,8 @@ import expressErrorHandler from './middlewares/errorHandler';
 import corsConf from './middlewares/cors';
 import routes from './routes';
 import seedAdminUser from './seed';
+import { AppDataSource } from './data-source';
+import { ensureDevicePaired, gateway } from './services/openclawGateway';
 
 dotenv.config();
 
@@ -20,7 +22,7 @@ app.use(helmet());
 app.use(corsConf);
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
+if (['test', 'development'].includes(process.env.NODE_ENV)) app.use(morgan('dev'));
 if (process.env.NODE_ENV === 'development') app.use('/api/docs', swaggerUi.serve, swaggerConf);
 app.use('/api', routes);
 app.use('/', (req: Request, res: Response) => res.status(200).json());
@@ -30,10 +32,13 @@ app.use(expressErrorHandler);
 (async () => {
   try {
     if (process.env.NODE_ENV !== 'test') {
-      mongoose.set('debug', process.env.NODE_ENV === 'development');
-      mongoose.set('strictQuery', false);
-      await mongoose.connect(process.env.MONGO_LINK);
+      await AppDataSource.initialize();
+      console.log(colors.green('SQLite database connected')); /* eslint-disable-line */
       await seedAdminUser();
+      await ensureDevicePaired();
+      const gwOk = await gateway.ensureConnected();
+      if (gwOk) console.log(colors.green('[gateway] persistent connection ready')); /* eslint-disable-line */
+      else console.warn(colors.yellow('[gateway] initial connection failed, will use CLI fallback')); /* eslint-disable-line */
       app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
     }
   } catch (error) {

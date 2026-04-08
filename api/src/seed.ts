@@ -1,10 +1,12 @@
-import User from './models/user';
+import { AppDataSource } from './data-source';
+import { User } from './entities';
 
 export default async function seedAdminUser(): Promise<void> {
-  const activeUsersCount = await User.countDocuments({ active: true });
+  const userRepo = AppDataSource.getRepository(User);
+  const activeUsersCount = await userRepo.count({ where: { active: true } });
   if (activeUsersCount > 0) return;
 
-  await new User({
+  const admin = userRepo.create({
     email: 'admin@admin.com',
     password: '123456',
     name: 'Admin',
@@ -12,5 +14,6 @@ export default async function seedAdminUser(): Promise<void> {
     phone: '1234567890',
     active: true,
     createdAt: new Date(),
-  }).save();
+  });
+  await userRepo.save(admin);
 }

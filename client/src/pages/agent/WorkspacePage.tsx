@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router';
 import { Box, IconButton, Typography, CircularProgress } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
-import { useGetAgentQuery } from '../../store';
+import { useGetAgentQuery } from '../../app/store';
 import WorkspaceFileTabs from './WorkspaceFileTabs';
 
 export default function AgentWorkspacePage() {

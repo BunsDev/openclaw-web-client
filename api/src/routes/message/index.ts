@@ -23,7 +23,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-router.route('/message/conversation/:conversationId([0-9a-fA-F]{24})')
+router.route('/message/conversation/:conversationId(\\d+)')
   .get(
     auth,
     validate.conversationId,
@@ -45,7 +45,7 @@ router.route('/message/chat')
     controller.chat,
   );
 
-router.route('/message/:id([0-9a-fA-F]{24})')
+router.route('/message/:id(\\d+)')
   .delete(
     auth,
     validate.id,

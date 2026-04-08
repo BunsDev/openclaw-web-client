@@ -1,7 +1,9 @@
 import { body, param } from 'express-validator';
+import { Not } from 'typeorm';
 import { List } from '../../@types/user';
 import validate from '../../middlewares/validator';
-import User from '../../models/user';
+import { AppDataSource } from '../../data-source';
+import { User } from '../../entities';
 
 export default {
   sanitizeQuery: ((req, res, next) => {
@@ -15,7 +17,7 @@ export default {
   }) as List,
 
   id: validate([
-    param('id').isMongoId().withMessage('Incorrect request url'),
+    param('id').isInt().withMessage('Incorrect request url'),
   ]),
 
   create: validate([
@@ -29,7 +31,8 @@ export default {
       .notEmpty().withMessage('Please enter email address')
       .isEmail().withMessage('Please enter a valid email address')
       .custom(async (value) => {
-        const existingUser = await User.findOne({ email: value.toLowerCase() });
+        const userRepo = AppDataSource.getRepository(User);
+        const existingUser = await userRepo.findOneBy({ email: value.toLowerCase() });
         if (existingUser) {
           throw new Error('Email address is already registered');
         }
@@ -54,9 +57,12 @@ export default {
       .optional()
       .isEmail().withMessage('Please enter a valid email address')
       .custom(async (value, { req }) => {
-        const existingUser = await User.findOne({
-          email: value.toLowerCase(),
-          _id: { $ne: req.params?.id },
+        const userRepo = AppDataSource.getRepository(User);
+        const existingUser = await userRepo.findOne({
+          where: {
+            email: value.toLowerCase(),
+            _id: Not(Number(req.params?.id)),
+          },
         });
         if (existingUser) {
           throw new Error('Email address is already registered');

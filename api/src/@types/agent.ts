@@ -1,12 +1,11 @@
-import { Types } from 'mongoose';
 import { RequestHandler } from 'express';
 import { QueryFilters, RequestParams, APIResponse } from './shared';
 
 export type IAgent = {
-  _id: Types.ObjectId;
+  _id: number;
   name: string;
   openclawAgentId: string;
-  createdBy: Types.ObjectId;
+  createdBy: number;
   createdAt: Date | string;
   updatedAt: Date | string | null;
   deletedAt: Date | string | null;

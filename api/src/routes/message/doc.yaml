@@ -12,8 +12,7 @@ paths:
           name: conversationId
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses:
         200:
           description: List of messages sorted by creation date (ascending)
@@ -62,7 +61,7 @@ paths:
       summary: Send a message and stream the AI response via SSE
       description: >
         Saves the user message, forwards it (with optional file attachments)
-        to the OpenClaw proxy, and streams the AI response back as
+        to the OpenClaw gateway, and streams the AI response back as
         Server-Sent Events. The assistant message is persisted once the
         stream completes.
       requestBody:
@@ -110,8 +109,7 @@ paths:
           name: id
           required: true
           schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
+            type: integer
       responses:
         200:
           $ref: '#/components/responses/empty'
@@ -144,11 +142,9 @@ components:
       type: object
       properties:
         _id:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         conversationId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         text:
           type: string
         thinking:
@@ -162,8 +158,7 @@ components:
           type: string
           enum: [user, assistant]
         createdBy:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -185,8 +180,7 @@ components:
         - text
       properties:
         conversationId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
+          type: integer
         text:
           type: string
     #
@@ -196,7 +190,7 @@ components:
         - conversationId
       properties:
         conversationId:
-          type: string
+          type: integer
           description: The conversation to send the message in.
         text:
           type: string

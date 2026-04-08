@@ -1,13 +1,12 @@
-import { Types } from 'mongoose';
 import { RequestHandler } from 'express';
 import { RequestParams, APIResponse } from './shared';
 
 export type IConversation = {
-  _id: Types.ObjectId;
-  agentId: Types.ObjectId;
+  _id: number;
+  agentId: number;
   title: string | null;
   sessionKey: string | null;
-  createdBy: Types.ObjectId;
+  createdBy: number;
   createdAt: Date | string;
   deletedAt: Date | string | null;
 };
@@ -22,6 +21,7 @@ export type ConversationUpdateBody = {
   title?: string;
 };
 
+export type ListAll = RequestHandler<never, APIResponse<CConversation>, never, never>;
 export type ListByAgent = RequestHandler<{ agentId: string }, APIResponse<CConversation>, never, never>;
 export type Create = RequestHandler<never, CConversation, ConversationRequestBody, never>;
 export type Update = RequestHandler<RequestParams, CConversation, ConversationUpdateBody, never>;

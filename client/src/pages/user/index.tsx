@@ -18,10 +18,10 @@ import {
 } from '@mui/material';
 import { Search, Edit, Add } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router';
-import { useGetUsersQuery, useDeleteUserMutation } from '../../store';
-import useFilters from '../../hooks/useFilters';
-import DeleteButton from '../../components/DeleteButton';
-import TableRowSkeleton from '../../components/TableRowSkeleton';
+import { useGetUsersQuery, useDeleteUserMutation } from '../../app/store';
+import useFilters from '../../shared/hooks/useFilters';
+import DeleteButton from '../../shared/ui/DeleteButton';
+import TableRowSkeleton from '../../shared/ui/TableRowSkeleton';
 import UserForm from './form';
 
 const defaultFilters = {

@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { RequestHandler } from 'express';
 import { RequestParams, APIResponse } from './shared';
 
@@ -13,14 +12,14 @@ export type MessageFile = {
 };
 
 export type IMessage = {
-  _id: Types.ObjectId;
-  conversationId: Types.ObjectId;
+  _id: number;
+  conversationId: number;
   externalId: string | null;
   text: string;
   thinking: string | null;
   files: MessageFile[];
   role: MessageRole;
-  createdBy: Types.ObjectId;
+  createdBy: number;
   createdAt: Date | string;
   deletedAt: Date | string | null;
 };

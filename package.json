@@ -1,12 +1,13 @@
 {
   "name": "openclaw-client",
   "version": "1.0.0",
+  "description": "Web-based chat interface for OpenClaw AI agents",
   "private": true,
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup.js",
+    "dev": "node scripts/dev.js",
     "start": "node scripts/start.js",
-    "stop": "node scripts/stop.js",
-    "dev": "node scripts/setup.js && docker compose up --build"
+    "stop": "node scripts/stop.js"
   }
 }
