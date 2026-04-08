@@ -342,6 +342,7 @@ const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
     }
     const fp = ocService.getWorkspaceUploadPath(agent.openclawAgentId, req.params.filename);
     if (!fp) return res.status(404).json({ error: 'File not found' });
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.sendFile(fp);
   } catch (error) {
     return next(error);
