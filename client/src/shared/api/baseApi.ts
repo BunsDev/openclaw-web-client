@@ -19,11 +19,11 @@ const rawBaseQuery = fetchBaseQuery({
   },
 });
 
-const baseQueryWithAuth: BaseQueryFn<
-  string | FetchArgs,
-  unknown,
-  FetchBaseQueryError
-> = async (args, api, extraOptions) => {
+const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions
+) => {
   const result = await rawBaseQuery(args, api, extraOptions);
 
   // Extract token from response header
@@ -37,7 +37,7 @@ const baseQueryWithAuth: BaseQueryFn<
   if (result.error?.status === 401) {
     localStorage.removeItem('token');
     api.dispatch({ type: 'auth/logout' });
-    
+
     // Redirect to login page
     if (window.location.pathname !== '/login') {
       window.location.href = '/login';
@@ -50,6 +50,14 @@ const baseQueryWithAuth: BaseQueryFn<
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithAuth,
-  tagTypes: ['User', 'Agent', 'Conversation', 'Message', 'Workspace', 'WorkspaceFile', 'SessionSettings'],
+  tagTypes: [
+    'User',
+    'Agent',
+    'Conversation',
+    'Message',
+    'Workspace',
+    'WorkspaceFile',
+    'SessionSettings',
+  ],
   endpoints: () => ({}),
 });

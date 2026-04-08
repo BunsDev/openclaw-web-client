@@ -22,11 +22,11 @@ function run(cmd, args = [], cwd = ROOT) {
 // 1. Install source dependencies (needed for build)
 if (!existsSync(path.join(API_SRC, 'node_modules'))) {
   process.stdout.write('📦 Installing API dependencies...\n');
-  run('npm', ['install'], API_SRC);
+  run('npm', ['ci'], API_SRC);
 }
 if (!existsSync(path.join(CLIENT_SRC, 'node_modules'))) {
   process.stdout.write('📦 Installing Client dependencies...\n');
-  run('npm', ['install'], CLIENT_SRC);
+  run('npm', ['ci'], CLIENT_SRC);
 }
 
 // 2. Build both in source
@@ -122,7 +122,7 @@ http.createServer((req, res) => {
 
 // 4. Install production-only API deps in dist
 process.stdout.write('📦 Installing production dependencies...\n');
-run('npm', ['install', '--omit=dev'], API_DIST);
+run('npm', ['ci', '--omit=dev'], API_DIST);
 
 // 5. Start both detached
 const logFd = openSync(LOG_FILE, 'w');

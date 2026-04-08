@@ -30,7 +30,10 @@ export const conversationsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Conversation'],
     }),
-    updateConversation: build.mutation<Conversation, { id: string; agentId: string; title: string }>({
+    updateConversation: build.mutation<
+      Conversation,
+      { id: string; agentId: string; title: string }
+    >({
       query: ({ id, title }) => ({
         url: `/conversation/${id}`,
         method: 'PATCH',

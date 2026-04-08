@@ -10,12 +10,7 @@ const AgentWorkspace = lazy(() => import('../pages/agent/WorkspacePage'));
 
 function Loading() {
   return (
-    <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="100vh"
-    >
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
       <CircularProgress />
     </Box>
   );
@@ -48,14 +43,8 @@ function App() {
             </Suspense>
           }
         >
-          <Route
-            path="create"
-            element={null}
-          />
-          <Route
-            path="edit/:userId"
-            element={null}
-          />
+          <Route path="create" element={null} />
+          <Route path="edit/:userId" element={null} />
         </Route>
         <Route
           path="agent/:agentId/chat/:conversationId"
@@ -73,10 +62,7 @@ function App() {
             </Suspense>
           }
         />
-        <Route
-          path="*"
-          element="404"
-        />
+        <Route path="*" element="404" />
       </Route>
     </Routes>
   );

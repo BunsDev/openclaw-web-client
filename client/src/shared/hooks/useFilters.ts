@@ -16,7 +16,7 @@ const useFilters: UseFilters = <T extends Record<string, string | number | undef
 
   const filters = useMemo(() => {
     const result = { ...defaultValues };
-    
+
     for (const key of Object.keys(defaultValues)) {
       const value = searchParams.get(key);
       if (value !== null) {
@@ -28,7 +28,7 @@ const useFilters: UseFilters = <T extends Record<string, string | number | undef
         }
       }
     }
-    
+
     return result;
   }, [searchParams, defaultValues]);
 
@@ -36,7 +36,7 @@ const useFilters: UseFilters = <T extends Record<string, string | number | undef
     (updates: Partial<T>) => {
       setSearchParams((prev) => {
         const newParams = new URLSearchParams(prev);
-        
+
         for (const [key, value] of Object.entries(updates)) {
           if (value === undefined || value === '' || value === defaultValues[key]) {
             newParams.delete(key);
@@ -44,7 +44,7 @@ const useFilters: UseFilters = <T extends Record<string, string | number | undef
             newParams.set(key, String(value));
           }
         }
-        
+
         return newParams;
       });
     },

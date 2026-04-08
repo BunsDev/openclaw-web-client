@@ -1,8 +1,8 @@
-import { type ReactNode, useState } from "react";
-import { Box, Drawer, IconButton, useMediaQuery, useTheme } from "@mui/material";
-import { Menu as MenuIcon } from "@mui/icons-material";
-import { Outlet } from "react-router";
-import Sidebar, { SIDEBAR_WIDTH } from "../sidebar";
+import { type ReactNode, useState } from 'react';
+import { Box, Drawer, IconButton, useMediaQuery, useTheme } from '@mui/material';
+import { Menu as MenuIcon } from '@mui/icons-material';
+import { Outlet } from 'react-router';
+import Sidebar, { SIDEBAR_WIDTH } from '../sidebar';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -13,10 +13,12 @@ export default function Layout({ children }: LayoutProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleNavClose = () => { if (isMobile) setMobileOpen(false); };
+  const handleNavClose = () => {
+    if (isMobile) setMobileOpen(false);
+  };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", minWidth: 0, overflowX: "hidden" }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', minWidth: 0, overflowX: 'hidden' }}>
       {isMobile ? (
         <>
           <Drawer
@@ -38,8 +40,8 @@ export default function Layout({ children }: LayoutProps) {
           flex: 1,
           minWidth: 0,
           p: { xs: 0, md: 3 },
-          bgcolor: "background.default",
-          minHeight: "100vh",
+          bgcolor: 'background.default',
+          minHeight: '100vh',
           position: 'relative',
           '&::before': {
             content: '""',

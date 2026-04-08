@@ -1,12 +1,4 @@
-import {
-  Button,
-  TextField,
-  Card,
-  Typography,
-  Box,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
+import { Button, TextField, Card, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { useFormik, FormikProvider, Form } from 'formik';
 import { useNavigate } from 'react-router';
 import { useLoginMutation } from '../../app/store';
@@ -53,10 +45,7 @@ export default function LoginPage() {
           <FormikProvider value={formik}>
             <Form>
               {error && (
-                <Alert 
-                  severity="error" 
-                  sx={{ marginBottom: 2 }}
-                >
+                <Alert severity="error" sx={{ marginBottom: 2 }}>
                   Login failed. Please check your credentials.
                 </Alert>
               )}

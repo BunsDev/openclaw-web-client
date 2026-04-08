@@ -1,26 +1,35 @@
-import { useState, memo } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { Box, Paper, Typography, IconButton, useTheme } from '@mui/material';
 import { DeleteOutline, ContentCopy, Done } from '@mui/icons-material';
-import type { Message, MessageFile } from '../../entities/message/api';
+import { useDeleteMessageMutation } from '../../entities/message/api';
 import DeleteButton from '../../shared/ui/DeleteButton';
 import MarkdownContent from '../../shared/ui/MarkdownContent';
 import ThinkingBlock from './ThinkingBlock';
 import FileAttachments from './FileAttachments';
+import type { Message, MessageFile } from '../../entities/message/api';
 
-export type MessageLike = Message | { text: string; role: string; thinking?: string | null; files?: MessageFile[] };
+export type MessageLike =
+  | Message
+  | { text: string; role: string; thinking?: string | null; files?: MessageFile[] };
 
 interface MessageBubbleProps {
   message: MessageLike;
   isStreaming?: boolean;
   thinkingText?: string;
   messageId?: string;
-  onDelete?: (id: string) => void;
 }
 
-const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinkingText, messageId, onDelete }: MessageBubbleProps) {
+const MessageBubble = memo(function MessageBubble({
+  message,
+  isStreaming,
+  thinkingText,
+  messageId,
+}: MessageBubbleProps) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const theme = useTheme();
+  const [deleteMessage] = useDeleteMessageMutation();
+
   const isUser = message.role === 'user';
   const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
   const files = ('files' in message ? message.files : undefined) ?? [];
@@ -31,6 +40,12 @@ const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinki
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const handleDelete = useCallback(() => {
+    if (messageId && 'conversationId' in message) {
+      deleteMessage({ id: messageId, conversationId: message.conversationId });
+    }
+  }, [messageId, message, deleteMessage]);
 
   return (
     <Box
@@ -67,11 +82,15 @@ const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinki
               onClick={handleCopy}
               sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}
             >
-              {copied ? <Done sx={{ fontSize: 13, color: 'success.main' }} /> : <ContentCopy sx={{ fontSize: 13 }} />}
+              {copied ? (
+                <Done sx={{ fontSize: 13, color: 'success.main' }} />
+              ) : (
+                <ContentCopy sx={{ fontSize: 13 }} />
+              )}
             </IconButton>
-            {onDelete && messageId && (
+            {messageId && 'conversationId' in message && (
               <DeleteButton
-                onConfirm={() => onDelete(messageId)}
+                onConfirm={handleDelete}
                 message="Delete this message?"
                 renderTrigger={(onClick) => (
                   <IconButton
@@ -87,24 +106,15 @@ const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinki
           </Box>
         )}
         {!isUser && thinking && (
-          <ThinkingBlock
-            text={thinking}
-            isStreaming={isStreaming && !message.text}
-          />
+          <ThinkingBlock text={thinking} isStreaming={isStreaming && !message.text} />
         )}
-        {files.length > 0 && (
-          <FileAttachments
-            files={files}
-            isUser={isUser}
-          />
-        )}
-        {hasTextContent && (
-          isUser ? (
+        {files.length > 0 && <FileAttachments files={files} isUser={isUser} />}
+        {hasTextContent &&
+          (isUser ? (
             <MarkdownContent inheritColor>{message.text!}</MarkdownContent>
           ) : (
             <MarkdownContent isStreaming={isStreaming}>{message.text!}</MarkdownContent>
-          )
-        )}
+          ))}
         {isStreaming && !hasTextContent && (
           <Box
             component="span"
@@ -119,10 +129,7 @@ const MessageBubble = memo(function MessageBubble({ message, isStreaming, thinki
           />
         )}
         {'createdAt' in message && (
-          <Typography
-            variant="caption"
-            sx={{ opacity: 0.7 }}
-          >
+          <Typography variant="caption" sx={{ opacity: 0.7 }}>
             {new Date(message.createdAt).toLocaleTimeString()}
           </Typography>
         )}

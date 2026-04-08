@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   List,
@@ -11,23 +11,21 @@ import {
   TextField,
   IconButton,
   CircularProgress,
-} from "@mui/material";
-import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from "@mui/icons-material";
-import { Link, useLocation } from "react-router";
+} from '@mui/material';
+import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from '@mui/icons-material';
+import { Link, useLocation } from 'react-router';
 import {
   useGetAgentsQuery,
   useCreateAgentMutation,
   useSyncAgentsMutation,
-} from "../../entities/agent/api";
-import { useGetAllConversationsQuery } from "../../entities/conversation/api";
-import ThemePicker from "../../features/theme/ThemePicker";
-import AgentSection from "./AgentSection";
+} from '../../entities/agent/api';
+import { useGetAllConversationsQuery } from '../../entities/conversation/api';
+import ThemePicker from '../../features/theme/ThemePicker';
+import AgentSection from './AgentSection';
 
 export const SIDEBAR_WIDTH = 240;
 
-const menuItems = [
-  { text: "USERS", icon: <People />, path: "/users" },
-];
+const menuItems = [{ text: 'USERS', icon: <People />, path: '/users' }];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
@@ -64,7 +62,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     return () => {
       if (syncDoneTimer.current) clearTimeout(syncDoneTimer.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentsLoading]);
 
   const [createError, setCreateError] = useState('');
@@ -79,7 +77,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       setShowNewAgent(false);
     } catch (err: unknown) {
       const data = (err as { data?: Record<string, string[]> })?.data;
-      const msg = data?.name?.[0] || Object.values(data || {}).flat()[0] || 'Failed to create agent';
+      const msg =
+        data?.name?.[0] || Object.values(data || {}).flat()[0] || 'Failed to create agent';
       setCreateError(msg as string);
     }
   };
@@ -99,23 +98,27 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <Box
       sx={{
         width: SIDEBAR_WIDTH,
-        height: "100vh",
+        height: '100vh',
         bgcolor: sidebar.background,
         borderRight: 'none',
-        display: "flex",
-        flexDirection: "column",
-        position: "sticky",
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'sticky',
         top: 0,
-        alignSelf: "flex-start",
+        alignSelf: 'flex-start',
       }}
     >
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <Box
-          component="img"
-          src="/openclaw.png"
-          alt="OpenClaw"
-          sx={{ width: 28, height: 28 }}
-        />
+      <Box
+        sx={{
+          p: 3,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 1,
+          flexShrink: 0,
+        }}
+      >
+        <Box component="img" src="/openclaw.png" alt="OpenClaw" sx={{ width: 28, height: 28 }} />
         <Typography
           variant="h6"
           component="span"
@@ -141,9 +144,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           onChange={(e) => setSearchQuery(e.target.value)}
           slotProps={{
             input: {
-              startAdornment: (
-                <Search sx={{ fontSize: 16, color: sidebar.text, mr: 0.5 }} />
-              ),
+              startAdornment: <Search sx={{ fontSize: 16, color: sidebar.text, mr: 0.5 }} />,
             },
           }}
           sx={{
@@ -161,13 +162,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <List sx={{ px: 2, flexShrink: 0 }}>
         {menuItems.map((item) => {
-          const isSelected = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+          const isSelected =
+            location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
-            <ListItem
-              key={item.text}
-              disablePadding
-              sx={{ mb: 0.5 }}
-            >
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 component={Link}
                 to={item.path}
@@ -177,25 +175,23 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   borderRadius: 2,
                   py: 1.5,
                   px: 2,
-                  textDecoration: "none",
+                  textDecoration: 'none',
                   position: 'relative',
-                  "&:hover": {
+                  '&:hover': {
                     bgcolor: sidebar.hover,
-                    "& .MuiListItemText-primary": { color: sidebar.selectedText },
-                    "& .MuiListItemIcon-root": { color: sidebar.selectedText },
+                    '& .MuiListItemText-primary': { color: sidebar.selectedText },
+                    '& .MuiListItemIcon-root': { color: sidebar.selectedText },
                   },
-                  "&.Mui-selected": {
+                  '&.Mui-selected': {
                     bgcolor: sidebar.selectedBg,
                     boxShadow: '0 2px 8px rgba(44, 44, 40, 0.06)',
-                    "&:hover": { bgcolor: sidebar.selectedBg },
-                    "& .MuiListItemText-primary": { color: sidebar.selectedText },
-                    "& .MuiListItemIcon-root": { color: sidebar.selectedBorder },
+                    '&:hover': { bgcolor: sidebar.selectedBg },
+                    '& .MuiListItemText-primary': { color: sidebar.selectedText },
+                    '& .MuiListItemIcon-root': { color: sidebar.selectedBorder },
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36, color: sidebar.text }}>
-                  {item.icon}
-                </ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 36, color: sidebar.text }}>{item.icon}</ListItemIcon>
                 <ListItemText
                   primary={item.text}
                   sx={{
@@ -210,8 +206,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 {isSelected && (
                   <Box
                     sx={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      bgcolor: sidebar.selectedBorder, ml: 1,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: sidebar.selectedBorder,
+                      ml: 1,
                     }}
                   />
                 )}
@@ -232,7 +231,15 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           minHeight: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 1,
+            flexShrink: 0,
+          }}
+        >
           <Typography
             sx={{
               color: sidebar.text,
@@ -245,20 +252,21 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             Agents
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {isSyncing && (
-              <CircularProgress
-                size={11}
-                sx={{ color: sidebar.text, opacity: 0.6 }}
-              />
-            )}
+            {isSyncing && <CircularProgress size={11} sx={{ color: sidebar.text, opacity: 0.6 }} />}
             {!isSyncing && syncDone && (
               <Box
                 sx={{
-                  width: 6, height: 6, borderRadius: '50%',
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
                   bgcolor: 'success.main',
                   opacity: 1,
                   animation: 'fadeOut 2.5s ease-in forwards',
-                  '@keyframes fadeOut': { '0%': { opacity: 1 }, '60%': { opacity: 1 }, '100%': { opacity: 0 } },
+                  '@keyframes fadeOut': {
+                    '0%': { opacity: 1 },
+                    '60%': { opacity: 1 },
+                    '100%': { opacity: 0 },
+                  },
                 }}
               />
             )}
@@ -311,9 +319,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 bgcolor: sidebar.selectedBorder,
                 animation: 'indeterminate 1.4s ease-in-out infinite',
                 '@keyframes indeterminate': {
-                  '0%':   { width: '0%',   marginLeft: '0%' },
-                  '50%':  { width: '60%',  marginLeft: '20%' },
-                  '100%': { width: '0%',   marginLeft: '100%' },
+                  '0%': { width: '0%', marginLeft: '0%' },
+                  '50%': { width: '60%', marginLeft: '20%' },
+                  '100%': { width: '0%', marginLeft: '100%' },
                 },
               }}
             />
@@ -328,7 +336,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               autoFocus
               placeholder="Agent name"
               value={newAgentName}
-              onChange={(e) => { setNewAgentName(e.target.value); setCreateError(''); }}
+              onChange={(e) => {
+                setNewAgentName(e.target.value);
+                setCreateError('');
+              }}
               onKeyDown={handleKeyDown}
               disabled={isCreating}
               error={!!createError}
@@ -339,7 +350,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   borderRadius: 1.5,
                   '& fieldset': { borderColor: createError ? 'error.main' : 'transparent' },
                   '&:hover fieldset': { borderColor: createError ? 'error.main' : sidebar.text },
-                  '&.Mui-focused fieldset': { borderColor: createError ? 'error.main' : sidebar.selectedBorder },
+                  '&.Mui-focused fieldset': {
+                    borderColor: createError ? 'error.main' : sidebar.selectedBorder,
+                  },
                   '& input': { color: sidebar.selectedText, fontSize: '0.8rem', py: 0.8, px: 1.5 },
                 },
                 '& .MuiFormHelperText-root': { fontSize: '0.65rem', mx: 0.5 },
@@ -364,10 +377,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         >
           {agentsLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-              <CircularProgress
-                size={18}
-                sx={{ color: sidebar.text }}
-              />
+              <CircularProgress size={18} sx={{ color: sidebar.text }} />
             </Box>
           ) : (
             <List disablePadding>

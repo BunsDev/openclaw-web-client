@@ -10,10 +10,7 @@ export default function AgentWorkspacePage() {
   const returnConv = searchParams.get('return');
   const { data: agent, isLoading } = useGetAgentQuery(agentId!, { skip: !agentId });
 
-  const backHref =
-    agentId && returnConv
-      ? `/agent/${agentId}/chat/${returnConv}`
-      : '/';
+  const backHref = agentId && returnConv ? `/agent/${agentId}/chat/${returnConv}` : '/';
 
   if (!agentId) {
     return null;
@@ -21,7 +18,9 @@ export default function AgentWorkspacePage() {
 
   if (isLoading && !agent) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}
+      >
         <CircularProgress size={28} />
       </Box>
     );

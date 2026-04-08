@@ -1,12 +1,5 @@
 import { useState } from 'react';
-import {
-  IconButton,
-  Popover,
-  Button,
-  Stack,
-  Typography,
-  CircularProgress,
-} from '@mui/material';
+import { IconButton, Popover, Button, Stack, Typography, CircularProgress } from '@mui/material';
 import { Delete } from '@mui/icons-material';
 
 interface DeleteButtonProps {
@@ -49,11 +42,7 @@ export default function DeleteButton({
       {renderTrigger ? (
         renderTrigger(handleClick)
       ) : (
-        <IconButton
-          size="small"
-          color="error"
-          onClick={handleClick}
-        >
+        <IconButton size="small" color="error" onClick={handleClick}>
           <Delete fontSize="small" />
         </IconButton>
       )}
@@ -100,16 +89,10 @@ export default function DeleteButton({
           },
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
-        >
+        <Typography variant="caption" sx={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
           {message}
         </Typography>
-        <Stack
-          direction="row"
-          spacing={0.5}
-        >
+        <Stack direction="row" spacing={0.5}>
           <Button
             size="small"
             onClick={handleClose}

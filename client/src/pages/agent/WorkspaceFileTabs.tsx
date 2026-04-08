@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import {
   Box,
   Button,
@@ -24,22 +24,27 @@ export default function WorkspaceFileTabs({ agentId }: { agentId: string }) {
   const [draft, setDraft] = useState('');
   const [preview, setPreview] = useState(false);
 
-  const { data: fileData, isFetching, isError } = useGetWorkspaceFileQuery(
-    { agentId, filename: selectedFile! },
-    { skip: !selectedFile },
-  );
+  const {
+    data: fileData,
+    isFetching,
+    isError,
+  } = useGetWorkspaceFileQuery({ agentId, filename: selectedFile! }, { skip: !selectedFile });
 
   const [saveFile, { isLoading: saving }] = useSaveWorkspaceFileMutation();
 
-  useEffect(() => {
+  const prevFileKey = useRef<string | null>(null);
+  const fileKey = selectedFile
+    ? `${fileData?.path ?? ''}|${fileData?.content ?? ''}|${fileData?.exists ?? ''}`
+    : null;
+
+  if (fileKey !== prevFileKey.current) {
+    prevFileKey.current = fileKey;
     if (!selectedFile) {
       setDraft('');
-      return;
-    }
-    if (fileData !== undefined) {
+    } else if (fileData !== undefined) {
       setDraft(fileData.content);
     }
-  }, [selectedFile, fileData?.path, fileData?.content, fileData?.exists]);
+  }
 
   const existsMap = new Map((meta?.files ?? []).map((f) => [f.name, f.exists]));
 
@@ -96,7 +101,13 @@ export default function WorkspaceFileTabs({ agentId }: { agentId: string }) {
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0, fontWeight: 600, mr: 0.25, pb: 0.35 }}
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            flexShrink: 0,
+            fontWeight: 600,
+            mr: 0.25,
+            pb: 0.35,
+          }}
         >
           Workspace
         </Typography>
@@ -131,11 +142,25 @@ export default function WorkspaceFileTabs({ agentId }: { agentId: string }) {
                 },
               }}
             >
-              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35 }}>
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.35,
+                }}
+              >
                 {label}
                 {!exists && (
                   <Tooltip title="Not created on disk yet — save to create">
-                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        lineHeight: 0,
+                      }}
+                    >
                       <PostAdd sx={{ fontSize: '0.95rem', color: 'warning.main', opacity: 0.95 }} />
                     </Box>
                   </Tooltip>

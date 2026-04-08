@@ -102,10 +102,14 @@ export const agentsApi = baseApi.injectEndpoints({
     getWorkspaceFile: build.query<WorkspaceFileResponse, { agentId: string; filename: string }>({
       query: ({ agentId, filename }) =>
         `/agent/${agentId}/workspace/file/${encodeURIComponent(filename)}`,
-      providesTags: (_res, _err, { agentId, filename }) =>
-        [{ type: 'WorkspaceFile', id: `${agentId}:${filename}` }],
+      providesTags: (_res, _err, { agentId, filename }) => [
+        { type: 'WorkspaceFile', id: `${agentId}:${filename}` },
+      ],
     }),
-    saveWorkspaceFile: build.mutation<Record<string, unknown>, { agentId: string; filename: string; content: string }>({
+    saveWorkspaceFile: build.mutation<
+      Record<string, unknown>,
+      { agentId: string; filename: string; content: string }
+    >({
       query: ({ agentId, filename, content }) => ({
         url: `/agent/${agentId}/workspace/file/${encodeURIComponent(filename)}`,
         method: 'PUT',
@@ -116,18 +120,28 @@ export const agentsApi = baseApi.injectEndpoints({
         { type: 'Workspace', id: agentId },
       ],
     }),
-    getSessionSettings: build.query<SessionSettingsResponse, { agentId: string; conversationId: string }>({
+    getSessionSettings: build.query<
+      SessionSettingsResponse,
+      { agentId: string; conversationId: string }
+    >({
       query: ({ agentId, conversationId }) =>
         `/agent/${agentId}/conversation/${conversationId}/session-settings`,
-      providesTags: (_res, _err, { conversationId }) => [{ type: 'SessionSettings', id: conversationId }],
+      providesTags: (_res, _err, { conversationId }) => [
+        { type: 'SessionSettings', id: conversationId },
+      ],
     }),
-    patchSessionSettings: build.mutation<{ ok: boolean }, { agentId: string; conversationId: string; settings: Partial<SessionSettings> }>({
+    patchSessionSettings: build.mutation<
+      { ok: boolean },
+      { agentId: string; conversationId: string; settings: Partial<SessionSettings> }
+    >({
       query: ({ agentId, conversationId, settings }) => ({
         url: `/agent/${agentId}/conversation/${conversationId}/session-settings`,
         method: 'PATCH',
         body: settings,
       }),
-      invalidatesTags: (_res, _err, { conversationId }) => [{ type: 'SessionSettings', id: conversationId }],
+      invalidatesTags: (_res, _err, { conversationId }) => [
+        { type: 'SessionSettings', id: conversationId },
+      ],
     }),
   }),
 });

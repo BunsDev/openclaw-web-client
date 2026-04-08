@@ -24,21 +24,9 @@ export default function TableRowSkeleton({
           ))}
           {hasActions && (
             <TableCell align="right">
-              <Box
-                display="flex"
-                justifyContent="flex-end"
-                gap={1}
-              >
-                <Skeleton
-                  variant="circular"
-                  width={24}
-                  height={24}
-                />
-                <Skeleton
-                  variant="circular"
-                  width={24}
-                  height={24}
-                />
+              <Box display="flex" justifyContent="flex-end" gap={1}>
+                <Skeleton variant="circular" width={24} height={24} />
+                <Skeleton variant="circular" width={24} height={24} />
               </Box>
             </TableCell>
           )}

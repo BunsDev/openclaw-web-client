@@ -52,9 +52,11 @@ export const messagesApi = baseApi.injectEndpoints({
         }
       },
       forceRefetch: ({ currentArg, previousArg }) =>
-        currentArg?.before !== previousArg?.before
-        || currentArg?.conversationId !== previousArg?.conversationId,
-      providesTags: (_result, _error, { conversationId }) => [{ type: 'Message', id: conversationId }],
+        currentArg?.before !== previousArg?.before ||
+        currentArg?.conversationId !== previousArg?.conversationId,
+      providesTags: (_result, _error, { conversationId }) => [
+        { type: 'Message', id: conversationId },
+      ],
     }),
     createMessage: build.mutation<Message, { conversationId: string; text: string }>({
       query: (body) => ({
@@ -62,20 +64,21 @@ export const messagesApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: (_result, _error, { conversationId }) => [{ type: 'Message', id: conversationId }],
+      invalidatesTags: (_result, _error, { conversationId }) => [
+        { type: 'Message', id: conversationId },
+      ],
     }),
     deleteMessage: build.mutation<void, { id: string; conversationId: string }>({
       query: ({ id }) => ({
         url: `/message/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (_result, _error, { conversationId }) => [{ type: 'Message', id: conversationId }],
+      invalidatesTags: (_result, _error, { conversationId }) => [
+        { type: 'Message', id: conversationId },
+      ],
     }),
   }),
 });
 
-export const {
-  useGetMessagesQuery,
-  useCreateMessageMutation,
-  useDeleteMessageMutation,
-} = messagesApi;
+export const { useGetMessagesQuery, useCreateMessageMutation, useDeleteMessageMutation } =
+  messagesApi;

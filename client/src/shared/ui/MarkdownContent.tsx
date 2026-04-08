@@ -61,8 +61,7 @@ export default function MarkdownContent({
 }) {
   const theme = useTheme();
   const isDarkUi =
-    theme.palette.mode === 'dark' ||
-    getLuminance(theme.palette.background.paper) < 0.5;
+    theme.palette.mode === 'dark' || getLuminance(theme.palette.background.paper) < 0.5;
 
   const codeBlockBg = isDarkUi ? '#0d1117' : '#f6f8fa';
   const safe = inheritColor ? children : stripWrapperTags(children);
@@ -86,11 +85,7 @@ export default function MarkdownContent({
           color: inheritColor ? 'inherit' : 'text.primary',
         }}
       >
-        <Typography
-          component="div"
-          variant="body1"
-          sx={{ whiteSpace: 'pre-wrap', m: 0 }}
-        >
+        <Typography component="div" variant="body1" sx={{ whiteSpace: 'pre-wrap', m: 0 }}>
           {safe}
           <Box
             component="span"
@@ -142,37 +137,37 @@ export default function MarkdownContent({
         '& li > p': { mb: 0 },
         '& blockquote': inheritColor
           ? {
-            m: 0,
-            mb: 0.75,
-            pl: 1.5,
-            borderLeft: '3px solid',
-            borderColor: alpha(ut, 0.45),
-            color: 'inherit',
-            fontStyle: 'italic',
-            opacity: 0.95,
-          }
+              m: 0,
+              mb: 0.75,
+              pl: 1.5,
+              borderLeft: '3px solid',
+              borderColor: alpha(ut, 0.45),
+              color: 'inherit',
+              fontStyle: 'italic',
+              opacity: 0.95,
+            }
           : {
-            m: 0,
-            mb: 0.75,
-            pl: 1.5,
-            borderLeft: '3px solid',
-            borderColor: 'divider',
-            color: 'text.secondary',
-            fontStyle: 'italic',
-          },
+              m: 0,
+              mb: 0.75,
+              pl: 1.5,
+              borderLeft: '3px solid',
+              borderColor: 'divider',
+              color: 'text.secondary',
+              fontStyle: 'italic',
+            },
         '& a': inheritColor
           ? {
-            color: 'inherit',
-            textDecoration: 'underline',
-            fontWeight: 500,
-            opacity: 0.95,
-            '&:hover': { opacity: 1 },
-          }
+              color: 'inherit',
+              textDecoration: 'underline',
+              fontWeight: 500,
+              opacity: 0.95,
+              '&:hover': { opacity: 1 },
+            }
           : {
-            color: 'primary.main',
-            textDecoration: 'none',
-            '&:hover': { textDecoration: 'underline' },
-          },
+              color: 'primary.main',
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline' },
+            },
         '& hr': { border: 'none', borderTop: '1px solid', borderColor: 'divider', my: 1 },
         '& th,& td': {
           border: '1px solid',
@@ -182,18 +177,26 @@ export default function MarkdownContent({
           textAlign: 'left',
           wordBreak: 'break-word',
         },
-        '& th': { fontWeight: 600, bgcolor: isDarkUi ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
+        '& th': {
+          fontWeight: 600,
+          bgcolor: isDarkUi ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+        },
         '& code:not(pre code)': {
           fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
           fontSize: '0.8rem',
           px: 0.6,
           py: 0.15,
           borderRadius: '4px',
-          bgcolor: inheritColor ? alpha(ut, 0.2) : (isDarkUi ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)'),
+          bgcolor: inheritColor
+            ? alpha(ut, 0.2)
+            : isDarkUi
+              ? 'rgba(255,255,255,0.1)'
+              : 'rgba(0,0,0,0.07)',
           color: inheritColor ? 'inherit' : undefined,
         },
         '& pre': {
-          m: 0, mb: 0.75,
+          m: 0,
+          mb: 0.75,
           maxWidth: '100%',
           width: '100%',
           boxSizing: 'border-box',

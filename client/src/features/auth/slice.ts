@@ -32,35 +32,20 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Login
-      // .addMatcher(authApi.endpoints.login.matchPending, (state) => {
-      //   state.isLoading = true;
-      //   state.error = null;
-      // })
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
         state.user = action.payload;
         state.token = localStorage.getItem('token');
         state.isAuthenticated = true;
       })
-      // .addMatcher(authApi.endpoints.login.matchRejected, (state, action) => {
-      //   state.user = null;
-      //   state.token = null;
-      //   state.isAuthenticated = false;
-      //   state.isLoading = false;
-      //   state.error = action.error.message ?? 'Login failed';
-      //   localStorage.removeItem('token');
-      // })
-      // Logout
       .addMatcher(authApi.endpoints.logout.matchFulfilled, (state) => {
         state.user = null;
         state.token = null;
         state.isAuthenticated = false;
         localStorage.removeItem('token');
       })
-      // Get Me
       .addMatcher(authApi.endpoints.getMe.matchFulfilled, (state, action) => {
         state.user = action.payload;
-      })
+      });
   },
 });
 

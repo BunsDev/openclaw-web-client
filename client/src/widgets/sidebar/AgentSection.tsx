@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from 'react';
 import {
   Collapse,
   List,
@@ -9,13 +9,13 @@ import {
   Typography,
   IconButton,
   useTheme,
-} from "@mui/material";
-import { Add, ExpandMore, ExpandLess, SmartToy, DeleteOutline } from "@mui/icons-material";
-import { useLocation, useNavigate } from "react-router";
-import { useDeleteAgentMutation } from "../../entities/agent/api";
-import { useCreateConversationMutation } from "../../entities/conversation/api";
-import DeleteButton from "../../shared/ui/DeleteButton";
-import ConversationItem from "./ConversationItem";
+} from '@mui/material';
+import { Add, ExpandMore, ExpandLess, SmartToy, DeleteOutline } from '@mui/icons-material';
+import { useLocation, useNavigate } from 'react-router';
+import { useDeleteAgentMutation } from '../../entities/agent/api';
+import { useCreateConversationMutation } from '../../entities/conversation/api';
+import DeleteButton from '../../shared/ui/DeleteButton';
+import ConversationItem from './ConversationItem';
 
 interface AgentSectionProps {
   agent: { _id: string; name: string };
@@ -25,7 +25,13 @@ interface AgentSectionProps {
   onNavigate?: () => void;
 }
 
-export default function AgentSection({ agent, conversations, searchQuery, collapseKey, onNavigate }: AgentSectionProps) {
+export default function AgentSection({
+  agent,
+  conversations,
+  searchQuery,
+  collapseKey,
+  onNavigate,
+}: AgentSectionProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -35,9 +41,12 @@ export default function AgentSection({ agent, conversations, searchQuery, collap
 
   const isFirstRender = useRef(true);
   useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (collapseKey && !isAgentActive) setExpanded(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collapseKey]);
   const [hovered, setHovered] = useState(false);
 
@@ -45,7 +54,9 @@ export default function AgentSection({ agent, conversations, searchQuery, collap
   const [deleteAgent] = useDeleteAgentMutation();
 
   const isSearchActive = Boolean(searchQuery);
-  const agentNameMatches = searchQuery ? agent.name.toLowerCase().includes(searchQuery.toLowerCase()) : true;
+  const agentNameMatches = searchQuery
+    ? agent.name.toLowerCase().includes(searchQuery.toLowerCase())
+    : true;
 
   if (isSearchActive && !agentNameMatches) {
     return null;
@@ -82,10 +93,12 @@ export default function AgentSection({ agent, conversations, searchQuery, collap
             borderRadius: 1.5,
             py: 0.6,
             px: 1.5,
-            "&:hover": { bgcolor: sidebar.hover },
+            '&:hover': { bgcolor: sidebar.hover },
           }}
         >
-          <ListItemIcon sx={{ minWidth: 24, color: isAgentActive ? sidebar.selectedBorder : sidebar.text }}>
+          <ListItemIcon
+            sx={{ minWidth: 24, color: isAgentActive ? sidebar.selectedBorder : sidebar.text }}
+          >
             <SmartToy sx={{ fontSize: 16 }} />
           </ListItemIcon>
           <ListItemText
@@ -137,11 +150,7 @@ export default function AgentSection({ agent, conversations, searchQuery, collap
           )}
         </ListItemButton>
       </ListItem>
-      <Collapse
-        in={isSearchActive ? true : expanded}
-        timeout="auto"
-        unmountOnExit
-      >
+      <Collapse in={isSearchActive ? true : expanded} timeout="auto" unmountOnExit>
         <List disablePadding>
           {conversations.length === 0 && !isSearchActive ? (
             <Typography

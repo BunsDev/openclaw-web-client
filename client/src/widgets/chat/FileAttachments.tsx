@@ -24,9 +24,10 @@ export default function FileAttachments({ files, isUser }: FileAttachmentsProps)
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 0.5 }}>
       {files.map((f) => {
         const isImage = f.mimetype.startsWith('image/');
-        const fileUrl = f.url.startsWith('blob:') || f.url.startsWith('http')
-          ? f.url
-          : `${API_BASE_URL.replace('/api', '')}${f.url}`;
+        const fileUrl =
+          f.url.startsWith('blob:') || f.url.startsWith('http')
+            ? f.url
+            : `${API_BASE_URL.replace('/api', '')}${f.url}`;
         if (isImage) {
           return (
             <Box
@@ -41,7 +42,13 @@ export default function FileAttachments({ files, isUser }: FileAttachmentsProps)
                 component="img"
                 src={fileUrl}
                 alt={f.originalName}
-                sx={{ width: '100%', height: 'auto', display: 'block', maxHeight: 160, objectFit: 'cover' }}
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  maxHeight: 160,
+                  objectFit: 'cover',
+                }}
               />
             </Box>
           );

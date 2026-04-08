@@ -11,11 +11,7 @@ import {
   CircularProgress,
   Box,
 } from '@mui/material';
-import {
-  useGetUserQuery,
-  useCreateUserMutation,
-  useUpdateUserMutation,
-} from '../../app/store';
+import { useGetUserQuery, useCreateUserMutation, useUpdateUserMutation } from '../../app/store';
 import { useValidationErrors } from '../../app/store/hooks';
 
 interface UserFormProps {
@@ -91,30 +87,18 @@ export default function UserForm({ open, userId, onClose }: UserFormProps) {
   const validationErrors = useValidationErrors(error);
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose} 
-      maxWidth="sm" 
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{isEdit ? 'Edit User' : 'Create User'}</DialogTitle>
       <form onSubmit={formik.handleSubmit}>
         <DialogContent>
           {isLoadingUser ? (
-            <Box 
-              display="flex" 
-              justifyContent="center" 
-              py={3}
-            >
+            <Box display="flex" justifyContent="center" py={3}>
               <CircularProgress />
             </Box>
           ) : (
             <>
               {error && (
-                <Alert 
-                  severity="error" 
-                  sx={{ mb: 2 }}
-                >
+                <Alert severity="error" sx={{ mb: 2 }}>
                   {isEdit ? 'Failed to update user' : 'Failed to create user'}
                 </Alert>
               )}
@@ -185,11 +169,7 @@ export default function UserForm({ open, userId, onClose }: UserFormProps) {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            disabled={isLoading || isLoadingUser}
-          >
+          <Button type="submit" variant="contained" disabled={isLoading || isLoadingUser}>
             {isLoading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </Button>
         </DialogActions>

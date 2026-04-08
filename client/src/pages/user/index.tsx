@@ -1,4 +1,3 @@
-
 import {
   Box,
   Table,
@@ -77,11 +76,7 @@ export default function UsersPage() {
           }}
         >
           <Typography variant="h6">Users</Typography>
-          <Box 
-            display="flex" 
-            alignItems="center" 
-            gap={2}
-          >
+          <Box display="flex" alignItems="center" gap={2}>
             <TextField
               variant="standard"
               size="small"
@@ -167,13 +162,11 @@ export default function UsersPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {isLoading
-              ? <TableRowSkeleton columns={5} />
-              : users.map((user) => (
-                <TableRow 
-                  key={user._id} 
-                  hover
-                >
+            {isLoading ? (
+              <TableRowSkeleton columns={5} />
+            ) : (
+              users.map((user) => (
+                <TableRow key={user._id} hover>
                   <TableCell>
                     {user.name} {user.lastName}
                   </TableCell>
@@ -181,7 +174,7 @@ export default function UsersPage() {
                   <TableCell>{user.phone}</TableCell>
                   <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell align="right">
-                    <IconButton 
+                    <IconButton
                       size="small"
                       onClick={() => navigate(`/users/edit/${user._id}${location.search}`)}
                     >
@@ -194,13 +187,11 @@ export default function UsersPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
+              ))
+            )}
             {!isLoading && users.length === 0 && (
               <TableRow>
-                <TableCell 
-                  colSpan={5} 
-                  align="center"
-                >
+                <TableCell colSpan={5} align="center">
                   No users found
                 </TableCell>
               </TableRow>
@@ -213,18 +204,12 @@ export default function UsersPage() {
           page={filters.page}
           onPageChange={(_, newPage) => setFilter({ page: newPage })}
           rowsPerPage={filters.limit}
-          onRowsPerPageChange={(e) =>
-            setFilter({ limit: parseInt(e.target.value, 10), page: 0 })
-          }
+          onRowsPerPageChange={(e) => setFilter({ limit: parseInt(e.target.value, 10), page: 0 })}
           rowsPerPageOptions={[5, 10, 20, 40, 60, 100]}
         />
       </TableContainer>
 
-      <UserForm 
-        open={dialogOpen} 
-        userId={editUserId} 
-        onClose={handleCloseDialog}
-      />
+      <UserForm open={dialogOpen} userId={editUserId} onClose={handleCloseDialog} />
     </Box>
   );
 }

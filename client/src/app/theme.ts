@@ -88,9 +88,10 @@ interface ThemeConfig {
 
 function buildTheme(config: ThemeConfig): Theme {
   const { primary, background, text, divider } = config;
-  const tableHeadBg = config.background.default === config.background.paper
-    ? hexToRgba(config.text.primary, 0.04)
-    : config.background.default;
+  const tableHeadBg =
+    config.background.default === config.background.paper
+      ? hexToRgba(config.text.primary, 0.04)
+      : config.background.default;
 
   return createTheme({
     palette: {
@@ -181,7 +182,10 @@ function buildTheme(config: ThemeConfig): Theme {
         styleOverrides: {
           root: { borderRadius: 6, fontWeight: 500, fontSize: '0.75rem' },
           colorPrimary: { backgroundColor: primary.main, color: primary.contrastText },
-          colorSecondary: { backgroundColor: config.secondary.main, color: config.secondary.contrastText },
+          colorSecondary: {
+            backgroundColor: config.secondary.main,
+            color: config.secondary.contrastText,
+          },
         },
       },
       MuiDialog: {
@@ -714,7 +718,7 @@ export const themeConfigs = {
 export type ThemeId = keyof typeof themeConfigs;
 
 export const themes: Record<ThemeId, Theme> = Object.fromEntries(
-  Object.entries(themeConfigs).map(([id, cfg]) => [id, buildTheme(cfg)]),
+  Object.entries(themeConfigs).map(([id, cfg]) => [id, buildTheme(cfg)])
 ) as Record<ThemeId, Theme>;
 
 export default themes.amber;

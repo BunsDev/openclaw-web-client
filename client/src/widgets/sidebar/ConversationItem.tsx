@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
   Box,
   ListItem,
@@ -8,14 +8,14 @@ import {
   TextField,
   IconButton,
   useTheme,
-} from "@mui/material";
-import { ChatBubbleOutline, DeleteOutline, Edit, Check } from "@mui/icons-material";
-import { Link, useLocation, useNavigate } from "react-router";
+} from '@mui/material';
+import { ChatBubbleOutline, DeleteOutline, Edit, Check } from '@mui/icons-material';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
   useUpdateConversationMutation,
   useDeleteConversationMutation,
-} from "../../entities/conversation/api";
-import DeleteButton from "../../shared/ui/DeleteButton";
+} from '../../entities/conversation/api';
+import DeleteButton from '../../shared/ui/DeleteButton';
 
 interface ConversationItemProps {
   agentId: string;
@@ -23,7 +23,11 @@ interface ConversationItemProps {
   onNavigate?: () => void;
 }
 
-export default function ConversationItem({ agentId, conversation, onNavigate }: ConversationItemProps) {
+export default function ConversationItem({
+  agentId,
+  conversation,
+  onNavigate,
+}: ConversationItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -58,10 +62,7 @@ export default function ConversationItem({ agentId, conversation, onNavigate }: 
 
   if (editing) {
     return (
-      <ListItem
-        disablePadding
-        sx={{ mb: 0.2, px: 1.5, pl: 4 }}
-      >
+      <ListItem disablePadding sx={{ mb: 0.2, px: 1.5, pl: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0.3 }}>
           <TextField
             variant="standard"
@@ -75,14 +76,15 @@ export default function ConversationItem({ agentId, conversation, onNavigate }: 
               if (e.key === 'Escape') setEditing(false);
             }}
             onBlur={handleSaveEdit}
-            slotProps={{ input: { disableUnderline: false, sx: { fontSize: '0.75rem', color: sidebar.selectedText, py: 0.3 } } }}
+            slotProps={{
+              input: {
+                disableUnderline: false,
+                sx: { fontSize: '0.75rem', color: sidebar.selectedText, py: 0.3 },
+              },
+            }}
             sx={{ '& .MuiInput-underline:after': { borderColor: sidebar.selectedBorder } }}
           />
-          <IconButton
-            size="small"
-            onClick={handleSaveEdit}
-            sx={{ p: 0.2, color: 'success.main' }}
-          >
+          <IconButton size="small" onClick={handleSaveEdit} sx={{ p: 0.2, color: 'success.main' }}>
             <Check sx={{ fontSize: 12 }} />
           </IconButton>
         </Box>
@@ -108,14 +110,16 @@ export default function ConversationItem({ agentId, conversation, onNavigate }: 
           px: 1.5,
           pl: 4,
           textDecoration: 'none',
-          "&:hover": { bgcolor: sidebar.hover },
-          "&.Mui-selected": {
+          '&:hover': { bgcolor: sidebar.hover },
+          '&.Mui-selected': {
             bgcolor: sidebar.hover,
-            "&:hover": { bgcolor: sidebar.hover },
+            '&:hover': { bgcolor: sidebar.hover },
           },
         }}
       >
-        <ListItemIcon sx={{ minWidth: 20, color: isActive ? sidebar.selectedBorder : sidebar.text }}>
+        <ListItemIcon
+          sx={{ minWidth: 20, color: isActive ? sidebar.selectedBorder : sidebar.text }}
+        >
           <ChatBubbleOutline sx={{ fontSize: 13 }} />
         </ListItemIcon>
         <ListItemText
