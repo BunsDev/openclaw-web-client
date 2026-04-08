@@ -18,7 +18,7 @@ run('node', [path.join(ROOT, 'scripts', 'setup.js')]);
 // 2. Install dependencies
 if (!fs.existsSync(path.join(API_DIR, 'node_modules'))) {
   process.stdout.write('📦 Installing API dependencies...\n');
-  run('npm', ['install', '--omit=dev'], API_DIR);
+  run('npm', ['install'], API_DIR);
 }
 if (!fs.existsSync(path.join(CLIENT_DIR, 'node_modules'))) {
   process.stdout.write('📦 Installing Client dependencies...\n');
