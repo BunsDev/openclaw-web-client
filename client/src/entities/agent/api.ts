@@ -6,6 +6,8 @@ export interface Agent {
   openclawAgentId: string;
   createdAt: string;
   updatedAt: string;
+  /** OpenClaw model id from config; included on GET /agent list and GET /agent/:id */
+  model?: string | null;
 }
 
 export interface AgentsResponse {
@@ -44,6 +46,27 @@ export interface SessionSettingsResponse {
   settings: Partial<SessionSettings>;
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  input: string;
+  context: number;
+  local: boolean;
+  available: boolean;
+  tags: string[];
+}
+
+export interface ModelsResponse {
+  ok: boolean;
+  models: ModelInfo[];
+}
+
+export interface AgentModelResponse {
+  ok: boolean;
+  model: string | null;
+}
+
 export const WORKSPACE_TAB_FILES = [
   { label: 'AGENTS', file: 'AGENTS.md' },
   { label: 'SOUL', file: 'SOUL.md' },
@@ -65,7 +88,7 @@ export const agentsApi = baseApi.injectEndpoints({
       query: (id) => `/agent/${id}`,
       providesTags: ['Agent'],
     }),
-    createAgent: build.mutation<Agent, { name: string; openclawAgentId?: string }>({
+    createAgent: build.mutation<Agent, { name: string; openclawAgentId?: string; interactive?: boolean }>({
       query: (body) => ({
         url: '/agent',
         method: 'POST',
@@ -143,6 +166,21 @@ export const agentsApi = baseApi.injectEndpoints({
         { type: 'SessionSettings', id: conversationId },
       ],
     }),
+    listModels: build.query<ModelsResponse, void>({
+      query: () => '/agent/models',
+    }),
+    getAgentModel: build.query<AgentModelResponse, string>({
+      query: (agentId) => `/agent/${agentId}/model`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentModel', id: agentId }],
+    }),
+    setAgentModel: build.mutation<{ ok: boolean; model: string }, { agentId: string; model: string }>({
+      query: ({ agentId, model }) => ({
+        url: `/agent/${agentId}/model`,
+        method: 'PATCH',
+        body: { model },
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentModel', id: agentId }, 'Agent'],
+    }),
   }),
 });
 
@@ -158,4 +196,7 @@ export const {
   useSaveWorkspaceFileMutation,
   useGetSessionSettingsQuery,
   usePatchSessionSettingsMutation,
+  useListModelsQuery,
+  useGetAgentModelQuery,
+  useSetAgentModelMutation,
 } = agentsApi;

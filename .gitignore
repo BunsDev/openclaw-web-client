@@ -6,4 +6,5 @@ api/data/
 api/build/
 client/dist/
 api/src/public/uploads/
+.vscode/
 openclaw.log

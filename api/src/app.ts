@@ -13,6 +13,7 @@ import routes from './routes';
 import seedAdminUser from './seed';
 import AppDataSource from './data-source';
 import { ensureDevicePaired, gateway } from './services/openclawGateway';
+import attachPtyWebSocket from './services/ptyService';
 
 dotenv.config();
 
@@ -39,7 +40,8 @@ app.use(expressErrorHandler);
       const gwOk = await gateway.ensureConnected();
       if (gwOk) console.log(colors.green('[gateway] persistent connection ready')); /* eslint-disable-line */
       else console.warn(colors.yellow('[gateway] initial connection failed, will use CLI fallback')); /* eslint-disable-line */
-      app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
+      const server = app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
+      attachPtyWebSocket(server);
     }
   } catch (error) {
     console.log(colors.red('%s'), error); /* eslint-disable-line */

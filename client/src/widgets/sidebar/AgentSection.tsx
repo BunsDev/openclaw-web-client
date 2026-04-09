@@ -15,14 +15,16 @@ import { useLocation, useNavigate } from 'react-router';
 import { useDeleteAgentMutation } from '../../entities/agent/api';
 import { useCreateConversationMutation } from '../../entities/conversation/api';
 import DeleteButton from '../../shared/ui/DeleteButton';
+import ProviderLogo from '../../shared/ui/ProviderLogo';
 import ConversationItem from './ConversationItem';
 
 interface AgentSectionProps {
-  agent: { _id: string; name: string };
+  agent: { _id: string; name: string; model?: string | null };
   conversations: { _id: string; title: string | null; createdAt: string }[];
   searchQuery?: string;
   collapseKey?: number;
   onNavigate?: () => void;
+  disabled?: boolean;
 }
 
 export default function AgentSection({
@@ -31,6 +33,7 @@ export default function AgentSection({
   searchQuery,
   collapseKey,
   onNavigate,
+  disabled,
 }: AgentSectionProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,6 +55,7 @@ export default function AgentSection({
 
   const [createConversation] = useCreateConversationMutation();
   const [deleteAgent] = useDeleteAgentMutation();
+  const modelId = agent.model ?? null;
 
   const isSearchActive = Boolean(searchQuery);
   const agentNameMatches = searchQuery
@@ -83,7 +87,12 @@ export default function AgentSection({
     <>
       <ListItem
         disablePadding
-        sx={{ mb: 0.2 }}
+        sx={{
+          mb: 0.2,
+          opacity: disabled ? 0.4 : 1,
+          pointerEvents: disabled ? 'none' : 'auto',
+          transition: 'opacity 0.2s',
+        }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -99,7 +108,11 @@ export default function AgentSection({
           <ListItemIcon
             sx={{ minWidth: 24, color: isAgentActive ? sidebar.selectedBorder : sidebar.text }}
           >
-            <SmartToy sx={{ fontSize: 16 }} />
+            <ProviderLogo
+              modelId={modelId}
+              size={16}
+              fallback={<SmartToy sx={{ fontSize: 16 }} />}
+            />
           </ListItemIcon>
           <ListItemText
             primary={agent.name}

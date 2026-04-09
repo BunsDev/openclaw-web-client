@@ -3,7 +3,7 @@ import { RequestHandler } from 'express';
 import AppDataSource from '../../data-source';
 import { Agent, Conversation, Message } from '../../entities';
 import { MessageRole } from '../../@types/message';
-import { List, Get, Create, Update, Destroy } from '../../@types/agent';
+import { List, Get, Create, Update, Destroy, AgentJson } from '../../@types/agent';
 import * as ocService from '../../services/openclawService';
 
 function toSlug(name: string): string {
@@ -33,7 +33,19 @@ const list: List = async (req, res, next) => {
       .orderBy(`agent.${sortField as string}`, (sortType as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
       .getMany();
 
-    return res.json({ total, items });
+    const ocIds = items.map((a) => a.openclawAgentId);
+    const models = ocService.getAgentModelsForOpenclawIds(ocIds);
+    const itemsWithModel: AgentJson[] = items.map((a) => ({
+      _id: a._id,
+      name: a.name,
+      openclawAgentId: a.openclawAgentId,
+      createdBy: a.createdBy,
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
+      model: models[a.openclawAgentId] ?? null,
+    }));
+
+    return res.json({ total, items: itemsWithModel });
   } catch (error) {
     return next(error);
   }
@@ -43,7 +55,18 @@ const get: Get = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
     const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
-    return res.json(agent);
+    if (!agent) return res.json(null);
+    const model = ocService.getAgentModel(agent.openclawAgentId);
+    const body: AgentJson = {
+      _id: agent._id,
+      name: agent.name,
+      openclawAgentId: agent.openclawAgentId,
+      createdBy: agent.createdBy,
+      createdAt: agent.createdAt,
+      updatedAt: agent.updatedAt,
+      model,
+    };
+    return res.json(body);
   } catch (error) {
     return next(error);
   }
@@ -52,16 +75,19 @@ const get: Get = async (req, res, next) => {
 const create: Create = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
-    const openclawAgentId = req.body.openclawAgentId?.trim() || toSlug(req.body.name || '');
+    const { interactive, ...body } = req.body;
+    const openclawAgentId = body.openclawAgentId?.trim() || toSlug(body.name || '');
     const agent = agentRepo.create({
-      ...req.body,
+      ...body,
       openclawAgentId,
       createdBy: req.user!._id,
       createdAt: new Date(),
     });
     const saved = await agentRepo.save(agent);
 
-    ocService.registerAgent(openclawAgentId);
+    if (!interactive) {
+      ocService.registerAgent(openclawAgentId);
+    }
 
     return res.json(saved);
   } catch (error) {
@@ -343,6 +369,50 @@ const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
   }
 };
 
+const listModels: RequestHandler = async (_req, res, next) => {
+  try {
+    const models = ocService.listModels(true);
+    return res.json({ ok: true, models });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getAgentModel: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const model = ocService.getAgentModel(agent.openclawAgentId);
+    return res.json({ ok: true, model });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const patchAgentModel: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const { model } = req.body as { model: string };
+    if (!model) {
+      return res.status(400).json({ error: 'model is required' });
+    }
+    const ok = ocService.setAgentModel(agent.openclawAgentId, model);
+    if (!ok) {
+      return res.status(500).json({ error: 'Failed to set model' });
+    }
+    return res.json({ ok: true, model });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export {
   list,
   get,
@@ -356,4 +426,7 @@ export {
   getSessionSettings,
   patchSessionSettings,
   serveWorkspaceUpload,
+  listModels,
+  getAgentModel,
+  patchAgentModel,
 };

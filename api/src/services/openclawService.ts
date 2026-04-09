@@ -16,10 +16,7 @@ const GW_RE_PARTIAL_TAG = new RegExp(`^<\\/?\\s*(?:${GW_TAG})\\s*$`, 'i');
 
 function stripGatewayTags(text: string): string {
   if (!text) return text;
-  return text
-    .replace(GW_RE_OPEN, '')
-    .replace(GW_RE_CLOSE, '')
-    .replace(GW_RE_PARTIAL_CLOSE, '');
+  return text.replace(GW_RE_OPEN, '').replace(GW_RE_CLOSE, '').replace(GW_RE_PARTIAL_CLOSE, '');
 }
 
 export function agentWorkspacePath(agentId: string): string {
@@ -58,7 +55,9 @@ export function createSseEmitter(res: Response): SseEmitter {
 // ── Filesystem helpers ──
 
 function extractUserText(raw: string): string {
-  const match = raw.split('\n').reverse()
+  const match = raw
+    .split('\n')
+    .reverse()
     .map((l) => l.trim().match(/^\[.+?\]\s+(.+)/))
     .find((m) => m !== null);
   return match ? match[1].trim() : raw.trim();
@@ -71,18 +70,27 @@ function extractAssistantText(raw: string): string {
 function readFirstUserMessage(jsonlPath: string): string | null {
   if (!jsonlPath || !fs.existsSync(jsonlPath)) return null;
   try {
-    const lines = fs.readFileSync(jsonlPath, 'utf-8').split('\n').filter((l) => l.trim());
+    const lines = fs
+      .readFileSync(jsonlPath, 'utf-8')
+      .split('\n')
+      .filter((l) => l.trim());
     const userMsg = lines
-      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
       .find((entry) => entry?.type === 'message' && entry.message?.role === 'user');
     if (!userMsg) return null;
     const content = userMsg.message.content || [];
-    const textPart = Array.isArray(content)
-      ? content.find((c: any) => c.type === 'text')
-      : null;
+    const textPart = Array.isArray(content) ? content.find((c: any) => c.type === 'text') : null;
     const rawText = textPart?.text || (typeof content === 'string' ? content : null);
     return rawText ? extractUserText(rawText).slice(0, 200) : null;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 
@@ -97,9 +105,18 @@ export interface OpenClawMessage {
 function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
   if (!jsonlPath || !fs.existsSync(jsonlPath)) return [];
   try {
-    const lines = fs.readFileSync(jsonlPath, 'utf-8').split('\n').filter((l) => l.trim());
+    const lines = fs
+      .readFileSync(jsonlPath, 'utf-8')
+      .split('\n')
+      .filter((l) => l.trim());
     const raw = lines
-      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
       .filter((entry) => {
         if (!entry || entry.type !== 'message') return false;
         const { role } = entry.message || {};
@@ -114,12 +131,21 @@ function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
           .join('\n')
           .trim();
         const text = role === 'user' ? extractUserText(rawText) : extractAssistantText(rawText);
-        const thinking = content
-          .filter((c: any) => c.type === 'thinking' && c.thinking)
-          .map((c: any) => c.thinking)
-          .join('\n')
-          .trim() || null;
-        return text ? { externalId: entry.id, role, text, thinking, timestamp: entry.timestamp || null } : null;
+        const thinking =
+          content
+            .filter((c: any) => c.type === 'thinking' && c.thinking)
+            .map((c: any) => c.thinking)
+            .join('\n')
+            .trim() || null;
+        return text
+          ? {
+              externalId: entry.id,
+              role,
+              text,
+              thinking,
+              timestamp: entry.timestamp || null,
+            }
+          : null;
       })
       .filter((m): m is OpenClawMessage => m !== null);
 
@@ -135,7 +161,9 @@ function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
       }
       return messages;
     }, []);
-  } catch { /* ignore read errors */ }
+  } catch {
+    /* ignore read errors */
+  }
   return [];
 }
 
@@ -152,19 +180,28 @@ function extractThinkingFromJsonl(agentId: string, sessionKey: string): string |
       try {
         const parsed = JSON.parse(l);
         return parsed.type === 'message' && parsed.message?.role === 'assistant';
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     });
     if (assistantLine) {
       const parsed = JSON.parse(assistantLine);
       const thinkingPart = (parsed.message.content || []).find((p: any) => p.type === 'thinking');
       return thinkingPart?.thinking || null;
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
   return null;
 }
 
 function getSessionSettingsInternal(agentId: string, sessionKey: string | null) {
-  const defaults = { thinkingLevel: 'medium', fastMode: null as boolean | null, verboseLevel: 'inherit', reasoningLevel: 'inherit' };
+  const defaults = {
+    thinkingLevel: 'medium',
+    fastMode: null as boolean | null,
+    verboseLevel: 'inherit',
+    reasoningLevel: 'inherit',
+  };
   if (!sessionKey) return defaults;
   try {
     const sessFile = path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', 'sessions.json');
@@ -178,12 +215,19 @@ function getSessionSettingsInternal(agentId: string, sessionKey: string | null) 
       verboseLevel: entry.verboseLevel || defaults.verboseLevel,
       reasoningLevel: entry.reasoningLevel || defaults.reasoningLevel,
     };
-  } catch { return defaults; }
+  } catch {
+    return defaults;
+  }
 }
 
 // ── Agent execution ──
 
-function runAgentViaGateway(agentId: string, message: string, sessionKey: string | null, emitter: SseEmitter) {
+function runAgentViaGateway(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  emitter: SseEmitter
+) {
   const runId = crypto.randomUUID();
   const listenerKey = `agent-${runId}`;
   let assistantSent = '';
@@ -213,7 +257,7 @@ function runAgentViaGateway(agentId: string, message: string, sessionKey: string
           else reasoningSent = clean;
           emitter.send(
             stream === 'assistant' ? 'response.output_text.delta' : 'response.thinking.delta',
-            newContent,
+            newContent
           );
         }
       } else {
@@ -221,7 +265,7 @@ function runAgentViaGateway(agentId: string, message: string, sessionKey: string
         else reasoningSent = clean;
         emitter.send(
           stream === 'assistant' ? 'response.output_text.delta' : 'response.thinking.delta',
-          clean,
+          clean
         );
       }
     }
@@ -240,7 +284,8 @@ function runAgentViaGateway(agentId: string, message: string, sessionKey: string
     params.sessionKey = fullKey;
   }
 
-  gateway.request('agent', params, { expectFinal: true, timeoutMs: 120000 })
+  gateway
+    .request('agent', params, { expectFinal: true, timeoutMs: 120000 })
     .then(() => {
       gateway.offEvent(listenerKey);
       if (sessionKey) {
@@ -258,9 +303,15 @@ function runAgentViaGateway(agentId: string, message: string, sessionKey: string
   return { kill: () => gateway.offEvent(listenerKey) };
 }
 
-function runAgentWithEmitter(agentId: string, message: string, sessionKey: string | null, emitter: SseEmitter) {
+function runAgentWithEmitter(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  emitter: SseEmitter
+) {
   const sessionSettings = getSessionSettingsInternal(agentId, sessionKey);
-  const thinkingArg = sessionSettings.thinkingLevel === 'inherit' ? 'medium' : sessionSettings.thinkingLevel;
+  const thinkingArg =
+    sessionSettings.thinkingLevel === 'inherit' ? 'medium' : sessionSettings.thinkingLevel;
   const args = ['agent', '--agent', agentId, '-m', message, '--thinking', thinkingArg];
   if (sessionSettings.reasoningLevel && sessionSettings.reasoningLevel !== 'inherit') {
     args.push('--reasoning', sessionSettings.reasoningLevel);
@@ -302,7 +353,8 @@ function runAgentWithEmitter(agentId: string, message: string, sessionKey: strin
           }
           break;
         }
-        const firstTag = (thinkIdx !== -1 && (outputIdx === -1 || thinkIdx < outputIdx)) ? thinkIdx : -1;
+        const firstTag =
+          thinkIdx !== -1 && (outputIdx === -1 || thinkIdx < outputIdx) ? thinkIdx : -1;
         const tagIdx = firstTag !== -1 ? thinkIdx : outputIdx;
         if (tagIdx > 0) emit(buf.slice(0, tagIdx), false);
         if (firstTag !== -1) {
@@ -365,7 +417,12 @@ function runAgentWithEmitter(agentId: string, message: string, sessionKey: strin
         .filter((l) => {
           const trimmed = l.trim();
           if (!trimmed) return false;
-          return trimmed.includes('Error') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('No API key');
+          return (
+            trimmed.includes('Error') ||
+            trimmed.includes('error') ||
+            trimmed.includes('failed') ||
+            trimmed.includes('No API key')
+          );
         })
         .join(' | ');
       if (errorLines) {
@@ -386,15 +443,25 @@ function runAgentWithEmitter(agentId: string, message: string, sessionKey: strin
 // ── Public API ──
 
 const WORKSPACE_MARKDOWN_FILES = [
-  'AGENTS.md', 'SOUL.md', 'TOOLS.md', 'IDENTITY.md',
-  'USER.md', 'HEARTBEAT.md', 'BOOTSTRAP.md', 'MEMORY.md',
+  'AGENTS.md',
+  'SOUL.md',
+  'TOOLS.md',
+  'IDENTITY.md',
+  'USER.md',
+  'HEARTBEAT.md',
+  'BOOTSTRAP.md',
+  'MEMORY.md',
 ];
 
 export function isAllowedWorkspaceFilename(name: string): boolean {
   return typeof name === 'string' && WORKSPACE_MARKDOWN_FILES.includes(name);
 }
 
-export function listAgents(): { agentId: string; name: string; createdAt: Date }[] {
+export function listAgents(): {
+  agentId: string;
+  name: string;
+  createdAt: Date;
+}[] {
   const agentsDir = path.join(OPENCLAW_HOME, 'agents');
   if (!fs.existsSync(agentsDir)) return [];
 
@@ -410,7 +477,9 @@ export function listAgents(): { agentId: string; name: string; createdAt: Date }
           try {
             const identity = JSON.parse(fs.readFileSync(identityPath, 'utf-8'));
             name = identity.name || aid;
-          } catch { /* keep agentId as name */ }
+          } catch {
+            /* keep agentId as name */
+          }
         }
         const stat = fs.statSync(path.join(agentsDir, aid));
         return { agentId: aid, name, createdAt: stat.birthtime };
@@ -457,32 +526,50 @@ export function getSessionMessages(agentId: string, sessionKey: string): OpenCla
   if (!fs.existsSync(sessionsFile)) return [];
   try {
     const raw = JSON.parse(fs.readFileSync(sessionsFile, 'utf-8'));
-    const sessionEntry = raw[`agent:${agentId}:${sessionKey}`]
-      || Object.values(raw).find((v: any) => v.sessionId === sessionKey);
+    const sessionEntry =
+      raw[`agent:${agentId}:${sessionKey}`] ||
+      Object.values(raw).find((v: any) => v.sessionId === sessionKey);
     if (!sessionEntry) return [];
-    const jsonlPath = (sessionEntry as any).sessionFile
-      || path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', `${(sessionEntry as any).sessionId}.jsonl`);
+    const jsonlPath =
+      (sessionEntry as any).sessionFile ||
+      path.join(
+        OPENCLAW_HOME,
+        'agents',
+        agentId,
+        'sessions',
+        `${(sessionEntry as any).sessionId}.jsonl`
+      );
     return parseMessagesFromJsonl(jsonlPath);
   } catch {
     return [];
   }
 }
 
-export function deleteSessionMessage(agentId: string, sessionKey: string, externalId: string): boolean {
+export function deleteSessionMessage(
+  agentId: string,
+  sessionKey: string,
+  externalId: string
+): boolean {
   const sessionsFile = path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', 'sessions.json');
   try {
     if (!fs.existsSync(sessionsFile)) return true;
     const raw = JSON.parse(fs.readFileSync(sessionsFile, 'utf-8'));
-    const entry = raw[`agent:${agentId}:${sessionKey}`]
-      || Object.values(raw).find((v: any) => v.sessionId === sessionKey);
+    const entry =
+      raw[`agent:${agentId}:${sessionKey}`] ||
+      Object.values(raw).find((v: any) => v.sessionId === sessionKey);
     if (!(entry as any)?.sessionFile || !fs.existsSync((entry as any).sessionFile)) return true;
 
-    const lines = fs.readFileSync((entry as any).sessionFile, 'utf-8').trimEnd().split('\n');
+    const lines = fs
+      .readFileSync((entry as any).sessionFile, 'utf-8')
+      .trimEnd()
+      .split('\n');
     const filtered = lines.filter((line) => {
       try {
         const parsed = JSON.parse(line);
         return parsed.id !== externalId;
-      } catch { return true; }
+      } catch {
+        return true;
+      }
     });
 
     if (filtered.length < lines.length) {
@@ -515,15 +602,18 @@ export function getSessionSettings(agentId: string, sessionKey: string) {
 export async function patchSessionSettings(
   agentId: string,
   sessionKey: string,
-  body: Record<string, any>,
+  body: Record<string, any>
 ): Promise<{ ok: boolean; error?: string }> {
   const fullKey = `agent:${agentId}:${sessionKey}`;
   const patch: Record<string, any> = { key: fullKey };
 
-  if (body.thinkingLevel !== undefined) patch.thinkingLevel = body.thinkingLevel === 'inherit' ? null : body.thinkingLevel;
+  if (body.thinkingLevel !== undefined)
+    patch.thinkingLevel = body.thinkingLevel === 'inherit' ? null : body.thinkingLevel;
   if (body.fastMode !== undefined) patch.fastMode = body.fastMode === null ? null : !!body.fastMode;
-  if (body.verboseLevel !== undefined) patch.verboseLevel = body.verboseLevel === 'inherit' ? null : body.verboseLevel;
-  if (body.reasoningLevel !== undefined) patch.reasoningLevel = body.reasoningLevel === 'inherit' ? null : body.reasoningLevel;
+  if (body.verboseLevel !== undefined)
+    patch.verboseLevel = body.verboseLevel === 'inherit' ? null : body.verboseLevel;
+  if (body.reasoningLevel !== undefined)
+    patch.reasoningLevel = body.reasoningLevel === 'inherit' ? null : body.reasoningLevel;
   if (body.label !== undefined) patch.label = body.label || null;
 
   const gwReady = await gateway.ensureConnected();
@@ -539,8 +629,13 @@ export async function patchSessionSettings(
 
   try {
     const sessionsFile = path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', 'sessions.json');
-    const raw = fs.existsSync(sessionsFile) ? JSON.parse(fs.readFileSync(sessionsFile, 'utf-8')) : {};
-    const entry = raw[fullKey] || { sessionId: crypto.randomUUID(), updatedAt: Date.now() };
+    const raw = fs.existsSync(sessionsFile)
+      ? JSON.parse(fs.readFileSync(sessionsFile, 'utf-8'))
+      : {};
+    const entry = raw[fullKey] || {
+      sessionId: crypto.randomUUID(),
+      updatedAt: Date.now(),
+    };
     if (patch.thinkingLevel !== undefined) entry.thinkingLevel = patch.thinkingLevel;
     if (patch.fastMode !== undefined) entry.fastMode = patch.fastMode;
     if (patch.verboseLevel !== undefined) entry.verboseLevel = patch.verboseLevel;
@@ -614,13 +709,22 @@ export function getWorkspaceUploadPath(agentId: string, filename: string): strin
   return fs.existsSync(fp) ? fp : null;
 }
 
-export function registerAgent(agentId: string): { ok: boolean; existed?: boolean; output?: string; error?: string } {
+export function registerAgent(agentId: string): {
+  ok: boolean;
+  existed?: boolean;
+  output?: string;
+  error?: string;
+} {
   const workspace = agentWorkspacePath(agentId);
   console.log(`[register] adding agent: ${agentId}, workspace: ${workspace}`);
   try {
     const output = execSync(
       `openclaw agents add ${agentId} --non-interactive --workspace ${workspace} --json 2>&1`,
-      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 },
+      {
+        cwd: os.homedir(),
+        env: { ...process.env, NO_COLOR: '1' },
+        timeout: 15000,
+      }
     ).toString();
     console.log(`[register] success: ${output.trim()}`);
     return { ok: true, output: output.trim() };
@@ -637,10 +741,11 @@ export function setAgentIdentity(agentId: string, name: string): { ok: boolean; 
   try {
     const args = ['agents', 'set-identity', '--agent', agentId];
     if (name) args.push('--name', name);
-    const output = execSync(
-      `openclaw ${args.map((a) => `"${a}"`).join(' ')} 2>&1`,
-      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 },
-    ).toString();
+    const output = execSync(`openclaw ${args.map((a) => `"${a}"`).join(' ')} 2>&1`, {
+      cwd: os.homedir(),
+      env: { ...process.env, NO_COLOR: '1' },
+      timeout: 15000,
+    }).toString();
     console.log(`[set-identity] success: ${output.trim()}`);
     return { ok: true };
   } catch (err: any) {
@@ -650,13 +755,18 @@ export function setAgentIdentity(agentId: string, name: string): { ok: boolean; 
   }
 }
 
-export function removeAgent(agentId: string): { ok: boolean; notFound?: boolean; error?: string } {
+export function removeAgent(agentId: string): {
+  ok: boolean;
+  notFound?: boolean;
+  error?: string;
+} {
   console.log(`[remove] removing agent: ${agentId}`);
   try {
-    const output = execSync(
-      `openclaw agents delete ${agentId} --force --json 2>&1`,
-      { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 },
-    ).toString();
+    const output = execSync(`openclaw agents delete ${agentId} --force --json 2>&1`, {
+      cwd: os.homedir(),
+      env: { ...process.env, NO_COLOR: '1' },
+      timeout: 15000,
+    }).toString();
     console.log(`[remove] success: ${output.trim()}`);
     const dir = agentDir(agentId);
     if (fs.existsSync(dir)) {
@@ -667,7 +777,8 @@ export function removeAgent(agentId: string): { ok: boolean; notFound?: boolean;
   } catch (err: any) {
     const stderr = err.stderr?.toString() || err.stdout?.toString() || err.message;
     console.error(`[remove] failed for "${agentId}":`, stderr);
-    if (stderr.includes('not found') || stderr.includes('Unknown agent')) return { ok: true, notFound: true };
+    if (stderr.includes('not found') || stderr.includes('Unknown agent'))
+      return { ok: true, notFound: true };
     return { ok: false, error: stderr };
   }
 }
@@ -677,7 +788,7 @@ export async function runChat(
   message: string,
   sessionKey: string | null,
   filePaths: string[],
-  res: Response,
+  res: Response
 ): Promise<void> {
   let fullMessage = message || '';
   if (filePaths.length) {
@@ -711,8 +822,8 @@ export async function runChat(
   } else {
     if (gwReady && !hasWriteScope) {
       console.log(
-        '[chat] gateway connected but device-auth lacks operator.write — using CLI fallback. '
-        + 'Fix: openclaw devices list → openclaw devices approve <id>',
+        '[chat] gateway connected but device-auth lacks operator.write — using CLI fallback. ' +
+          'Fix: openclaw devices list → openclaw devices approve <id>'
       );
     } else {
       console.log('[chat] gateway unavailable, using CLI fallback');
@@ -721,7 +832,122 @@ export async function runChat(
   }
 }
 
-export function copyFileToWorkspace(agentId: string, srcPath: string, originalName: string): string {
+// ─── Model management ───
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  input: string;
+  context: number;
+  local: boolean;
+  available: boolean;
+  tags: string[];
+}
+
+function loadModelsFromCli(): ModelInfo[] {
+  const raw = execSync('openclaw models list --all --json', {
+    encoding: 'utf-8',
+    timeout: 60000,
+  });
+  const data = JSON.parse(raw) as { models: Record<string, unknown>[] };
+  return data.models.map((m) => {
+    const key = String(m.key || '');
+    const slashIdx = key.indexOf('/');
+    return {
+      id: key,
+      name: String(m.name || key),
+      provider: slashIdx > 0 ? key.slice(0, slashIdx) : 'other',
+      input: String(m.input || 'text'),
+      context: Number(m.contextWindow) || 0,
+      local: Boolean(m.local),
+      available: Boolean(m.available),
+      tags: Array.isArray(m.tags) ? m.tags.map(String) : [],
+    };
+  });
+}
+
+export function listModels(availableOnly = true): ModelInfo[] {
+  try {
+    const models = loadModelsFromCli();
+    return availableOnly ? models.filter((m) => m.available) : models;
+  } catch (err) {
+    console.error('[models] failed to list models:', err);
+    return [];
+  }
+}
+
+function readOpenclawConfig(): Record<string, unknown> | null {
+  try {
+    const configPath = path.join(OPENCLAW_HOME, 'openclaw.json');
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+/** One config read; maps OpenClaw agent ids to configured model id (for list endpoints). */
+export function getAgentModelsForOpenclawIds(openclawIds: string[]): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  const config = readOpenclawConfig();
+  if (!config) {
+    openclawIds.forEach((id) => {
+      result[id] = null;
+    });
+    return result;
+  }
+  const agents = config.agents as Record<string, unknown> | undefined;
+  if (!agents) {
+    openclawIds.forEach((id) => {
+      result[id] = null;
+    });
+    return result;
+  }
+  const list = (agents.list || []) as Record<string, unknown>[];
+  const defaults = agents.defaults as Record<string, unknown> | undefined;
+  const defModel = defaults?.model as Record<string, string> | undefined;
+  const fallback = defModel?.primary || null;
+
+  openclawIds.forEach((agentId) => {
+    const agentEntry = list.find((a) => a.id === agentId);
+    if (agentEntry?.model) {
+      const { model } = agentEntry;
+      result[agentId] =
+        typeof model === 'string' ? model : (model as Record<string, string>).primary || null;
+    } else {
+      result[agentId] = fallback;
+    }
+  });
+  return result;
+}
+
+export function getAgentModel(agentId: string): string | null {
+  return getAgentModelsForOpenclawIds([agentId])[agentId] ?? null;
+}
+
+export function setAgentModel(agentId: string, modelId: string): boolean {
+  const config = readOpenclawConfig();
+  if (!config) return false;
+  const agents = config.agents as Record<string, unknown> | undefined;
+  const list = (agents?.list || []) as { id: string }[];
+  const idx = list.findIndex((a) => a.id === agentId);
+  if (idx === -1) return false;
+  try {
+    execSync(`openclaw config set agents.list[${idx}].model "${modelId}"`, {
+      timeout: 15000,
+    });
+    return true;
+  } catch (err) {
+    console.error('[models] failed to set agent model:', err);
+    return false;
+  }
+}
+
+export function copyFileToWorkspace(
+  agentId: string,
+  srcPath: string,
+  originalName: string
+): string {
   const workDir = agentWorkspacePath(agentId);
   if (!fs.existsSync(workDir)) fs.mkdirSync(workDir, { recursive: true });
   const dest = path.join(workDir, originalName);

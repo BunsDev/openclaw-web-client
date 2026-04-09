@@ -11,6 +11,10 @@ import {
   TextField,
   IconButton,
   CircularProgress,
+  Select,
+  MenuItem,
+  InputAdornment,
+  Divider,
 } from '@mui/material';
 import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router';
@@ -22,6 +26,7 @@ import {
 import { useGetAllConversationsQuery } from '../../entities/conversation/api';
 import ThemePicker from '../../features/theme/ThemePicker';
 import AgentSection from './AgentSection';
+import TerminalPanel from './TerminalPanel';
 
 export const SIDEBAR_WIDTH = 240;
 
@@ -34,9 +39,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
+  const [createMode, setCreateMode] = useState<'quick' | 'configure'>('quick');
   const [searchQuery, setSearchQuery] = useState('');
   const [collapseKey, setCollapseKey] = useState(0);
   const [sortAlpha, setSortAlpha] = useState(false);
+  const [terminalAgent, setTerminalAgent] = useState<{ slug: string; dbId: string } | null>(null);
+  const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
 
   const { data: agentsData, isLoading: agentsLoading } = useGetAgentsQuery();
   const { data: convData } = useGetAllConversationsQuery();
@@ -72,9 +80,14 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     if (!name) return;
     setCreateError('');
     try {
-      await createAgent({ name }).unwrap();
+      const interactive = createMode === 'configure';
+      const saved = await createAgent({ name, interactive }).unwrap();
+      const slug = saved.openclawAgentId || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       setNewAgentName('');
       setShowNewAgent(false);
+      if (interactive) {
+        setTerminalAgent({ slug, dbId: saved._id });
+      }
     } catch (err: unknown) {
       const data = (err as { data?: Record<string, string[]> })?.data;
       const msg =
@@ -292,7 +305,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </IconButton>
             <IconButton
               size="small"
-              onClick={() => setShowNewAgent(!showNewAgent)}
+              onClick={() => {
+                setShowNewAgent((prev) => {
+                  if (!prev) setCreateMode('quick');
+                  return !prev;
+                });
+              }}
               sx={{ color: sidebar.text, p: 0.3, '&:hover': { color: 'success.main' } }}
             >
               <Add sx={{ fontSize: 16 }} />
@@ -343,11 +361,51 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               onKeyDown={handleKeyDown}
               disabled={isCreating}
               error={!!createError}
-              helperText={createError}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end" sx={{ ml: 0 }}>
+                      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, borderColor: sidebar.border }} />
+                      <Select
+                        size="small"
+                        value={createMode}
+                        onChange={(e) => setCreateMode(e.target.value as 'quick' | 'configure')}
+                        variant="standard"
+                        disableUnderline
+                        sx={{
+                          fontSize: '0.7rem',
+                          color: sidebar.selectedText,
+                          '& .MuiSelect-select': { py: 0, pr: '18px !important', pl: 0.5 },
+                          '& .MuiSvgIcon-root': { color: sidebar.text, fontSize: 14, right: 0 },
+                        }}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: {
+                              bgcolor: sidebar.background,
+                              border: `1px solid ${sidebar.border}`,
+                              '& .MuiMenuItem-root': {
+                                fontSize: '0.7rem',
+                                color: sidebar.text,
+                                py: 0.5,
+                                '&.Mui-selected': { bgcolor: sidebar.hover, color: sidebar.selectedText },
+                                '&:hover': { bgcolor: sidebar.hover },
+                              },
+                            },
+                          },
+                        }}
+                      >
+                        <MenuItem value="quick">Quick add</MenuItem>
+                        <MenuItem value="configure">Configure</MenuItem>
+                      </Select>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   bgcolor: sidebar.hover,
                   borderRadius: 1.5,
+                  pr: 0.5,
                   '& fieldset': { borderColor: createError ? 'error.main' : 'transparent' },
                   '&:hover fieldset': { borderColor: createError ? 'error.main' : sidebar.text },
                   '&.Mui-focused fieldset': {
@@ -355,9 +413,13 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   },
                   '& input': { color: sidebar.selectedText, fontSize: '0.8rem', py: 0.8, px: 1.5 },
                 },
-                '& .MuiFormHelperText-root': { fontSize: '0.65rem', mx: 0.5 },
               }}
             />
+            {createError && (
+              <Typography sx={{ color: 'error.main', fontSize: '0.65rem', mx: 0.5, mt: 0.25 }}>
+                {createError}
+              </Typography>
+            )}
           </Box>
         )}
 
@@ -389,6 +451,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   searchQuery={searchQuery || undefined}
                   collapseKey={collapseKey}
                   onNavigate={onNavigate}
+                  disabled={deletingAgentId === agent._id}
                 />
               ))}
             </List>
@@ -397,6 +460,16 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </Box>
 
       <ThemePicker />
+
+      {terminalAgent && (
+        <TerminalPanel
+          agentName={terminalAgent.slug}
+          agentDbId={terminalAgent.dbId}
+          open
+          onClose={() => setTerminalAgent(null)}
+          onDeleting={setDeletingAgentId}
+        />
+      )}
     </Box>
   );
 }

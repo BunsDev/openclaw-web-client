@@ -58,6 +58,7 @@ export const baseApi = createApi({
     'Workspace',
     'WorkspaceFile',
     'SessionSettings',
+    'AgentModel',
   ],
   endpoints: () => ({}),
 });

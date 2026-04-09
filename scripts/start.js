@@ -40,6 +40,11 @@ mkdirSync(CLIENT_DIST, { recursive: true });
 
 // Copy API build + package.json
 cpSync(path.join(API_SRC, 'build'), path.join(API_DIST, 'build'), { recursive: true, force: true });
+const ptyBridgeSrc = path.join(API_SRC, 'pty-bridge.py');
+const ptyBridgeDst = path.join(API_DIST, 'build', 'pty-bridge.py');
+if (existsSync(ptyBridgeSrc)) {
+  cpSync(ptyBridgeSrc, ptyBridgeDst, { force: true });
+}
 cpSync(path.join(API_SRC, 'package.json'), path.join(API_DIST, 'package.json'));
 cpSync(path.join(API_SRC, 'package-lock.json'), path.join(API_DIST, 'package-lock.json'));
 

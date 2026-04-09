@@ -9,15 +9,21 @@ export type IAgent = {
   createdAt: Date | string;
   updatedAt: Date | string | null;
   deletedAt: Date | string | null;
+  /** Present on API list/get responses; not a DB column */
+  model?: string | null;
 };
 
 export type CAgent = Omit<IAgent, 'deletedAt'> | null;
+
+/** Single-agent JSON body (GET/PATCH responses); omits DB-only fields like deletedAt */
+export type AgentJson = NonNullable<CAgent>;
 
 export type AgentFilters = QueryFilters<'name' | 'createdAt' | 'updatedAt'>;
 
 export type AgentRequestBody = {
   name?: string;
   openclawAgentId?: string;
+  interactive?: boolean;
 };
 
 export type List = RequestHandler<never, APIResponse<CAgent>, never, AgentFilters>;
