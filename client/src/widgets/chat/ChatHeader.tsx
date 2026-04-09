@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, TextField, IconButton, Typography } from '@mui/material';
+import { Box, TextField, IconButton, Typography, CircularProgress } from '@mui/material';
 import { Edit, Check, Settings, TuneOutlined } from '@mui/icons-material';
 import { Link } from 'react-router';
 import { useGetAgentQuery, useUpdateAgentMutation } from '../../entities/agent/api';
@@ -18,16 +18,28 @@ export default function ChatHeader({
   onToggleSessionSettings,
 }: ChatHeaderProps) {
   const { data: agent } = useGetAgentQuery(agentId, { skip: !agentId });
-  const [updateAgent] = useUpdateAgentMutation();
+  const [updateAgent, { isLoading: isUpdatingName }] = useUpdateAgentMutation();
   const [editing, setEditing] = useState(false);
   const [nameValue, setNameValue] = useState('');
 
   if (!agent) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmed = nameValue.trim();
-    if (trimmed && trimmed !== agent.name) updateAgent({ id: agent._id, name: trimmed });
-    setEditing(false);
+    if (!trimmed) {
+      setEditing(false);
+      return;
+    }
+    if (trimmed === agent.name) {
+      setEditing(false);
+      return;
+    }
+    try {
+      await updateAgent({ id: agent._id, name: trimmed }).unwrap();
+      setEditing(false);
+    } catch {
+      /* stay in edit mode; request failed */
+    }
   };
 
   return (
@@ -57,10 +69,12 @@ export default function ChatHeader({
             variant="standard"
             size="small"
             autoFocus
+            disabled={isUpdatingName}
             value={nameValue}
             onChange={(e) => setNameValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSave();
+              if (isUpdatingName) return;
+              if (e.key === 'Enter') void handleSave();
               if (e.key === 'Escape') setEditing(false);
             }}
             slotProps={{
@@ -68,8 +82,18 @@ export default function ChatHeader({
             }}
             sx={{ flex: 1 }}
           />
-          <IconButton size="small" onClick={handleSave} sx={{ color: 'success.main' }}>
-            <Check sx={{ fontSize: 18 }} />
+          <IconButton
+            size="small"
+            onClick={() => void handleSave()}
+            disabled={isUpdatingName}
+            sx={{ color: 'success.main' }}
+            aria-label={isUpdatingName ? 'Saving name' : 'Save name'}
+          >
+            {isUpdatingName ? (
+              <CircularProgress size={18} thickness={5} sx={{ color: 'success.main' }} />
+            ) : (
+              <Check sx={{ fontSize: 18 }} />
+            )}
           </IconButton>
         </>
       ) : (

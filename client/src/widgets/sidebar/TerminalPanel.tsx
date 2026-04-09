@@ -32,7 +32,13 @@ function buildWsUrl(agentName: string): string {
 
 const AUTO_CLOSE_MS = 2500;
 
-export default function TerminalPanel({ agentName, agentDbId, open, onClose, onDeleting }: TerminalPanelProps) {
+export default function TerminalPanel({
+  agentName,
+  agentDbId,
+  open,
+  onClose,
+  onDeleting,
+}: TerminalPanelProps) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('md'));
   const { sidebar } = theme.palette;
@@ -87,8 +93,7 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
 
     const container = containerRef.current;
 
-    const narrow =
-      typeof window !== 'undefined' && window.matchMedia('(max-width:899px)').matches;
+    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width:899px)').matches;
     const term = new Terminal({
       cursorBlink: true,
       fontSize: narrow ? 12 : 13,
@@ -112,6 +117,7 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
     requestAnimationFrame(() => {
       fit.fit();
       initWebSocket(term);
+      term.focus();
     });
 
     const observer = new ResizeObserver(() => {
@@ -180,7 +186,7 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
     return () => {
       cleanup();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, open, agentName]);
 
   useEffect(() => {
@@ -251,7 +257,11 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
       >
         Setting up: {agentName}
       </Typography>
-      {done && <CheckCircle sx={{ color: 'success.main', fontSize: { xs: 18, sm: 16 }, mr: 1, flexShrink: 0 }} />}
+      {done && (
+        <CheckCircle
+          sx={{ color: 'success.main', fontSize: { xs: 18, sm: 16 }, mr: 1, flexShrink: 0 }}
+        />
+      )}
       <IconButton
         size={isCompact ? 'medium' : 'small'}
         onClick={handleClose}
@@ -262,6 +272,10 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
       </IconButton>
     </Box>
   );
+
+  const focusTerminal = useCallback(() => {
+    termRef.current?.focus();
+  }, []);
 
   const terminalBox = (
     <Box
@@ -288,6 +302,9 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
         ModalProps={{
           keepMounted: true,
         }}
+        slotProps={{
+          transition: { onEntered: focusTerminal },
+        }}
         sx={{
           '& .MuiDrawer-paper': paperSx,
         }}
@@ -299,7 +316,15 @@ export default function TerminalPanel({ agentName, agentDbId, open, onClose, onD
   }
 
   return (
-    <Drawer anchor="left" open={open} onClose={handleClose} sx={{ '& .MuiDrawer-paper': paperSx }}>
+    <Drawer
+      anchor="left"
+      open={open}
+      onClose={handleClose}
+      slotProps={{
+        transition: { onEntered: focusTerminal },
+      }}
+      sx={{ '& .MuiDrawer-paper': paperSx }}
+    >
       {header}
       {terminalBox}
     </Drawer>
