@@ -119,6 +119,27 @@ export function deploy() {
     cpSync(runnerSrc, path.join(dist, 'service-runner.mjs'), { force: true });
   }
 
+  const rootPkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf-8'));
+  const updateDir = path.join(dist, 'update');
+
+  if (!existsSync(path.join(updateDir, '.git'))) {
+    process.stdout.write('📥 Setting up update source...\n');
+    try {
+      execFileSync('git', [
+        'clone', '--depth', '1',
+        'https://github.com/lotsoftick/openclaw_client.git', updateDir,
+      ], { stdio: 'pipe', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    } catch {
+      process.stdout.write('  ⚠️  Could not clone update source (updates will use local repo)\n');
+    }
+  }
+
+  const sourceRepo = existsSync(path.join(updateDir, 'package.json')) ? updateDir : root;
+  writeFileSync(path.join(dist, 'meta.json'), JSON.stringify({
+    version: rootPkg.version,
+    sourceRepo,
+  }));
+
   process.stdout.write('📦 Installing production dependencies...\n');
   run('npm', ['ci', '--omit=dev'], apiDist);
 }

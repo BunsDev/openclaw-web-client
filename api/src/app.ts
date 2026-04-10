@@ -14,6 +14,7 @@ import seedAdminUser from './seed';
 import AppDataSource from './data-source';
 import { ensureDevicePaired, gateway } from './services/openclawGateway';
 import attachPtyWebSocket from './services/ptyService';
+import { startUpdateChecker } from './services/updateService';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use(expressErrorHandler);
       else console.warn(colors.yellow('[gateway] initial connection failed, will use CLI fallback')); /* eslint-disable-line */
       const server = app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
       attachPtyWebSocket(server);
+      startUpdateChecker();
     }
   } catch (error) {
     console.log(colors.red('%s'), error); /* eslint-disable-line */

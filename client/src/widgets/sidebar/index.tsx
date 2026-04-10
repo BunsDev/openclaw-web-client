@@ -16,7 +16,13 @@ import {
   InputAdornment,
   Divider,
 } from '@mui/material';
-import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from '@mui/icons-material';
+import {
+  People,
+  Add,
+  Search,
+  KeyboardDoubleArrowUp,
+  SwapVert,
+} from '@mui/icons-material';
 import { Link, useLocation } from 'react-router';
 import {
   useGetAgentsQuery,
@@ -25,6 +31,7 @@ import {
 } from '../../entities/agent/api';
 import { useGetAllConversationsQuery } from '../../entities/conversation/api';
 import ThemePicker from '../../features/theme/ThemePicker';
+import UpdateBanner from './UpdateBanner';
 import AgentSection from './AgentSection';
 import TerminalPanel from './TerminalPanel';
 
@@ -82,7 +89,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     try {
       const interactive = createMode === 'configure';
       const saved = await createAgent({ name, interactive }).unwrap();
-      const slug = saved.openclawAgentId || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const slug =
+        saved.openclawAgentId ||
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
       setNewAgentName('');
       setShowNewAgent(false);
       if (interactive) {
@@ -365,7 +377,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 input: {
                   endAdornment: (
                     <InputAdornment position="end" sx={{ ml: 0 }}>
-                      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, borderColor: sidebar.border }} />
+                      <Divider
+                        orientation="vertical"
+                        flexItem
+                        sx={{ mx: 0.5, borderColor: sidebar.border }}
+                      />
                       <Select
                         size="small"
                         value={createMode}
@@ -387,7 +403,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                                 fontSize: '0.7rem',
                                 color: sidebar.text,
                                 py: 0.5,
-                                '&.Mui-selected': { bgcolor: sidebar.hover, color: sidebar.selectedText },
+                                '&.Mui-selected': {
+                                  bgcolor: sidebar.hover,
+                                  color: sidebar.selectedText,
+                                },
                                 '&:hover': { bgcolor: sidebar.hover },
                               },
                             },
@@ -458,6 +477,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </Box>
       </Box>
+
+      <UpdateBanner />
 
       <ThemePicker />
 
