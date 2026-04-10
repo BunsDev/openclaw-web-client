@@ -20,36 +20,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 500 * 1024 * 1024 },
 });
 
-router.route('/message/conversation/:conversationId(\\d+)')
-  .get(
-    auth,
-    validate.conversationId,
-    controller.listByConversation,
-  );
+router
+  .route('/message/conversation/:conversationId(\\d+)')
+  .get(auth, validate.conversationId, controller.listByConversation);
 
-router.route('/message')
-  .post(
-    auth,
-    validate.create,
-    controller.create,
-  );
+router.route('/message').post(auth, validate.create, controller.create);
 
-router.route('/message/chat')
-  .post(
-    auth,
-    upload.array('files', 5),
-    validate.chat,
-    controller.chat,
-  );
+router.route('/message/chat').post(auth, upload.array('files', 5), validate.chat, controller.chat);
 
-router.route('/message/:id(\\d+)')
-  .delete(
-    auth,
-    validate.id,
-    controller.destroy,
-  );
+router.route('/message/:id(\\d+)').delete(auth, validate.id, controller.destroy);
 
 export default router;

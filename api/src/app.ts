@@ -39,9 +39,17 @@ app.use(expressErrorHandler);
       await seedAdminUser();
       await ensureDevicePaired();
       const gwOk = await gateway.ensureConnected();
-      if (gwOk) console.log(colors.green('[gateway] persistent connection ready')); /* eslint-disable-line */
-      else console.warn(colors.yellow('[gateway] initial connection failed, will use CLI fallback')); /* eslint-disable-line */
-      const server = app.listen(18802, () => console.log(colors.green('running on port 18802'))); /* eslint-disable-line */
+      if (gwOk)
+        console.log(
+          colors.green('[gateway] persistent connection ready')
+        ); /* eslint-disable-line */
+      else
+        console.warn(
+          colors.yellow('[gateway] initial connection failed, will use CLI fallback')
+        ); /* eslint-disable-line */
+      const server = app.listen(18802, () =>
+        console.log(colors.green('running on port 18802'))
+      ); /* eslint-disable-line */
       attachPtyWebSocket(server);
       startUpdateChecker();
     }
@@ -50,7 +58,4 @@ app.use(expressErrorHandler);
   }
 })();
 
-export {
-  app,
-  swaggerSpec,
-};
+export { app, swaggerSpec };

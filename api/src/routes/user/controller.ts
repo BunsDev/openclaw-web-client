@@ -1,4 +1,3 @@
-import { Like, Not, IsNull } from 'typeorm';
 import AppDataSource from '../../data-source';
 import { User } from '../../entities';
 import { List, Get, Create, Update, Destroy } from '../../@types/user';
@@ -12,13 +11,12 @@ const list: List = async (req, res, next) => {
 
     if (req.query.search) {
       const search = req.query.search as string;
-      if (!isNaN(Number(search))) {
+      if (!Number.isNaN(Number(search))) {
         qb.andWhere('user._id = :id', { id: Number(search) });
       } else {
-        qb.andWhere(
-          '(user.name LIKE :s OR user.lastName LIKE :s OR user.email LIKE :s)',
-          { s: `%${search}%` },
-        );
+        qb.andWhere('(user.name LIKE :s OR user.lastName LIKE :s OR user.email LIKE :s)', {
+          s: `%${search}%`,
+        });
       }
     }
 
@@ -26,7 +24,10 @@ const list: List = async (req, res, next) => {
     const items = await qb
       .skip(Number(page) * Number(limit))
       .take(Number(limit))
-      .orderBy(`user.${sortField as string}`, (sortType as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+      .orderBy(
+        `user.${sortField as string}`,
+        (sortType as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+      )
       .getMany();
 
     const sanitized = items.map(({ password, deletedAt, ...rest }) => rest);
@@ -93,10 +94,4 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-export {
-  list,
-  get,
-  create,
-  update,
-  destroy,
-};
+export { list, get, create, update, destroy };

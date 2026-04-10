@@ -19,7 +19,7 @@ function derivePublicKeyRaw(pem: string): Buffer {
 
 function signPayload(privPem: string, payload: string): string {
   return base64UrlEncode(
-    crypto.sign(null, Buffer.from(payload, 'utf8'), crypto.createPrivateKey(privPem)),
+    crypto.sign(null, Buffer.from(payload, 'utf8'), crypto.createPrivateKey(privPem))
   );
 }
 
@@ -70,11 +70,17 @@ type EventListener = (msg: any) => void;
 
 export class GatewayClient {
   ws: WsWebSocket | null = null;
+
   authenticated = false;
+
   pending = new Map<string, PendingRequest>();
+
   eventListeners = new Map<string, EventListener>();
+
   credentials: GatewayCredentials | null = null;
+
   reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
   connectPromise: Promise<boolean> | null = null;
 
   async ensureConnected(): Promise<boolean> {
@@ -91,7 +97,10 @@ export class GatewayClient {
   _connect(): Promise<boolean> {
     return new Promise((resolve) => {
       this.credentials = loadGatewayCredentials();
-      if (!this.credentials) { resolve(false); return; }
+      if (!this.credentials) {
+        resolve(false);
+        return;
+      }
 
       const { device, auth, gatewayPort } = this.credentials;
       const url = `ws://127.0.0.1:${gatewayPort}`;
@@ -111,26 +120,64 @@ export class GatewayClient {
 
       ws.on('message', (data: Buffer) => {
         let msg: any;
-        try { msg = JSON.parse(data.toString()); } catch { return; }
+        try {
+          msg = JSON.parse(data.toString());
+        } catch {
+          return;
+        }
 
         if (msg.type === 'event' && msg.event === 'connect.challenge') {
           const { nonce } = msg.payload;
           const role = 'operator';
-          const scopes = auth.tokens?.operator?.scopes || ['operator.admin', 'operator.read', 'operator.write'];
+          const scopes = auth.tokens?.operator?.scopes || [
+            'operator.admin',
+            'operator.read',
+            'operator.write',
+          ];
           const signedAtMs = Date.now();
           const deviceToken = auth.tokens?.operator?.token || '';
-          const payload = ['v3', device.deviceId, 'gateway-client', 'backend', role, scopes.join(','), String(signedAtMs), deviceToken, nonce, process.platform, ''].join('|');
+          const payload = [
+            'v3',
+            device.deviceId,
+            'gateway-client',
+            'backend',
+            role,
+            scopes.join(','),
+            String(signedAtMs),
+            deviceToken,
+            nonce,
+            process.platform,
+            '',
+          ].join('|');
           const signature = signPayload(device.privateKeyPem, payload);
-          ws.send(JSON.stringify({
-            type: 'req', id: crypto.randomUUID(), method: 'connect',
-            params: {
-              minProtocol: 3, maxProtocol: 3,
-              client: { id: 'gateway-client', version: '1.0.0', platform: process.platform, mode: 'backend' },
-              caps: [], role, scopes,
-              auth: { deviceToken },
-              device: { id: device.deviceId, publicKey: base64UrlEncode(derivePublicKeyRaw(device.publicKeyPem)), signature, signedAt: signedAtMs, nonce },
-            },
-          }));
+          ws.send(
+            JSON.stringify({
+              type: 'req',
+              id: crypto.randomUUID(),
+              method: 'connect',
+              params: {
+                minProtocol: 3,
+                maxProtocol: 3,
+                client: {
+                  id: 'gateway-client',
+                  version: '1.0.0',
+                  platform: process.platform,
+                  mode: 'backend',
+                },
+                caps: [],
+                role,
+                scopes,
+                auth: { deviceToken },
+                device: {
+                  id: device.deviceId,
+                  publicKey: base64UrlEncode(derivePublicKeyRaw(device.publicKeyPem)),
+                  signature,
+                  signedAt: signedAtMs,
+                  nonce,
+                },
+              },
+            })
+          );
           return;
         }
 
@@ -162,9 +209,7 @@ export class GatewayClient {
         }
 
         if (msg.type === 'event') {
-          for (const [, listener] of this.eventListeners) {
-            listener(msg);
-          }
+          this.eventListeners.forEach((listener) => listener(msg));
         }
       });
 
@@ -172,7 +217,7 @@ export class GatewayClient {
         console.log('[gateway] disconnected');
         this.authenticated = false;
         this.ws = null;
-        for (const [, p] of this.pending) p.reject(new Error('gateway disconnected'));
+        this.pending.forEach((p) => p.reject(new Error('gateway disconnected')));
         this.pending.clear();
         this.eventListeners.clear();
         clearTimeout(timeout);
@@ -194,7 +239,11 @@ export class GatewayClient {
     }, 5000);
   }
 
-  request(method: string, params: Record<string, any>, opts: { timeoutMs?: number; expectFinal?: boolean } = {}): Promise<any> {
+  request(
+    method: string,
+    params: Record<string, any>,
+    opts: { timeoutMs?: number; expectFinal?: boolean } = {}
+  ): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WsWebSocket.OPEN) {
         reject(new Error('gateway not connected'));
@@ -202,18 +251,32 @@ export class GatewayClient {
       }
       const id = crypto.randomUUID();
       const timeoutMs = opts.timeoutMs || 120000;
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('timeout')); }, timeoutMs);
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error('timeout'));
+      }, timeoutMs);
       this.pending.set(id, {
-        resolve: (v: any) => { clearTimeout(timer); resolve(v); },
-        reject: (e: Error) => { clearTimeout(timer); reject(e); },
+        resolve: (v: any) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e: Error) => {
+          clearTimeout(timer);
+          reject(e);
+        },
         expectFinal: opts.expectFinal || false,
       });
       this.ws.send(JSON.stringify({ type: 'req', id, method, params }));
     });
   }
 
-  onEvent(key: string, fn: EventListener): void { this.eventListeners.set(key, fn); }
-  offEvent(key: string): void { this.eventListeners.delete(key); }
+  onEvent(key: string, fn: EventListener): void {
+    this.eventListeners.set(key, fn);
+  }
+
+  offEvent(key: string): void {
+    this.eventListeners.delete(key);
+  }
 }
 
 export const gateway = new GatewayClient();
@@ -231,11 +294,16 @@ export async function ensureDevicePaired(): Promise<void> {
 
   try {
     execSync('openclaw gateway call health --json 2>/dev/null', opts);
-  } catch { /* may fail with pairing required */ }
+  } catch {
+    /* may fail with pairing required */
+  }
 
   try {
     const out = execSync('openclaw devices approve --latest --json 2>&1', opts).toString();
-    console.log('[setup] approved pending device:', out.includes('"requestId"') ? 'ok' : out.trim().slice(0, 200));
+    console.log(
+      '[setup] approved pending device:',
+      out.includes('"requestId"') ? 'ok' : out.trim().slice(0, 200)
+    );
   } catch (err: any) {
     const msg = err.stderr?.toString() || err.stdout?.toString() || err.message;
     if (msg.includes('no pending')) {
@@ -247,14 +315,18 @@ export async function ensureDevicePaired(): Promise<void> {
 
   try {
     execSync('openclaw gateway call health --json 2>/dev/null', opts);
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 
   const updated = loadGatewayCredentials();
   const newScopes = updated?.auth?.tokens?.operator?.scopes || [];
   if (newScopes.includes('operator.write')) {
     console.log('[setup] device-auth now has operator.write — gateway fast-path enabled');
   } else {
-    console.warn('[setup] device-auth still missing operator.write — will use CLI fallback for chat');
+    console.warn(
+      '[setup] device-auth still missing operator.write — will use CLI fallback for chat'
+    );
   }
 }
 

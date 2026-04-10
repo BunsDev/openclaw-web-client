@@ -6,9 +6,7 @@ export default {
     param('conversationId').isInt().withMessage('Incorrect conversation id'),
   ]),
 
-  id: validate([
-    param('id').isInt().withMessage('Incorrect request url'),
-  ]),
+  id: validate([param('id').isInt().withMessage('Incorrect request url')]),
 
   create: validate([
     body('conversationId').isInt().withMessage('Please provide a valid conversation id'),

@@ -3,23 +3,23 @@ import { Entity, PrimaryGeneratedColumn, Column, DeleteDateColumn } from 'typeor
 @Entity('agents')
 export default class Agent {
   @PrimaryGeneratedColumn()
-    _id: number;
+  _id: number;
 
   @Column()
-    name: string;
+  name: string;
 
   @Column({ default: 'main' })
-    openclawAgentId: string;
+  openclawAgentId: string;
 
   @Column()
-    createdBy: number;
+  createdBy: number;
 
   @Column({ type: 'datetime', default: () => "datetime('now')" })
-    createdAt: Date;
+  createdAt: Date;
 
   @Column({ type: 'datetime', nullable: true, default: null })
-    updatedAt: Date | null;
+  updatedAt: Date | null;
 
   @DeleteDateColumn({ type: 'datetime', nullable: true, default: null })
-    deletedAt: Date | null;
+  deletedAt: Date | null;
 }

@@ -14,7 +14,4 @@ const swaggerSpec = swaggerJSDoc({
 
 const swaggerConf = swaggerUi.setup(swaggerSpec);
 
-export {
-  swaggerConf,
-  swaggerSpec,
-};
+export { swaggerConf, swaggerSpec };

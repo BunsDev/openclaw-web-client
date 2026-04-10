@@ -4,13 +4,10 @@ import auth from '../../middlewares/auth';
 
 const router = Router();
 
-router.route('/update/status')
-  .get(controller.status);
+router.route('/update/status').get(controller.status);
 
-router.route('/update/check')
-  .post(auth, controller.check);
+router.route('/update/check').post(auth, controller.check);
 
-router.route('/update/apply')
-  .post(auth, controller.apply);
+router.route('/update/apply').post(auth, controller.apply);
 
 export default router;

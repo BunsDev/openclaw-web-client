@@ -57,11 +57,11 @@ const update: Update = async (req, res, next) => {
       const agentRepo = AppDataSource.getRepository(Agent);
       const agent = await agentRepo.findOneBy({ _id: conversation.agentId });
       if (agent?.openclawAgentId) {
-        ocService.patchSessionSettings(
-          agent.openclawAgentId,
-          conversation.sessionKey,
-          { label: req.body.title || null },
-        ).catch(() => {});
+        ocService
+          .patchSessionSettings(agent.openclawAgentId, conversation.sessionKey, {
+            label: req.body.title || null,
+          })
+          .catch(() => {});
       }
     }
 
@@ -79,7 +79,8 @@ const destroy: Destroy = async (req, res, next) => {
 
     const conv = await convRepo.findOneBy({ _id: id });
     await convRepo.softDelete(id);
-    await msgRepo.createQueryBuilder()
+    await msgRepo
+      .createQueryBuilder()
       .update(Message)
       .set({ deletedAt: new Date() })
       .where('conversationId = :id', { id })
@@ -99,10 +100,4 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-export {
-  listAll,
-  listByAgent,
-  create,
-  update,
-  destroy,
-};
+export { listAll, listByAgent, create, update, destroy };

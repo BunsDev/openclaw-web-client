@@ -1,37 +1,44 @@
-import { Entity, PrimaryGeneratedColumn, Column, BeforeInsert, BeforeUpdate, DeleteDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  BeforeInsert,
+  BeforeUpdate,
+  DeleteDateColumn,
+} from 'typeorm';
 import bcrypt from 'bcrypt';
 
 @Entity('users')
 export default class User {
   @PrimaryGeneratedColumn()
-    _id: number;
+  _id: number;
 
   @Column({ unique: true })
-    email: string;
+  email: string;
 
   @Column({ select: false })
-    password: string;
+  password: string;
 
   @Column()
-    name: string;
+  name: string;
 
   @Column()
-    lastName: string;
+  lastName: string;
 
   @Column({ type: 'text', nullable: true, default: null })
-    phone: string | null;
+  phone: string | null;
 
   @Column({ default: true })
-    active: boolean;
+  active: boolean;
 
   @Column({ type: 'datetime', default: () => "datetime('now')" })
-    createdAt: Date;
+  createdAt: Date;
 
   @Column({ type: 'datetime', nullable: true, default: null })
-    updatedAt: Date | null;
+  updatedAt: Date | null;
 
   @DeleteDateColumn({ type: 'datetime', nullable: true, default: null })
-    deletedAt: Date | null;
+  deletedAt: Date | null;
 
   @BeforeInsert()
   async hashPasswordOnInsert() {

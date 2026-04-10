@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import AppDataSource from '../../data-source';
 import { User, BlackList } from '../../entities';
-import { Login, Logout, GetCurentUser } from '../../@types/user';
+import { Login, Logout, GetCurentUser, CUser } from '../../@types/user';
 import { JwtPayload } from '../../@types/blacklist';
 
 const getCurrentUser: GetCurentUser = async (req, res, next) => {
@@ -22,7 +22,10 @@ const login: Login = async (req, res, next) => {
     const user = await userRepo
       .createQueryBuilder('user')
       .addSelect('user.password')
-      .where('LOWER(user.email) = :email AND user.active = :active', { email: email.toLowerCase(), active: true })
+      .where('LOWER(user.email) = :email AND user.active = :active', {
+        email: email.toLowerCase(),
+        active: true,
+      })
       .getOne();
 
     if (!user) return next(createError(401));
@@ -33,7 +36,9 @@ const login: Login = async (req, res, next) => {
     const hash = crypto.createHash('md5').update(`${user._id}-${Math.random()}`).digest('hex');
     const token = jwt.sign({ id: user._id, valid: hash }, process.env.JWT_SECRET);
 
-    const { password: _pw, deletedAt: _da, ...userData } = user;
+    const userData = Object.fromEntries(
+      Object.entries(user as object).filter(([k]) => k !== 'password' && k !== 'deletedAt')
+    ) as CUser;
     return res.header('access-token', token).json(userData);
   } catch (error) {
     return next(error);
@@ -54,8 +59,4 @@ const logout: Logout = async (req, res, next) => {
   }
 };
 
-export {
-  getCurrentUser,
-  login,
-  logout,
-};
+export { getCurrentUser, login, logout };

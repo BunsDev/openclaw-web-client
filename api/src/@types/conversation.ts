@@ -22,7 +22,12 @@ export type ConversationUpdateBody = {
 };
 
 export type ListAll = RequestHandler<never, APIResponse<CConversation>, never, never>;
-export type ListByAgent = RequestHandler<{ agentId: string }, APIResponse<CConversation>, never, never>;
+export type ListByAgent = RequestHandler<
+  { agentId: string },
+  APIResponse<CConversation>,
+  never,
+  never
+>;
 export type Create = RequestHandler<never, CConversation, ConversationRequestBody, never>;
 export type Update = RequestHandler<RequestParams, CConversation, ConversationUpdateBody, never>;
 export type Destroy = RequestHandler<RequestParams, null, never, never>;

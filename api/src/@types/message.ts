@@ -37,10 +37,10 @@ export type ChatRequestBody = {
 };
 
 export type ListByConversation = RequestHandler<
-{ conversationId: string },
-APIResponse<CMessage> & { hasMore: boolean },
-never,
-{ before?: string; limit?: string }
+  { conversationId: string },
+  APIResponse<CMessage> & { hasMore: boolean },
+  never,
+  { before?: string; limit?: string }
 >;
 export type Create = RequestHandler<never, CMessage, MessageRequestBody, never>;
 export type Chat = RequestHandler<never, unknown, ChatRequestBody, never>;

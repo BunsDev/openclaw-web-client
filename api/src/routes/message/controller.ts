@@ -3,7 +3,14 @@ import path from 'path';
 import { LessThan } from 'typeorm';
 import AppDataSource from '../../data-source';
 import { Message, Conversation, Agent } from '../../entities';
-import { ListByConversation, Create, Chat, Destroy, MessageFile } from '../../@types/message';
+import {
+  ListByConversation,
+  Create,
+  Chat,
+  Destroy,
+  MessageFile,
+  CMessage,
+} from '../../@types/message';
 import * as ocService from '../../services/openclawService';
 
 const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:18802';
@@ -27,7 +34,10 @@ const DEFAULT_PAGE_SIZE = 50;
 const listByConversation: ListByConversation = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
-    const limit = Math.min(Math.max(parseInt(req.query.limit || '', 10) || DEFAULT_PAGE_SIZE, 1), 200);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit || '', 10) || DEFAULT_PAGE_SIZE, 1),
+      200
+    );
     const { before } = req.query;
 
     const msgRepo = AppDataSource.getRepository(Message);
@@ -65,7 +75,9 @@ const create: Create = async (req, res, next) => {
       createdAt: new Date(),
     });
     const saved = await msgRepo.save(message);
-    const { deletedAt: _d, ...result } = saved;
+    const result = Object.fromEntries(
+      Object.entries(saved as object).filter(([k]) => k !== 'deletedAt')
+    ) as CMessage;
     return res.json(result);
   } catch (error) {
     return next(error);
@@ -113,19 +125,13 @@ const chat: Chat = async (req, res, next) => {
     }
 
     const filePaths = uploadedFiles.map((uf) =>
-      ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname),
+      ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname)
     );
 
     const sessionKey = conv.sessionKey || String(conv._id);
 
     // Set up SSE headers and stream via the service
-    await ocService.runChat(
-      agentIdForFiles,
-      text || '',
-      sessionKey,
-      filePaths,
-      res,
-    );
+    await ocService.runChat(agentIdForFiles, text || '', sessionKey, filePaths, res);
 
     // runChat will have already ended the response via SSE.
     // Post-stream work: save assistant message and link externalIds.
@@ -145,7 +151,9 @@ const chat: Chat = async (req, res, next) => {
     }
 
     if (isFirstMessage) {
-      ocService.patchSessionSettings(agentIdForFiles, sessionKey, { label: text!.slice(0, 200) }).catch(() => {});
+      ocService
+        .patchSessionSettings(agentIdForFiles, sessionKey, { label: text!.slice(0, 200) })
+        .catch(() => {});
     }
 
     // Fetch messages from JSONL to get externalIds
@@ -183,10 +191,10 @@ const chat: Chat = async (req, res, next) => {
     } catch {
       // Non-critical
     }
+    return undefined;
   } catch (error) {
-    if (!res.headersSent) {
-      return next(error);
-    }
+    if (!res.headersSent) return next(error);
+    return undefined;
   }
 };
 
@@ -216,9 +224,4 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-export {
-  listByConversation,
-  create,
-  chat,
-  destroy,
-};
+export { listByConversation, create, chat, destroy };
