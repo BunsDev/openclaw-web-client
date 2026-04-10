@@ -64,8 +64,8 @@ export function deploy() {
   }
 
   process.stdout.write('📦 Installing dependencies...\n');
-  run('npm', ['ci'], API_SRC);
-  run('npm', ['ci'], CLIENT_SRC);
+  run('npm', ['ci', '--include=dev'], API_SRC);
+  run('npm', ['ci', '--include=dev'], CLIENT_SRC);
 
   process.stdout.write('🔨 Building...\n');
   run('npm', ['run', 'build'], API_SRC);
