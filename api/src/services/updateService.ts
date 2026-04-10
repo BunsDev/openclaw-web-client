@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execFileSync, spawn, SpawnOptions } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 
 const DIST = path.join(os.homedir(), '.openclaw_client');
 const UPDATE_DIR = path.join(DIST, 'update');
@@ -130,18 +130,28 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
   }
 
   const startScript = path.join(UPDATE_DIR, 'scripts', 'start.js');
-  const logFile = path.join(DIST, 'update.log');
-  const fd = fs.openSync(logFile, 'w');
-  const spawnOpts: SpawnOptions = {
-    cwd: UPDATE_DIR,
-    detached: true,
-    stdio: ['ignore', fd, fd],
-    env: { ...process.env },
-  };
-  const child = spawn(process.execPath, [startScript], spawnOpts);
-  child.unref();
-  fs.closeSync(fd);
+  if (!fs.existsSync(startScript)) {
+    updating = false;
+    return { ok: false, error: 'Update source missing start script' };
+  }
 
+  try {
+    const logFile = path.join(DIST, 'update.log');
+    const fd = fs.openSync(logFile, 'w');
+    const child = spawn(process.execPath, [startScript], {
+      cwd: UPDATE_DIR,
+      detached: true,
+      stdio: ['ignore', fd, fd],
+      env: { ...process.env },
+    });
+    child.unref();
+    fs.closeSync(fd);
+  } catch (err: any) {
+    updating = false;
+    return { ok: false, error: `Failed to start update: ${err.message}` };
+  }
+
+  setTimeout(() => { updating = false; }, 10000);
   return { ok: true };
 }
 

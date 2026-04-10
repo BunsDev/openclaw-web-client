@@ -1,41 +1,70 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Box, CircularProgress, useTheme } from '@mui/material';
 import { SystemUpdateAlt } from '@mui/icons-material';
 import { useCheckUpdateQuery, useApplyUpdateMutation } from '../../entities/update/api';
+import { API_BASE_URL } from '../../shared/api/baseApi';
 
 export default function UpdateBanner() {
   const theme = useTheme();
   const { sidebar } = theme.palette;
-  const [phase, setPhase] = useState<'idle' | 'applying' | 'restarting'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'updating' | 'restarting'>('idle');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data } = useCheckUpdateQuery(undefined, { pollingInterval: 7_200_000 });
   const [applyUpdate] = useApplyUpdateMutation();
 
+  const cleanup = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
   const handleClick = async () => {
     if (phase !== 'idle') return;
-    setPhase('applying');
+    setPhase('updating');
+
     try {
       const result = await applyUpdate().unwrap();
-      if (result.ok) {
-        setPhase('restarting');
-        const poll = setInterval(async () => {
-          try {
-            const res = await fetch(
-              `${window.location.origin.replace(':18800', ':18802')}/api/update/status`,
-            );
-            if (res.ok) {
-              clearInterval(poll);
-              window.location.reload();
-            }
-          } catch { /* server still restarting */ }
-        }, 3000);
-        setTimeout(() => clearInterval(poll), 120000);
-      } else {
+      if (!result.ok) {
         setPhase('idle');
+        return;
       }
     } catch {
       setPhase('idle');
+      return;
     }
+
+    let serverWentDown = false;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/update/status`);
+        if (!res.ok) return;
+
+        if (serverWentDown) {
+          cleanup();
+          window.location.reload();
+          return;
+        }
+
+        const status = await res.json();
+        if (!status.available) {
+          cleanup();
+          window.location.reload();
+        }
+      } catch {
+        if (!serverWentDown) {
+          serverWentDown = true;
+          setPhase('restarting');
+        }
+      }
+    }, 3000);
+
+    setTimeout(() => {
+      cleanup();
+      setPhase('idle');
+    }, 300000);
   };
 
   if (!data?.available && phase === 'idle') return null;
@@ -68,7 +97,7 @@ export default function UpdateBanner() {
           v{data?.latest} available
         </>
       )}
-      {phase === 'applying' && (
+      {phase === 'updating' && (
         <>
           <CircularProgress size={12} sx={{ color: sidebar.text }} />
           Updating...
