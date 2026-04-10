@@ -52,7 +52,15 @@ export function deploy() {
   const dataDir = path.join(dist, 'data');
 
   function run(cmd, args = [], cwd = root) {
-    execFileSync(cmd, args, { cwd, stdio: 'inherit' });
+    try {
+      execFileSync(cmd, args, { cwd, stdio: 'pipe' });
+    } catch (err) {
+      const output = err.stdout?.toString() || '';
+      const stderr = err.stderr?.toString() || '';
+      if (output) process.stderr.write(output);
+      if (stderr) process.stderr.write(stderr);
+      throw err;
+    }
   }
 
   process.stdout.write('📦 Installing dependencies...\n');
