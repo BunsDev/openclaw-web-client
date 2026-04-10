@@ -9,5 +9,9 @@
     "dev": "node scripts/dev.js",
     "start": "node scripts/start.js",
     "stop": "node scripts/stop.js"
+  },
+  "bin": {
+    "openclaw-client": "scripts/cli.mjs",
+    "openclaw_client": "scripts/cli.mjs"
   }
 }

@@ -6,7 +6,7 @@ A web-based chat interface for [OpenClaw](https://openclaw.ai) AI agents. Create
 
 ## Features
 
-- **Multi-agent support** — Create and manage multiple OpenClaw agents, each with their own identity and conversation history.
+- **Multi-agent support** — Create and manage multiple OpenClaw agents, each with their own model, identity, and conversation history.
 - **Streaming chat** — Real-time streamed responses with separate display for thinking process and output.
 - **File uploads** — Attach files to messages; files are saved directly to the agent's workspace for context-aware responses.
 - **Conversation management** — Multiple conversations per agent, editable titles, searchable sidebar.
@@ -33,19 +33,13 @@ openclaw auth status
 ```bash
 git clone https://github.com/lotsoftick/openclaw_client.git
 cd openclaw_client
-npm run start
+npm start
 ```
 
-On first run it will automatically:
+`npm start` builds everything, deploys to `~/.openclaw_client`, registers a macOS **LaunchAgent** (starts on login), and installs the global **`openclaw_client`** command.
 
-1. Generate `api/.env` with a random JWT secret and default settings
-2. Install API and client dependencies
-3. Start both services with hot reload (API via nodemon, client via Vite)
-
-Once running:
-
-| Service  | URL                            |
-|----------|--------------------------------|
+| Service  | URL                             |
+| -------- | ------------------------------- |
 | Client   | http://localhost:18800          |
 | API      | http://localhost:18802          |
 | API Docs | http://localhost:18802/api/docs |
@@ -59,22 +53,29 @@ On first startup, a default admin user is created:
 - **Email:** `admin@admin.com`
 - **Password:** `123456`
 
+## Service Commands
+
+After `npm start`, the **`openclaw_client`** command works from any directory:
+
+| Command | What it does |
+| ------- | ------------ |
+| `openclaw_client start` | Start servers from `~/.openclaw_client` (no build) |
+| `openclaw_client stop` | Stop servers |
+| `openclaw_client restart` | Stop + start |
+| `openclaw_client status` | Show service status |
+| `openclaw_client uninstall` | Remove LaunchAgent, global CLI, api & client artifacts (keeps database) |
+| `openclaw_client uninstall --purge` | Also delete database (asks for confirmation) |
+
+To rebuild after code changes, run **`npm start`** from the repo again.
+
 ## npm Scripts
 
-| Command         | Description                                                          |
-|-----------------|----------------------------------------------------------------------|
-| `npm run dev`   | Install deps + start API (nodemon) and Client (Vite) in dev mode     |
-| `npm start`     | Build, deploy to `~/.openclaw_client/`, run detached in production   |
-| `npm run stop`  | Kill processes on ports 18800/18802                                  |
-| `npm run setup` | Only generate `api/.env` (no start)                                  |
-
-## Stopping
-
-```bash
-npm run stop
-```
-
-Or press `Ctrl+C` in the terminal running `dev`.
+| Command | Description |
+| ------- | ----------- |
+| `npm start` | Build, deploy to `~/.openclaw_client`, LaunchAgent, global CLI |
+| `npm run stop` | Stop servers |
+| `npm run dev` | API (nodemon) + Client (Vite) in dev mode with hot reload |
+| `npm run setup` | Generate `api/.env` only |
 
 ## Configuration
 
@@ -82,12 +83,12 @@ Or press `Ctrl+C` in the terminal running `dev`.
 
 Generated automatically on first run in `api/.env` (see `api/.env.example` for reference):
 
-| Variable           | Default                        | Description                              |
-|--------------------|--------------------------------|------------------------------------------|
-| `NODE_ENV`         | `development`                  | Environment mode                         |
-| `JWT_SECRET`       | *(random)*                     | Secret for JWT signing                   |
-| `DB_PATH`          | `./data/openclaw.sqlite`       | Path to SQLite database file             |
-| `ALLOWED_DOMAIN`   | `http://localhost:18800`       | CORS allowed origin(s), comma-separated  |
+| Variable         | Default                  | Description                             |
+| ---------------- | ------------------------ | --------------------------------------- |
+| `NODE_ENV`       | `development`            | Environment mode                        |
+| `JWT_SECRET`     | _(random)_               | Secret for JWT signing                  |
+| `DB_PATH`        | `./data/openclaw.sqlite` | Path to SQLite database file            |
+| `ALLOWED_DOMAIN` | `http://localhost:18800` | CORS allowed origin(s), comma-separated |
 
 The client uses `VITE_API_BASE_URL` (defaults to `http://localhost:18802/api`). Set it in `client/.env` if deploying to a different host.
 
