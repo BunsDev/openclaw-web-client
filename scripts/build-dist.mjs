@@ -51,8 +51,6 @@ export function deploy() {
   const clientDist = path.join(dist, 'client');
   const dataDir = path.join(dist, 'data');
 
-  const npm = path.join(path.dirname(process.execPath), 'npm');
-
   function run(cmd, args = [], cwd = root) {
     try {
       execFileSync(cmd, args, { cwd, stdio: 'pipe' });
@@ -66,12 +64,12 @@ export function deploy() {
   }
 
   process.stdout.write('📦 Installing dependencies...\n');
-  run(npm, ['ci'], API_SRC);
-  run(npm, ['ci'], CLIENT_SRC);
+  run('npm', ['ci'], API_SRC);
+  run('npm', ['ci'], CLIENT_SRC);
 
   process.stdout.write('🔨 Building...\n');
-  run(npm, ['run', 'build'], API_SRC);
-  run(npm, ['run', 'build'], CLIENT_SRC);
+  run('npm', ['run', 'build'], API_SRC);
+  run('npm', ['run', 'build'], CLIENT_SRC);
 
   mkdirSync(apiDist, { recursive: true });
   mkdirSync(clientDist, { recursive: true });
@@ -162,5 +160,5 @@ export function deploy() {
   );
 
   process.stdout.write('📦 Installing production dependencies...\n');
-  run(npm, ['ci', '--omit=dev'], apiDist);
+  run('npm', ['ci', '--omit=dev'], apiDist);
 }

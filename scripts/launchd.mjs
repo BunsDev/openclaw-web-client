@@ -22,6 +22,9 @@ function escapeXml(s) {
  */
 export function writeLaunchAgentPlist(opts) {
   const { nodePath, runnerPath, workDir, stdoutPath, stderrPath } = opts;
+  const nodeBin = path.dirname(nodePath);
+  const sysPath = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+  const fullPath = `${nodeBin}:${sysPath}`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -39,6 +42,8 @@ export function writeLaunchAgentPlist(opts) {
   <dict>
     <key>NODE_ENV</key>
     <string>production</string>
+    <key>PATH</key>
+    <string>${escapeXml(fullPath)}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
