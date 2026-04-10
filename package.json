@@ -1,6 +1,6 @@
 {
   "name": "openclaw-client",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "Web-based chat interface for OpenClaw AI agents",
   "private": true,
   "type": "module",

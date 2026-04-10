@@ -51,12 +51,14 @@ function portListening(port) {
   } catch { return false; }
 }
 
+const npm = path.join(path.dirname(process.execPath), 'npm');
+
 function linkGlobal() {
-  execFileSync('npm', ['link'], { cwd: ROOT, stdio: 'pipe' });
+  execFileSync(npm, ['link'], { cwd: ROOT, stdio: 'pipe' });
 }
 
 function unlinkGlobal() {
-  try { execFileSync('npm', ['unlink', '-g', 'openclaw-client'], { stdio: 'pipe' }); } catch { /* ok */ }
+  try { execFileSync(npm, ['unlink', '-g', 'openclaw-client'], { stdio: 'pipe' }); } catch { /* ok */ }
 }
 
 function assertBuilt() {
