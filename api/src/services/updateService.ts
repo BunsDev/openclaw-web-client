@@ -142,7 +142,10 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
       cwd: UPDATE_DIR,
       detached: true,
       stdio: ['ignore', fd, fd],
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        PATH: [path.dirname(process.execPath), process.env.PATH || ''].filter(Boolean).join(':'),
+      },
     });
     child.unref();
     fs.closeSync(fd);
@@ -151,7 +154,9 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
     return { ok: false, error: `Failed to start update: ${err.message}` };
   }
 
-  setTimeout(() => { updating = false; }, 10000);
+  setTimeout(() => {
+    updating = false;
+  }, 300000);
   return { ok: true };
 }
 
