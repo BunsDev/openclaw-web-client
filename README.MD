@@ -2,7 +2,7 @@
 
 A web-based chat interface for [OpenClaw](https://openclaw.ai) AI agents. Create multiple agents, manage conversations, upload files, and stream AI responses in real time — all through a clean, modern UI.
 
-![OpenClaw Client](assets/screenshot.png)
+<video src="https://github.com/lotsoftick/openclaw_client/assets/video.mp4" width="100%" autoplay loop muted playsinline></video>
 
 ## Features
 
@@ -57,25 +57,25 @@ On first startup, a default admin user is created:
 
 After `npm start`, the **`openclaw_client`** command works from any directory:
 
-| Command | What it does |
-| ------- | ------------ |
-| `openclaw_client start` | Start servers from `~/.openclaw_client` (no build) |
-| `openclaw_client stop` | Stop servers |
-| `openclaw_client restart` | Stop + start |
-| `openclaw_client status` | Show service status |
-| `openclaw_client uninstall` | Remove LaunchAgent, global CLI, api & client artifacts (keeps database) |
-| `openclaw_client uninstall --purge` | Also delete database (asks for confirmation) |
+| Command                             | What it does                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `openclaw_client start`             | Start servers from `~/.openclaw_client` (no build)                      |
+| `openclaw_client stop`              | Stop servers                                                            |
+| `openclaw_client restart`           | Stop + start                                                            |
+| `openclaw_client status`            | Show service status                                                     |
+| `openclaw_client uninstall`         | Remove LaunchAgent, global CLI, api & client artifacts (keeps database) |
+| `openclaw_client uninstall --purge` | Also delete database (asks for confirmation)                            |
 
 To rebuild after code changes, run **`npm start`** from the repo again.
 
 ## npm Scripts
 
-| Command | Description |
-| ------- | ----------- |
-| `npm start` | Build, deploy to `~/.openclaw_client`, LaunchAgent, global CLI |
-| `npm run stop` | Stop servers |
-| `npm run dev` | API (nodemon) + Client (Vite) in dev mode with hot reload |
-| `npm run setup` | Generate `api/.env` only |
+| Command         | Description                                                    |
+| --------------- | -------------------------------------------------------------- |
+| `npm start`     | Build, deploy to `~/.openclaw_client`, LaunchAgent, global CLI |
+| `npm run stop`  | Stop servers                                                   |
+| `npm run dev`   | API (nodemon) + Client (Vite) in dev mode with hot reload      |
+| `npm run setup` | Generate `api/.env` only                                       |
 
 ## Configuration
 
