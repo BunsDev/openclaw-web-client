@@ -7,7 +7,7 @@ const swaggerSpec = swaggerJSDoc({
     openapi: '3.0.3',
     info: { title: 'OpenClaw', version: '1.0.0', description: 'OpenClaw REST API' },
     servers: [{ url: '/api' }],
-    tags: [{ name: 'auth' }, { name: 'agent' }, { name: 'conversation' }, { name: 'message' }],
+    tags: [{ name: 'auth' }, { name: 'user' }, { name: 'agent' }, { name: 'conversation' }, { name: 'message' }, { name: 'update' }],
   },
   apis: ['**/routes/**/doc.yaml'],
 }) as OpenAPI.Document;

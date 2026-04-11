@@ -26,8 +26,13 @@ const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuery
 ) => {
   const result = await rawBaseQuery(args, api, extraOptions);
 
-  // Extract token from response header
-  const token = result.meta?.response?.headers.get('access-token');
+  // Extract token from response body (reliable) or header (fallback)
+  const bodyToken =
+    result.data && typeof result.data === 'object' && 'accessToken' in result.data
+      ? (result.data as { accessToken: string }).accessToken
+      : null;
+  const headerToken = result.meta?.response?.headers.get('access-token');
+  const token = bodyToken || headerToken;
   if (token) {
     const tokenValue = token.startsWith('Bearer ') ? token.slice(7) : token;
     localStorage.setItem('token', tokenValue);
@@ -37,8 +42,8 @@ const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuery
   if (result.error?.status === 401) {
     localStorage.removeItem('token');
     api.dispatch({ type: 'auth/logout' });
+    api.dispatch(baseApi.util.resetApiState());
 
-    // Redirect to login page
     if (window.location.pathname !== '/login') {
       window.location.href = '/login';
     }

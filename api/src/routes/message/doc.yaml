@@ -6,16 +6,32 @@ paths:
       security:
         - bearerAuth: []
       operationId: listMessagesByConversation
-      summary: List all messages in a conversation
+      summary: List messages in a conversation (cursor-paginated)
       parameters:
         - in: path
           name: conversationId
           required: true
           schema:
             type: integer
+        - in: query
+          name: limit
+          required: false
+          description: Number of messages to return (1-200)
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - in: query
+          name: before
+          required: false
+          description: ISO 8601 cursor — only return messages created before this timestamp
+          schema:
+            type: string
+            format: date-time
       responses:
         200:
-          description: List of messages sorted by creation date (ascending)
+          description: Paginated messages (newest last)
           content:
             application/json:
               schema:
@@ -145,6 +161,9 @@ components:
           type: integer
         conversationId:
           type: integer
+        externalId:
+          type: string
+          nullable: true
         text:
           type: string
         thinking:
@@ -168,10 +187,14 @@ components:
       properties:
         total:
           type: integer
+          description: Number of messages in the current page
         items:
           type: array
           items:
             $ref: '#/components/schemas/message'
+        hasMore:
+          type: boolean
+          description: Whether older messages exist before this page
     #
     messageReqBody:
       type: object
@@ -200,4 +223,4 @@ components:
           items:
             type: string
             format: binary
-          description: Up to 5 file attachments (max 10MB each).
+          description: Up to 5 file attachments (max 500MB each).

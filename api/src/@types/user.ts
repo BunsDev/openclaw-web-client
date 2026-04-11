@@ -23,7 +23,8 @@ export type UserRequestBody = {
 export type CUser = Omit<IUser, 'password' | 'deletedAt'>;
 
 export type GetCurentUser = RequestHandler<never, CUser, never, never>;
-export type Login = RequestHandler<never, CUser, UserRequestBody, never>;
+export type LoginResponse = CUser & { accessToken: string };
+export type Login = RequestHandler<never, LoginResponse, UserRequestBody, never>;
 export type Logout = RequestHandler<never, never, never, never>;
 
 export type UserFilters = QueryFilters<'name' | 'email' | 'createdAt' | 'updatedAt'>;

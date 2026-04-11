@@ -39,7 +39,7 @@ const login: Login = async (req, res, next) => {
     const userData = Object.fromEntries(
       Object.entries(user as object).filter(([k]) => k !== 'password' && k !== 'deletedAt')
     ) as CUser;
-    return res.header('access-token', token).json(userData);
+    return res.header('access-token', token).json({ ...userData, accessToken: token });
   } catch (error) {
     return next(error);
   }

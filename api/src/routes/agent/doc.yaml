@@ -17,6 +17,7 @@ paths:
           name: limit
           schema:
             type: integer
+            enum: [5, 10, 20, 40, 60, 100]
             default: 40
         - in: query
           name: sortField
@@ -70,6 +71,54 @@ paths:
           $ref: '#/components/responses/401'
         422:
           $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/sync:
+    post:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: syncAgents
+      summary: Sync agents, conversations, and messages from OpenClaw
+      description: >
+        Scans the OpenClaw filesystem for agents, sessions, and messages that
+        are not yet in the local database and imports them.
+      responses:
+        200:
+          description: Sync result counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/syncResponse'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/models:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: listModels
+      summary: List available AI models
+      responses:
+        200:
+          description: List of model identifiers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  models:
+                    type: array
+                    items:
+                      type: string
+        401:
+          $ref: '#/components/responses/401'
         500:
           $ref: '#/components/responses/500'
   /agent/{id}:
@@ -139,6 +188,247 @@ paths:
           $ref: '#/components/responses/401'
         500:
           $ref: '#/components/responses/500'
+  /agent/{id}/model:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentModel
+      summary: Get the AI model assigned to an agent
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Current model
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  model:
+                    type: string
+                    nullable: true
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: patchAgentModel
+      summary: Change the AI model assigned to an agent
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - model
+              properties:
+                model:
+                  type: string
+                  example: 'o3-pro'
+      responses:
+        200:
+          description: Model updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  model:
+                    type: string
+        400:
+          description: Model is required
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/workspace:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getWorkspaceMeta
+      summary: Get workspace metadata for an agent
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Workspace metadata (file list, sizes, etc.)
+          content:
+            application/json:
+              schema:
+                type: object
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/workspace/file/{filename}:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getWorkspaceFile
+      summary: Read a workspace file
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/workspaceFilename'
+      responses:
+        200:
+          description: File content
+          content:
+            application/json:
+              schema:
+                type: object
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+    put:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: putWorkspaceFile
+      summary: Write a workspace file
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/workspaceFilename'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  description: File content to write
+      responses:
+        200:
+          description: Write result
+          content:
+            application/json:
+              schema:
+                type: object
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/workspace/uploads/{filename}:
+    get:
+      tags:
+        - agent
+      operationId: serveWorkspaceUpload
+      summary: Serve a file uploaded to the agent workspace
+      description: Returns the raw file. No authentication required.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Raw file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Agent or file not found
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/conversation/{conversationId}/session-settings:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getSessionSettings
+      summary: Get session settings for a conversation
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/conversationId'
+      responses:
+        200:
+          description: Session settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  settings:
+                    type: object
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: patchSessionSettings
+      summary: Update session settings for a conversation
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/conversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Arbitrary settings to merge into the session
+      responses:
+        200:
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                type: object
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
 #
 #
 #
@@ -151,6 +441,19 @@ components:
       required: true
       schema:
         type: integer
+    conversationId:
+      in: path
+      name: conversationId
+      required: true
+      schema:
+        type: integer
+    workspaceFilename:
+      in: path
+      name: filename
+      required: true
+      schema:
+        type: string
+        enum: [AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md, MEMORY.md]
   ##
   schemas:
     #
@@ -172,6 +475,10 @@ components:
           type: string
           format: date-time
           nullable: true
+        model:
+          type: string
+          nullable: true
+          description: Currently assigned AI model
     #
     agentListResponse:
       type: object
@@ -195,6 +502,9 @@ components:
           type: string
           example: 'research-assistant'
           description: Optional slug for the OpenClaw agent. Auto-generated from name if omitted.
+        interactive:
+          type: boolean
+          description: If true, skip automatic gateway registration (for interactive setup flows).
     #
     agentUpdateBody:
       type: object
@@ -204,3 +514,16 @@ components:
         name:
           type: string
           example: 'Updated Agent Name'
+    #
+    syncResponse:
+      type: object
+      properties:
+        syncedAgents:
+          type: integer
+          description: Number of newly imported agents
+        syncedConversations:
+          type: integer
+          description: Number of newly imported conversations
+        syncedMessages:
+          type: integer
+          description: Number of newly imported messages

@@ -1,4 +1,4 @@
-paths: 
+paths:
   /auth/token:
     get:
       tags:
@@ -7,15 +7,13 @@ paths:
         - bearerAuth: []
       operationId: tokenCheck
       summary: Check token and return signed in user
-      responses: 
+      responses:
         200:
           $ref: '#/components/responses/profile'
         500:
           $ref: '#/components/responses/500'
         401:
           $ref: '#/components/responses/401'
-        422:
-          $ref: '#/components/responses/422'
   /auth/login:
     post:
       tags:
@@ -28,9 +26,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/loginReqBody'
-      responses: 
+      responses:
         200:
-          $ref: '#/components/responses/profileRes'
+          $ref: '#/components/responses/loginRes'
         500:
           $ref: '#/components/responses/500'
         401:
@@ -38,22 +36,20 @@ paths:
         422:
           $ref: '#/components/responses/422'
   /auth/logout:
-    delete: 
+    delete:
       tags:
         - auth
       security:
         - bearerAuth: []
       operationId: logout
       summary: Logout a user
-      responses: 
+      responses:
         200:
           $ref: '#/components/responses/empty'
         500:
           $ref: '#/components/responses/500'
         401:
           $ref: '#/components/responses/401'
-        422:
-          $ref: '#/components/responses/422'
 #
 #
 #
@@ -62,38 +58,43 @@ components:
   responses:
     #
     profile:
-      description: successful response
+      description: Successful response
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/profile'
     #
-    profileRes:
-      description: successful response
+    loginRes:
+      description: Successful login
       headers:
         access-token:
           required: true
           schema:
             type: string
+          description: JWT access token
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/profile'
+            allOf:
+              - $ref: '#/components/schemas/profile'
+              - type: object
+                required:
+                  - accessToken
+                properties:
+                  accessToken:
+                    type: string
+                    description: JWT access token (same value as the access-token header)
   ##
   schemas:
     #
     profile:
       type: object
-      additionalProperties: false
       required:
-      - _id
-      - email
-      - name
-      - lastName
-      - phone
-      - active
-      - createdAt
-      - updatedAt
+        - _id
+        - email
+        - name
+        - active
+        - createdAt
       properties:
         _id:
           type: integer
@@ -124,7 +125,6 @@ components:
       required:
         - email
         - password
-        - token
       properties:
         email:
           type: string
@@ -132,8 +132,3 @@ components:
         password:
           type: string
           example: '123456'
-        token:
-          type: string
-          example: test_token_for_swagger
-          description: use 'test_token_for_swagger' to pass recaptcha validation (only for dev)
-

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button, TextField, Card, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { useFormik, FormikProvider, Form } from 'formik';
 import { useNavigate } from 'react-router';
@@ -6,6 +7,12 @@ import { useLoginMutation } from '../../app/store';
 export default function LoginPage() {
   const navigate = useNavigate();
   const [login, { isLoading, error }] = useLoginMutation();
+
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
 
   const formik = useFormik({
     initialValues: { email: '', password: '' },

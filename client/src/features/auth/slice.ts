@@ -33,7 +33,8 @@ const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
-        state.user = action.payload;
+        const { id, email, name } = action.payload as User & { accessToken?: string };
+        state.user = { id, email, name };
         state.token = localStorage.getItem('token');
         state.isAuthenticated = true;
       })
