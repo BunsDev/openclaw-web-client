@@ -101,13 +101,20 @@ const chat: Chat = async (req, res, next) => {
     const agent = await agentRepo.findOneBy({ _id: conv.agentId });
     const agentIdForFiles = agent?.openclawAgentId || 'main';
 
-    const files: MessageFile[] = uploadedFiles.map((f) => ({
-      filename: f.originalname,
-      originalName: f.originalname,
-      mimetype: f.mimetype,
-      size: f.size,
-      url: `${API_PUBLIC_URL}/api/agent/${conv.agentId}/workspace/uploads/${encodeURIComponent(f.originalname)}`,
-    }));
+    const filePaths = uploadedFiles.map((uf) =>
+      ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname)
+    );
+
+    const files: MessageFile[] = uploadedFiles.map((f, i) => {
+      const savedName = path.basename(filePaths[i]);
+      return {
+        filename: f.originalname,
+        originalName: f.originalname,
+        mimetype: f.mimetype,
+        size: f.size,
+        url: `${API_PUBLIC_URL}/api/agent/${conv.agentId}/workspace/uploads/${encodeURIComponent(savedName)}`,
+      };
+    });
 
     const userMessage = msgRepo.create({
       conversationId: Number(conversationId),
@@ -123,10 +130,6 @@ const chat: Chat = async (req, res, next) => {
     if (isFirstMessage) {
       await convRepo.update(Number(conversationId), { title: text.slice(0, 200) });
     }
-
-    const filePaths = uploadedFiles.map((uf) =>
-      ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname)
-    );
 
     const sessionKey = conv.sessionKey || String(conv._id);
 

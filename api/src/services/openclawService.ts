@@ -20,7 +20,7 @@ function stripGatewayTags(text: string): string {
 }
 
 export function agentWorkspacePath(agentId: string): string {
-  return path.join(OPENCLAW_HOME, 'agents', agentId, 'workspace');
+  return path.join(OPENCLAW_HOME, 'workspace', agentId);
 }
 
 function agentDir(agentId: string): string {
@@ -703,9 +703,13 @@ export function putWorkspaceFile(agentId: string, filename: string, content: str
   return { ok: true, path: fp };
 }
 
-export function getWorkspaceUploadPath(agentId: string, filename: string): string | null {
+function mediaInboundDir(): string {
+  return path.join(OPENCLAW_HOME, 'media', 'inbound');
+}
+
+export function getWorkspaceUploadPath(_agentId: string, filename: string): string | null {
   const safe = path.basename(filename);
-  const fp = path.join(agentWorkspacePath(agentId), safe);
+  const fp = path.join(mediaInboundDir(), safe);
   return fs.existsSync(fp) ? fp : null;
 }
 
@@ -944,13 +948,15 @@ export function setAgentModel(agentId: string, modelId: string): boolean {
 }
 
 export function copyFileToWorkspace(
-  agentId: string,
+  _agentId: string,
   srcPath: string,
   originalName: string
 ): string {
-  const workDir = agentWorkspacePath(agentId);
-  if (!fs.existsSync(workDir)) fs.mkdirSync(workDir, { recursive: true });
-  const dest = path.join(workDir, originalName);
+  const dir = mediaInboundDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const ext = path.extname(originalName);
+  const safeName = `${crypto.randomUUID()}${ext}`;
+  const dest = path.join(dir, safeName);
   fs.copyFileSync(srcPath, dest);
   fs.unlinkSync(srcPath);
   console.log(`[files] saved ${originalName} -> ${dest}`);
