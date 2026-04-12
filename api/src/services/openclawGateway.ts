@@ -256,6 +256,26 @@ export class GatewayClient {
 
 export const gateway = new GatewayClient();
 
+const OPENCLAW_BIN = (() => {
+  const candidates = [
+    process.env.OPENCLAW_BIN,
+    '/opt/homebrew/bin/openclaw',
+    '/usr/local/bin/openclaw',
+    path.join(os.homedir(), '.local', 'bin', 'openclaw'),
+  ];
+  const found = candidates.find((c) => c && fs.existsSync(c));
+  if (found) return found;
+  try {
+    return execSync('which openclaw', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'openclaw';
+  }
+})();
+
+export function getOpenclawBin(): string {
+  return OPENCLAW_BIN;
+}
+
 export async function ensureDevicePaired(): Promise<void> {
   const creds = loadGatewayCredentials();
   const scopes = creds?.auth?.tokens?.operator?.scopes || [];
@@ -268,13 +288,13 @@ export async function ensureDevicePaired(): Promise<void> {
   const opts = { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 };
 
   try {
-    execSync('openclaw gateway call health --json 2>/dev/null', opts);
+    execSync(`${OPENCLAW_BIN} gateway call health --json 2>/dev/null`, opts);
   } catch {
     /* may fail with pairing required */
   }
 
   try {
-    const out = execSync('openclaw devices approve --latest --json 2>&1', opts).toString();
+    const out = execSync(`${OPENCLAW_BIN} devices approve --latest --json 2>&1`, opts).toString();
     console.log(
       '[setup] approved pending device:',
       out.includes('"requestId"') ? 'ok' : out.trim().slice(0, 200)
@@ -289,7 +309,7 @@ export async function ensureDevicePaired(): Promise<void> {
   }
 
   try {
-    execSync('openclaw gateway call health --json 2>/dev/null', opts);
+    execSync(`${OPENCLAW_BIN} gateway call health --json 2>/dev/null`, opts);
   } catch {
     /* non-critical */
   }
@@ -308,3 +328,4 @@ export async function ensureDevicePaired(): Promise<void> {
 export function getOpenclawHome(): string {
   return OPENCLAW_HOME;
 }
+

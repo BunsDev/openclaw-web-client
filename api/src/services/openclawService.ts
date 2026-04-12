@@ -5,9 +5,10 @@ import path from 'path';
 import os from 'os';
 import { Response } from 'express';
 import { SseEmitter, OpenClawMessage, OpenClawSession } from '../@types/openclaw';
-import { gateway, loadGatewayCredentials, getOpenclawHome } from './openclawGateway';
+import { gateway, loadGatewayCredentials, getOpenclawHome, getOpenclawBin } from './openclawGateway';
 
 const OPENCLAW_HOME = getOpenclawHome();
+const OPENCLAW_BIN = getOpenclawBin();
 
 const GW_TAG = 'final|output|think|thinking|redacted_thinking';
 const GW_RE_OPEN = new RegExp(`^<(?:${GW_TAG})\\b[^>]*>`, 'i');
@@ -314,7 +315,7 @@ function runAgentWithEmitter(
 
   console.log(`[chat] CLI fallback: openclaw ${args.join(' ')}`);
 
-  const child = spawn('openclaw', args, {
+  const child = spawn(OPENCLAW_BIN, args, {
     cwd: os.homedir(),
     env: { ...process.env, NO_COLOR: '1' },
   });
@@ -709,7 +710,7 @@ export function registerAgent(agentId: string): {
   console.log(`[register] adding agent: ${agentId}, workspace: ${workspace}`);
   try {
     const output = execSync(
-      `openclaw agents add ${agentId} --non-interactive --workspace ${workspace} --json 2>&1`,
+      `${OPENCLAW_BIN} agents add ${agentId} --non-interactive --workspace ${workspace} --json 2>&1`,
       {
         cwd: os.homedir(),
         env: { ...process.env, NO_COLOR: '1' },
@@ -731,7 +732,7 @@ export function setAgentIdentity(agentId: string, name: string): { ok: boolean; 
   try {
     const args = ['agents', 'set-identity', '--agent', agentId];
     if (name) args.push('--name', name);
-    const output = execSync(`openclaw ${args.map((a) => `"${a}"`).join(' ')} 2>&1`, {
+    const output = execSync(`${OPENCLAW_BIN} ${args.map((a) => `"${a}"`).join(' ')} 2>&1`, {
       cwd: os.homedir(),
       env: { ...process.env, NO_COLOR: '1' },
       timeout: 15000,
@@ -752,7 +753,7 @@ export function removeAgent(agentId: string): {
 } {
   console.log(`[remove] removing agent: ${agentId}`);
   try {
-    const output = execSync(`openclaw agents delete ${agentId} --force --json 2>&1`, {
+    const output = execSync(`${OPENCLAW_BIN} agents delete ${agentId} --force --json 2>&1`, {
       cwd: os.homedir(),
       env: { ...process.env, NO_COLOR: '1' },
       timeout: 15000,
