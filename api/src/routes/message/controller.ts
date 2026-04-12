@@ -16,10 +16,10 @@ import * as ocService from '../../services/openclawService';
 const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:18802';
 
 function stripWrapperTags(text: string): string {
-  const TAG = 'final|output|think|thinking|redacted_thinking';
   return text
-    .replace(new RegExp(`^<(?:${TAG})\\b[^>]*>`, 'i'), '')
-    .replace(new RegExp(`</(?:${TAG})\\s*>\\s*$`, 'i'), '')
+    .replace(/<(?:think|thinking|redacted_thinking)>[\s\S]*?<\/(?:think|thinking|redacted_thinking)>/gi, '')
+    .replace(/^<(?:final|output|think|thinking|redacted_thinking)\b[^>]*>/i, '')
+    .replace(/<\/(?:final|output|think|thinking|redacted_thinking)\s*>\s*$/i, '')
     .replace(/<\/[a-z]*\s*$/i, '')
     .trim();
 }

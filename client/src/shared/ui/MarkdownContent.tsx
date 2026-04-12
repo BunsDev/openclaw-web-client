@@ -22,11 +22,11 @@ function syncHljsStylesheet(isDarkUi: boolean) {
   }
 }
 
-/** Strip gateway wrapper tags at boundaries only — preserves literal tags in content. */
 function stripWrapperTags(text: string): string {
   if (!text) return text;
   const TAG = 'final|output|think|thinking|redacted_thinking';
   return text
+    .replace(/<(?:think|thinking|redacted_thinking)>[\s\S]*?<\/(?:think|thinking|redacted_thinking)>/gi, '')
     .replace(new RegExp(`^<(?:${TAG})\\b[^>]*>`, 'i'), '')
     .replace(new RegExp(`</(?:${TAG})\\s*>\\s*$`, 'i'), '')
     .replace(/<\/[a-z]*\s*$/i, '')

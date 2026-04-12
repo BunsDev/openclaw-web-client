@@ -59,7 +59,12 @@ function extractUserText(raw: string): string {
 }
 
 function extractAssistantText(raw: string): string {
-  return raw.replace(/<\/?final>/gi, '').trim();
+  return raw
+    .replace(/<\/?final>/gi, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .replace(/<redacted_thinking>[\s\S]*?<\/redacted_thinking>/gi, '')
+    .trim();
 }
 
 function readFirstUserMessage(jsonlPath: string): string | null {
@@ -118,12 +123,14 @@ function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
           .join('\n')
           .trim();
         const text = role === 'user' ? extractUserText(rawText) : extractAssistantText(rawText);
-        const thinking =
-          content
-            .filter((c: any) => c.type === 'thinking' && c.thinking)
-            .map((c: any) => c.thinking)
-            .join('\n')
-            .trim() || null;
+        const inlineThinkMatch = rawText.match(/<(?:think|thinking)>([\s\S]*?)<\/(?:think|thinking)>/i);
+        const inlineThink = inlineThinkMatch ? inlineThinkMatch[1].trim() : '';
+        const structuredThink = content
+          .filter((c: any) => c.type === 'thinking' && c.thinking)
+          .map((c: any) => c.thinking)
+          .join('\n')
+          .trim();
+        const thinking = [structuredThink, inlineThink].filter(Boolean).join('\n').trim() || null;
         return text
           ? {
               externalId: entry.id,
