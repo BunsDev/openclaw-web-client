@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { Response } from 'express';
+import { SseEmitter, OpenClawMessage, OpenClawSession } from '../@types/openclaw';
 import { gateway, loadGatewayCredentials, getOpenclawHome } from './openclawGateway';
 
 const OPENCLAW_HOME = getOpenclawHome();
@@ -25,12 +26,6 @@ export function agentWorkspacePath(agentId: string): string {
 
 function agentDir(agentId: string): string {
   return path.join(OPENCLAW_HOME, 'agents', agentId);
-}
-
-export interface SseEmitter {
-  send: (type: string, delta: string) => void;
-  done: () => void;
-  error: (msg: string) => void;
 }
 
 export function createSseEmitter(res: Response): SseEmitter {
@@ -92,14 +87,6 @@ function readFirstUserMessage(jsonlPath: string): string | null {
     /* ignore */
   }
   return null;
-}
-
-export interface OpenClawMessage {
-  externalId: string;
-  role: string;
-  text: string;
-  thinking: string | null;
-  timestamp: string | null;
 }
 
 function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
@@ -489,14 +476,6 @@ export function listAgents(): {
   }
 }
 
-export interface OpenClawSession {
-  sessionKey: string;
-  sessionId: string;
-  updatedAt: number;
-  label: string | null;
-  firstMessage: string | null;
-}
-
 export function listSessions(agentId: string, skipFirstMessage = false): OpenClawSession[] {
   const sessionsFile = path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', 'sessions.json');
   if (!fs.existsSync(sessionsFile)) return [];
@@ -838,49 +817,6 @@ export async function runChat(
 
 // ─── Model management ───
 
-export interface ModelInfo {
-  id: string;
-  name: string;
-  provider: string;
-  input: string;
-  context: number;
-  local: boolean;
-  available: boolean;
-  tags: string[];
-}
-
-function loadModelsFromCli(): ModelInfo[] {
-  const raw = execSync('openclaw models list --all --json', {
-    encoding: 'utf-8',
-    timeout: 60000,
-  });
-  const data = JSON.parse(raw) as { models: Record<string, unknown>[] };
-  return data.models.map((m) => {
-    const key = String(m.key || '');
-    const slashIdx = key.indexOf('/');
-    return {
-      id: key,
-      name: String(m.name || key),
-      provider: slashIdx > 0 ? key.slice(0, slashIdx) : 'other',
-      input: String(m.input || 'text'),
-      context: Number(m.contextWindow) || 0,
-      local: Boolean(m.local),
-      available: Boolean(m.available),
-      tags: Array.isArray(m.tags) ? m.tags.map(String) : [],
-    };
-  });
-}
-
-export function listModels(availableOnly = true): ModelInfo[] {
-  try {
-    const models = loadModelsFromCli();
-    return availableOnly ? models.filter((m) => m.available) : models;
-  } catch (err) {
-    console.error('[models] failed to list models:', err);
-    return [];
-  }
-}
-
 function readOpenclawConfig(): Record<string, unknown> | null {
   try {
     const configPath = path.join(OPENCLAW_HOME, 'openclaw.json');
@@ -927,24 +863,6 @@ export function getAgentModelsForOpenclawIds(openclawIds: string[]): Record<stri
 
 export function getAgentModel(agentId: string): string | null {
   return getAgentModelsForOpenclawIds([agentId])[agentId] ?? null;
-}
-
-export function setAgentModel(agentId: string, modelId: string): boolean {
-  const config = readOpenclawConfig();
-  if (!config) return false;
-  const agents = config.agents as Record<string, unknown> | undefined;
-  const list = (agents?.list || []) as { id: string }[];
-  const idx = list.findIndex((a) => a.id === agentId);
-  if (idx === -1) return false;
-  try {
-    execSync(`openclaw config set agents.list[${idx}].model "${modelId}"`, {
-      timeout: 15000,
-    });
-    return true;
-  } catch (err) {
-    console.error('[models] failed to set agent model:', err);
-    return false;
-  }
 }
 
 export function copyFileToWorkspace(

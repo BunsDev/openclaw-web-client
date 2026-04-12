@@ -1,17 +1,15 @@
 import { RequestHandler } from 'express';
 import { QueryFilters, RequestParams, APIResponse } from './shared';
 
-export type IUser = {
+export type UserResponse = {
   _id: number;
   name: string;
   lastName: string;
-  password: string;
   email: string;
   phone: string | null;
   active: boolean;
   createdAt: Date | string;
   updatedAt: Date | string | null;
-  deletedAt?: Date | string | null;
 };
 
 export type UserRequestBody = {
@@ -20,10 +18,8 @@ export type UserRequestBody = {
   token: string;
 };
 
-export type CUser = Omit<IUser, 'password' | 'deletedAt'>;
-
-export type GetCurentUser = RequestHandler<never, CUser, never, never>;
-export type LoginResponse = CUser & { accessToken: string };
+export type GetCurentUser = RequestHandler<never, UserResponse, never, never>;
+export type LoginResponse = UserResponse & { accessToken: string };
 export type Login = RequestHandler<never, LoginResponse, UserRequestBody, never>;
 export type Logout = RequestHandler<never, never, never, never>;
 
@@ -46,8 +42,8 @@ export type UpdateUserBody = {
   active?: boolean;
 };
 
-export type List = RequestHandler<never, APIResponse<CUser>, never, UserFilters>;
-export type Get = RequestHandler<RequestParams, CUser | null, never, never>;
-export type Create = RequestHandler<never, CUser, CreateUserBody, never>;
-export type Update = RequestHandler<RequestParams, CUser | null, UpdateUserBody, never>;
+export type List = RequestHandler<never, APIResponse<UserResponse>, never, UserFilters>;
+export type Get = RequestHandler<RequestParams, UserResponse | null, never, never>;
+export type Create = RequestHandler<never, UserResponse, CreateUserBody, never>;
+export type Update = RequestHandler<RequestParams, UserResponse | null, UpdateUserBody, never>;
 export type Destroy = RequestHandler<RequestParams, null, never, never>;

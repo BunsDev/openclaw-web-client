@@ -11,7 +11,7 @@ export type MessageFile = {
   url: string;
 };
 
-export type IMessage = {
+export type MessageResponse = {
   _id: number;
   conversationId: number;
   externalId: string | null;
@@ -21,10 +21,7 @@ export type IMessage = {
   role: MessageRole;
   createdBy: number;
   createdAt: Date | string;
-  deletedAt: Date | string | null;
-};
-
-export type CMessage = Omit<IMessage, 'deletedAt'> | null;
+} | null;
 
 export type MessageRequestBody = {
   conversationId?: string;
@@ -38,10 +35,10 @@ export type ChatRequestBody = {
 
 export type ListByConversation = RequestHandler<
   { conversationId: string },
-  APIResponse<CMessage> & { hasMore: boolean },
+  APIResponse<MessageResponse> & { hasMore: boolean },
   never,
   { before?: string; limit?: string }
 >;
-export type Create = RequestHandler<never, CMessage, MessageRequestBody, never>;
+export type Create = RequestHandler<never, MessageResponse, MessageRequestBody, never>;
 export type Chat = RequestHandler<never, unknown, ChatRequestBody, never>;
 export type Destroy = RequestHandler<RequestParams, null, never, never>;

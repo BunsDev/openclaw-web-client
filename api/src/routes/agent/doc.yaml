@@ -95,32 +95,6 @@ paths:
           $ref: '#/components/responses/401'
         500:
           $ref: '#/components/responses/500'
-  /agent/models:
-    get:
-      tags:
-        - agent
-      security:
-        - bearerAuth: []
-      operationId: listModels
-      summary: List available AI models
-      responses:
-        200:
-          description: List of model identifiers
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  models:
-                    type: array
-                    items:
-                      type: string
-        401:
-          $ref: '#/components/responses/401'
-        500:
-          $ref: '#/components/responses/500'
   /agent/{id}:
     get:
       tags:
@@ -184,76 +158,6 @@ paths:
       responses:
         200:
           $ref: '#/components/responses/empty'
-        401:
-          $ref: '#/components/responses/401'
-        500:
-          $ref: '#/components/responses/500'
-  /agent/{id}/model:
-    get:
-      tags:
-        - agent
-      security:
-        - bearerAuth: []
-      operationId: getAgentModel
-      summary: Get the AI model assigned to an agent
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        200:
-          description: Current model
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  model:
-                    type: string
-                    nullable: true
-        404:
-          description: Agent not found
-        401:
-          $ref: '#/components/responses/401'
-        500:
-          $ref: '#/components/responses/500'
-    patch:
-      tags:
-        - agent
-      security:
-        - bearerAuth: []
-      operationId: patchAgentModel
-      summary: Change the AI model assigned to an agent
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - model
-              properties:
-                model:
-                  type: string
-                  example: 'o3-pro'
-      responses:
-        200:
-          description: Model updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  model:
-                    type: string
-        400:
-          description: Model is required
-        404:
-          description: Agent not found
         401:
           $ref: '#/components/responses/401'
         500:

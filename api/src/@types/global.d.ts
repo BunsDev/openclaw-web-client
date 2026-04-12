@@ -1,4 +1,4 @@
-import { IUser } from './user';
+import { UserResponse } from './user';
 
 declare global {
   namespace NodeJS {
@@ -13,7 +13,7 @@ declare global {
 declare global {
   namespace Express {
     interface Request {
-      user?: IUser;
+      user?: UserResponse;
     }
   }
 }

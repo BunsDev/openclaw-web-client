@@ -369,50 +369,6 @@ const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
   }
 };
 
-const listModels: RequestHandler = async (_req, res, next) => {
-  try {
-    const models = ocService.listModels(true);
-    return res.json({ ok: true, models });
-  } catch (error) {
-    return next(error);
-  }
-};
-
-const getAgentModel: RequestHandler = async (req, res, next) => {
-  try {
-    const agentRepo = AppDataSource.getRepository(Agent);
-    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
-    if (!agent?.openclawAgentId) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    const model = ocService.getAgentModel(agent.openclawAgentId);
-    return res.json({ ok: true, model });
-  } catch (error) {
-    return next(error);
-  }
-};
-
-const patchAgentModel: RequestHandler = async (req, res, next) => {
-  try {
-    const agentRepo = AppDataSource.getRepository(Agent);
-    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
-    if (!agent?.openclawAgentId) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    const { model } = req.body as { model: string };
-    if (!model) {
-      return res.status(400).json({ error: 'model is required' });
-    }
-    const ok = ocService.setAgentModel(agent.openclawAgentId, model);
-    if (!ok) {
-      return res.status(500).json({ error: 'Failed to set model' });
-    }
-    return res.json({ ok: true, model });
-  } catch (error) {
-    return next(error);
-  }
-};
-
 export {
   list,
   get,
@@ -426,7 +382,4 @@ export {
   getSessionSettings,
   patchSessionSettings,
   serveWorkspaceUpload,
-  listModels,
-  getAgentModel,
-  patchAgentModel,
 };

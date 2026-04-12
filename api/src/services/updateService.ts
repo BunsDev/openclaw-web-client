@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execFileSync, spawn } from 'child_process';
+import { VersionMeta, UpdateStatus } from '../@types/update';
 
 const DIST = path.join(os.homedir(), '.openclaw_client');
 const UPDATE_DIR = path.join(DIST, 'update');
@@ -10,18 +11,6 @@ const REPO_HTTPS = 'https://github.com/lotsoftick/openclaw_client.git';
 const REMOTE_URL = 'https://raw.githubusercontent.com/lotsoftick/openclaw_client/main/package.json';
 const CHECK_INTERVAL = 2 * 60 * 60 * 1000;
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
-
-interface VersionMeta {
-  version: string;
-  sourceRepo: string;
-}
-
-interface UpdateStatus {
-  available: boolean;
-  current: string;
-  latest: string;
-  checkedAt: string | null;
-}
 
 let cached: UpdateStatus = {
   available: false,

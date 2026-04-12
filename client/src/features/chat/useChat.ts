@@ -77,7 +77,9 @@ export default function useChat(conversationId: string | undefined) {
       return;
     }
     if (pendingUserText || pendingFilesPreviews.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
     }
   }, [messages, conversationId, pendingUserText, pendingFilesPreviews]);
 

@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import AppDataSource from '../../data-source';
 import { User, BlackList } from '../../entities';
-import { Login, Logout, GetCurentUser, CUser } from '../../@types/user';
+import { Login, Logout, GetCurentUser, UserResponse } from '../../@types/user';
 import { JwtPayload } from '../../@types/blacklist';
 
 const getCurrentUser: GetCurentUser = async (req, res, next) => {
@@ -38,7 +38,7 @@ const login: Login = async (req, res, next) => {
 
     const userData = Object.fromEntries(
       Object.entries(user as object).filter(([k]) => k !== 'password' && k !== 'deletedAt')
-    ) as CUser;
+    ) as UserResponse;
     return res.header('access-token', token).json({ ...userData, accessToken: token });
   } catch (error) {
     return next(error);

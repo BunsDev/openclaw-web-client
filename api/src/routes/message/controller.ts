@@ -9,7 +9,7 @@ import {
   Chat,
   Destroy,
   MessageFile,
-  CMessage,
+  MessageResponse,
 } from '../../@types/message';
 import * as ocService from '../../services/openclawService';
 
@@ -77,7 +77,7 @@ const create: Create = async (req, res, next) => {
     const saved = await msgRepo.save(message);
     const result = Object.fromEntries(
       Object.entries(saved as object).filter(([k]) => k !== 'deletedAt')
-    ) as CMessage;
+    ) as MessageResponse;
     return res.json(result);
   } catch (error) {
     return next(error);

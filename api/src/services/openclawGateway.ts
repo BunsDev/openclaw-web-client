@@ -4,6 +4,11 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import {
+  GatewayCredentials,
+  PendingRequest,
+  EventListener,
+} from '../@types/gateway';
 
 const OPENCLAW_HOME = process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw');
 
@@ -23,27 +28,6 @@ function signPayload(privPem: string, payload: string): string {
   );
 }
 
-interface DeviceCredentials {
-  deviceId: string;
-  privateKeyPem: string;
-  publicKeyPem: string;
-}
-
-interface AuthCredentials {
-  tokens?: {
-    operator?: {
-      scopes?: string[];
-      token?: string;
-    };
-  };
-}
-
-interface GatewayCredentials {
-  device: DeviceCredentials;
-  auth: AuthCredentials;
-  gatewayPort: number;
-}
-
 export function loadGatewayCredentials(): GatewayCredentials | null {
   try {
     const identityPath = path.join(OPENCLAW_HOME, 'identity', 'device.json');
@@ -58,15 +42,6 @@ export function loadGatewayCredentials(): GatewayCredentials | null {
     return null;
   }
 }
-
-interface PendingRequest {
-  resolve: (v: any) => void;
-  reject: (e: Error) => void;
-  expectFinal: boolean;
-  runId?: string;
-}
-
-type EventListener = (msg: any) => void;
 
 export class GatewayClient {
   ws: WsWebSocket | null = null;

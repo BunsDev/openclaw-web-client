@@ -47,22 +47,6 @@ router.route('/agent/:id(\\d+)/workspace/uploads/:filename')
     controller.serveWorkspaceUpload,
   );
 
-router.route('/agent/models')
-  .get(
-    auth,
-    controller.listModels,
-  );
-
-router.route('/agent/:id(\\d+)/model')
-  .get(
-    auth,
-    controller.getAgentModel,
-  )
-  .patch(
-    auth,
-    controller.patchAgentModel,
-  );
-
 router.route('/agent/:id(\\d+)/conversation/:conversationId(\\d+)/session-settings')
   .get(
     auth,
