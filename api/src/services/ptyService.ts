@@ -6,6 +6,7 @@ import * as pty from 'node-pty';
 import { WebSocketServer, WebSocket } from 'ws';
 import { URL } from 'url';
 import jwt from 'jsonwebtoken';
+import { getOpenclawBin } from './openclawGateway';
 
 function resolveBridge(): string {
   const candidates = [
@@ -218,7 +219,7 @@ function attachNodePty(ws: WebSocket, term: pty.IPty): void {
 
 export default function attachPtyWebSocket(server: HttpServer): void {
   const wss = new WebSocketServer({ noServer: true });
-  const openclawBin = findBinary('openclaw');
+  const openclawBin = getOpenclawBin();
   const python3Bin = findBinary('python3');
   console.log(
     `[pty] openclaw: ${openclawBin}, python3: ${python3Bin}, bridge: ${BRIDGE_SCRIPT}`
