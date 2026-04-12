@@ -12,13 +12,7 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material';
-import {
-  People,
-  Add,
-  Search,
-  KeyboardDoubleArrowUp,
-  SwapVert,
-} from '@mui/icons-material';
+import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router';
 import {
   useGetAgentsQuery,
@@ -107,7 +101,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           flexShrink: 0,
         }}
       >
-        <Box component="img" src="/openclaw.png" alt="OpenClaw" sx={{ width: 28, height: 28 }} />
+        <Box component="img" src="/logo_128.png" alt="OpenClaw" sx={{ width: 16, height: 16 }} />
         <Typography
           variant="h6"
           component="span"
