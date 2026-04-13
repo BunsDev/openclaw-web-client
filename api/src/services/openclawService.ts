@@ -5,7 +5,12 @@ import path from 'path';
 import os from 'os';
 import { Response } from 'express';
 import { SseEmitter, OpenClawMessage, OpenClawSession } from '../@types/openclaw';
-import { gateway, loadGatewayCredentials, getOpenclawHome, getOpenclawBin } from './openclawGateway';
+import {
+  gateway,
+  loadGatewayCredentials,
+  getOpenclawHome,
+  getOpenclawBin,
+} from './openclawGateway';
 
 const OPENCLAW_HOME = getOpenclawHome();
 const OPENCLAW_BIN = getOpenclawBin();
@@ -124,7 +129,9 @@ function parseMessagesFromJsonl(jsonlPath: string): OpenClawMessage[] {
           .join('\n')
           .trim();
         const text = role === 'user' ? extractUserText(rawText) : extractAssistantText(rawText);
-        const inlineThinkMatch = rawText.match(/<(?:think|thinking)>([\s\S]*?)<\/(?:think|thinking)>/i);
+        const inlineThinkMatch = rawText.match(
+          /<(?:think|thinking)>([\s\S]*?)<\/(?:think|thinking)>/i
+        );
         const inlineThink = inlineThinkMatch ? inlineThinkMatch[1].trim() : '';
         const structuredThink = content
           .filter((c: any) => c.type === 'thinking' && c.thinking)
@@ -688,6 +695,33 @@ export function putWorkspaceFile(agentId: string, filename: string, content: str
   const fp = path.join(dir, filename);
   fs.writeFileSync(fp, content, 'utf8');
   return { ok: true, path: fp };
+}
+
+export function appendBootstrapImageRule(
+  openclawAgentId: string,
+  dbAgentId: number,
+  apiUrl: string
+): void {
+  const dir = agentWorkspacePath(openclawAgentId);
+  const fp = path.join(dir, 'BOOTSTRAP.md');
+  const uploadUrl = `${apiUrl}/api/agent/${dbAgentId}/workspace/uploads/<image_name>`;
+  const rule = [
+    '',
+    '## Image generation',
+    '',
+    'When the user requests you generate an image, store it in',
+    '~/.openclaw/media/inbound directory and in your response add',
+    `markdown with the image link like this: ${uploadUrl}`,
+    '',
+    'If the user requests you to store the image in another directory',
+    'then ignore the rule above.',
+    '',
+  ].join('\n');
+
+  const existing = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : '';
+  if (existing.includes('## Image generation')) return;
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(fp, existing + rule, 'utf8');
 }
 
 function mediaInboundDir(): string {

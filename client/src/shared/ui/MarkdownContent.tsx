@@ -168,6 +168,7 @@ export default function MarkdownContent({
               textDecoration: 'none',
               '&:hover': { textDecoration: 'underline' },
             },
+        '& img': { maxWidth: '100%', height: 'auto', borderRadius: '8px' },
         '& hr': { border: 'none', borderTop: '1px solid', borderColor: 'divider', my: 1 },
         '& th,& td': {
           border: '1px solid',

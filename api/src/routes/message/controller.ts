@@ -101,6 +101,11 @@ const chat: Chat = async (req, res, next) => {
     const agent = await agentRepo.findOneBy({ _id: conv.agentId });
     const agentIdForFiles = agent?.openclawAgentId || 'main';
 
+    const msgCount = await msgRepo.count({ where: { conversationId: conv._id } });
+    if (msgCount === 0) {
+      ocService.appendBootstrapImageRule(agentIdForFiles, conv.agentId, API_PUBLIC_URL);
+    }
+
     const filePaths = uploadedFiles.map((uf) =>
       ocService.copyFileToWorkspace(agentIdForFiles, uf.path, uf.originalname)
     );
