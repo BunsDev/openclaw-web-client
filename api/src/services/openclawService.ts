@@ -711,7 +711,9 @@ export function appendBootstrapImageRule(
     '',
     'When the user requests you generate an image, store it in',
     '~/.openclaw/media/inbound directory and in your response add',
-    `markdown with the image link like this: ${uploadUrl}`,
+    `markdown with the image link like this: ${uploadUrl}
+     markdown format should be like this: ![image_name](${uploadUrl})
+    `,
     '',
     'If the user requests you to store the image in another directory',
     'then ignore the rule above.',
@@ -905,6 +907,132 @@ export function getAgentModelsForOpenclawIds(openclawIds: string[]): Record<stri
 
 export function getAgentModel(agentId: string): string | null {
   return getAgentModelsForOpenclawIds([agentId])[agentId] ?? null;
+}
+
+// ─── Plugin management ───
+
+export interface PluginInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  status: string;
+  origin: string;
+  enabled: boolean;
+  toolNames: string[];
+  hookNames: string[];
+}
+
+let pluginsCache: { data: PluginInfo[]; ts: number } | null = null;
+const PLUGINS_CACHE_TTL = 5 * 60 * 1000;
+
+function parsePluginList(raw: string): PluginInfo[] {
+  const parsed = JSON.parse(raw) as { plugins: Record<string, unknown>[] };
+  return (parsed.plugins || []).map((p) => ({
+    id: String(p.id || ''),
+    name: String(p.name || p.id || ''),
+    description: String(p.description || ''),
+    version: String(p.version || ''),
+    status: String(p.status || 'unknown'),
+    origin: String(p.origin || 'unknown'),
+    enabled: Boolean(p.enabled),
+    toolNames: Array.isArray(p.toolNames) ? p.toolNames.map(String) : [],
+    hookNames: Array.isArray(p.hookNames) ? p.hookNames.map(String) : [],
+  }));
+}
+
+export function listPlugins(): PluginInfo[] {
+  if (pluginsCache && Date.now() - pluginsCache.ts < PLUGINS_CACHE_TTL) {
+    return pluginsCache.data;
+  }
+  try {
+    const raw = execSync('openclaw plugins list --json', {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const plugins = parsePluginList(raw);
+    pluginsCache = { data: plugins, ts: Date.now() };
+    return plugins;
+  } catch (err) {
+    console.error('[plugins] failed to list plugins:', err); /* eslint-disable-line */
+    return pluginsCache?.data ?? [];
+  }
+}
+
+export function togglePlugin(pluginId: string, enable: boolean): { ok: boolean; error?: string } {
+  try {
+    const cmd = enable ? 'enable' : 'disable';
+    execSync(`openclaw plugins ${cmd} ${pluginId}`, {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    pluginsCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to toggle plugin' };
+  }
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  emoji: string;
+  eligible: boolean;
+  disabled: boolean;
+  blockedByAllowlist: boolean;
+  source: string;
+  bundled: boolean;
+  homepage?: string;
+  missing: {
+    bins: string[];
+    anyBins: string[];
+    env: string[];
+    config: string[];
+    os: string[];
+  };
+}
+
+let skillsCache: { data: SkillInfo[]; ts: number } | null = null;
+const SKILLS_CACHE_TTL = 5 * 60 * 1000;
+
+function parseSkillList(raw: string): SkillInfo[] {
+  const parsed = JSON.parse(raw) as { skills: Record<string, unknown>[] };
+  return (parsed.skills || []).map((s: any) => ({
+    name: String(s.name || ''),
+    description: String(s.description || ''),
+    emoji: String(s.emoji || ''),
+    eligible: Boolean(s.eligible),
+    disabled: Boolean(s.disabled),
+    blockedByAllowlist: Boolean(s.blockedByAllowlist),
+    source: String(s.source || 'unknown'),
+    bundled: Boolean(s.bundled),
+    homepage: s.homepage ? String(s.homepage) : undefined,
+    missing: {
+      bins: Array.isArray(s.missing?.bins) ? s.missing.bins.map(String) : [],
+      anyBins: Array.isArray(s.missing?.anyBins) ? s.missing.anyBins.map(String) : [],
+      env: Array.isArray(s.missing?.env) ? s.missing.env.map(String) : [],
+      config: Array.isArray(s.missing?.config) ? s.missing.config.map(String) : [],
+      os: Array.isArray(s.missing?.os) ? s.missing.os.map(String) : [],
+    },
+  }));
+}
+
+export function listSkills(): SkillInfo[] {
+  if (skillsCache && Date.now() - skillsCache.ts < SKILLS_CACHE_TTL) {
+    return skillsCache.data;
+  }
+  try {
+    const raw = execSync('openclaw skills list --json --verbose', {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const skills = parseSkillList(raw);
+    skillsCache = { data: skills, ts: Date.now() };
+    return skills;
+  } catch (err) {
+    console.error('[skills] failed to list skills:', err); /* eslint-disable-line */
+    return skillsCache?.data ?? [];
+  }
 }
 
 export function copyFileToWorkspace(

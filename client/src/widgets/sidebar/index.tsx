@@ -12,7 +12,15 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material';
-import { People, Add, Search, KeyboardDoubleArrowUp, SwapVert } from '@mui/icons-material';
+import {
+  People,
+  Extension,
+  Psychology,
+  Add,
+  Search,
+  KeyboardDoubleArrowUp,
+  SwapVert,
+} from '@mui/icons-material';
 import { Link, useLocation } from 'react-router';
 import {
   useGetAgentsQuery,
@@ -29,7 +37,11 @@ import CreateAgentForm from './CreateAgentForm';
 
 export const SIDEBAR_WIDTH = 240;
 
-const menuItems = [{ text: 'USERS', icon: <People />, path: '/users' }];
+const menuItems = [
+  { text: 'USERS', icon: <People sx={{ fontSize: 18 }} />, path: '/users' },
+  { text: 'PLUGINS', icon: <Extension sx={{ fontSize: 18 }} />, path: '/plugins' },
+  { text: 'SKILLS', icon: <Psychology sx={{ fontSize: 18 }} />, path: '/skills' },
+];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
@@ -143,21 +155,21 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         />
       </Box>
 
-      <List sx={{ px: 2, flexShrink: 0 }}>
+      <List sx={{ px: 2, py: 0, flexShrink: 0 }}>
         {menuItems.map((item) => {
           const isSelected =
             location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.2 }}>
               <ListItemButton
                 component={Link}
                 to={item.path}
                 onClick={onNavigate}
                 selected={isSelected}
                 sx={{
-                  borderRadius: 2,
-                  py: 1.5,
-                  px: 2,
+                  borderRadius: 1.5,
+                  py: 0.6,
+                  px: 1.5,
                   textDecoration: 'none',
                   position: 'relative',
                   '&:hover': {
@@ -174,13 +186,13 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36, color: sidebar.text }}>{item.icon}</ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 28, color: sidebar.text }}>{item.icon}</ListItemIcon>
                 <ListItemText
                   primary={item.text}
                   sx={{
                     '& .MuiListItemText-primary': {
                       color: sidebar.text,
-                      fontSize: '0.75rem',
+                      fontSize: '0.7rem',
                       fontWeight: 600,
                       letterSpacing: '1px',
                     },
@@ -189,8 +201,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 {isSelected && (
                   <Box
                     sx={{
-                      width: 8,
-                      height: 8,
+                      width: 6,
+                      height: 6,
                       borderRadius: '50%',
                       bgcolor: sidebar.selectedBorder,
                       ml: 1,
@@ -206,7 +218,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <Box
         sx={{
           px: 2,
-          mt: 1,
+          mt: 3,
           flex: 1,
           overflow: 'hidden',
           display: 'flex',

@@ -7,6 +7,8 @@ const PrivateRoute = lazy(() => import('../features/auth/PrivateRoute'));
 const Users = lazy(() => import('../pages/user'));
 const AgentChat = lazy(() => import('../pages/agent'));
 const AgentWorkspace = lazy(() => import('../pages/agent/WorkspacePage'));
+const Plugins = lazy(() => import('../pages/plugins'));
+const Skills = lazy(() => import('../pages/skills'));
 
 function Loading() {
   return (
@@ -46,6 +48,22 @@ function App() {
           <Route path="create" element={null} />
           <Route path="edit/:userId" element={null} />
         </Route>
+        <Route
+          path="plugins"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Plugins />
+            </Suspense>
+          }
+        />
+        <Route
+          path="skills"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Skills />
+            </Suspense>
+          }
+        />
         <Route
           path="agent/:agentId/chat/:conversationId"
           element={

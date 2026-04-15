@@ -18,7 +18,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', minWidth: 0, overflowX: 'hidden' }}>
+    <Box sx={{ display: 'flex', height: '100vh', minWidth: 0, overflow: 'hidden' }}>
       {isMobile ? (
         <>
           <Drawer
@@ -41,11 +41,13 @@ export default function Layout({ children }: LayoutProps) {
           minWidth: 0,
           p: { xs: 0, md: 3 },
           bgcolor: 'background.default',
-          minHeight: '100vh',
+          height: '100vh',
+          overflowY: 'auto',
           position: 'relative',
+          clipPath: 'inset(0)',
           '&::before': {
             content: '""',
-            position: 'absolute',
+            position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
