@@ -1,215 +1,131 @@
+import { useState } from 'react';
 import {
   Box,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableSortLabel,
-  TablePagination,
-  Paper,
   Typography,
-  Alert,
   TextField,
+  CircularProgress,
   InputAdornment,
   IconButton,
+  Collapse,
 } from '@mui/material';
-import { Search, Edit, Add } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router';
-import { useGetUsersQuery, useDeleteUserMutation } from '../../app/store';
-import useFilters from '../../shared/hooks/useFilters';
-import DeleteButton from '../../shared/ui/DeleteButton';
-import TableRowSkeleton from '../../shared/ui/TableRowSkeleton';
-import UserForm from './form';
-
-const defaultFilters = {
-  sortField: 'createdAt',
-  sortType: 'desc' as 'asc' | 'desc',
-  page: 0,
-  limit: 10,
-  search: '',
-};
-
-type SortField = 'name' | 'email' | 'phone' | 'createdAt';
+import { Search, Add } from '@mui/icons-material';
+import { useGetUsersQuery, useDeleteUserMutation } from '../../entities/user/api';
+import UserRow from '../../widgets/users/UserRow';
+import UserForm from '../../widgets/users/UserForm';
 
 export default function UsersPage() {
-  const { filters, setFilter } = useFilters(defaultFilters);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { data, isLoading, isFetching } = useGetUsersQuery();
+  const [deleteUser] = useDeleteUserMutation();
+  const [search, setSearch] = useState('');
+  const [formMode, setFormMode] = useState<'closed' | 'add' | string>('closed');
+  const [pendingOp, setPendingOp] = useState(false);
 
-  const { data, isLoading, error } = useGetUsersQuery(filters, { refetchOnMountOrArgChange: true });
-  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
+  const busy = isLoading || pendingOp || isFetching;
+  const users = data?.items ?? [];
 
-  const isCreateRoute = location.pathname === '/users/create';
-  const isEditRoute = location.pathname.startsWith('/users/edit/');
-  const dialogOpen = isCreateRoute || isEditRoute;
-  const editUserId = isEditRoute ? location.pathname.split('/users/edit/')[1] : null;
+  const filtered = users.filter((u) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.lastName.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.phone && u.phone.toLowerCase().includes(q))
+    );
+  });
 
-  const handleSort = (field: SortField) => {
-    if (filters.sortField === field) {
-      setFilter({ sortType: filters.sortType === 'asc' ? 'desc' : 'asc' });
-    } else {
-      setFilter({ sortField: field, sortType: 'asc' });
+  const handleDelete = async (id: string) => {
+    setPendingOp(true);
+    try {
+      await deleteUser(id).unwrap();
+    } catch {
+      /* handled by RTK */
+    } finally {
+      setPendingOp(false);
     }
   };
 
-  const handleCloseDialog = () => {
-    navigate(`/users${location.search}`);
+  const handleFormDone = () => {
+    setFormMode('closed');
   };
 
-  const users = data?.items ?? [];
+  const handleEdit = (id: string) => {
+    setFormMode(id);
+  };
 
-  if (error) {
-    return <Alert severity="error">Failed to load users</Alert>;
-  }
+  const showForm = formMode !== 'closed';
+  const editUserId = formMode !== 'closed' && formMode !== 'add' ? formMode : null;
 
   return (
-    <Box>
-      <TableContainer component={Paper}>
-        <Box
+    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto', width: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Typography variant="h5" fontWeight={700} sx={{ flex: 1 }}>
+          Users
+        </Typography>
+        {!busy && (
+          <Typography variant="body2" color="text.secondary">
+            {users.length} user{users.length !== 1 ? 's' : ''}
+          </Typography>
+        )}
+        <IconButton
+          size="small"
+          onClick={() => setFormMode((prev) => (prev === 'add' ? 'closed' : 'add'))}
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            p: 2,
-          }}
-        >
-          <Typography variant="h6">Users</Typography>
-          <Box display="flex" alignItems="center" gap={2}>
-            <TextField
-              variant="standard"
-              size="small"
-              placeholder="Search..."
-              value={filters.search}
-              onChange={(e) => setFilter({ search: e.target.value || undefined, page: 0 })}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  disableUnderline: false,
-                },
-              }}
-              sx={{ width: 180 }}
-            />
-            <IconButton
-              size="small"
-              onClick={() => navigate(`/users/create${location.search}`)}
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'white',
-                width: 28,
-                height: 28,
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-              }}
-            >
-              <Add fontSize="small" />
-            </IconButton>
-          </Box>
-        </Box>
-        <Table
-          sx={{
-            '& .MuiTableCell-root': {
-              borderBottom: 1,
-              borderColor: 'divider',
+            bgcolor: formMode === 'add' ? 'primary.main' : 'action.hover',
+            color: formMode === 'add' ? 'primary.contrastText' : 'text.primary',
+            '&:hover': {
+              bgcolor: formMode === 'add' ? 'primary.dark' : 'action.selected',
             },
           }}
         >
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel
-                  active={filters.sortField === 'name'}
-                  direction={filters.sortField === 'name' ? filters.sortType : 'asc'}
-                  onClick={() => handleSort('name')}
-                >
-                  Name
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={filters.sortField === 'email'}
-                  direction={filters.sortField === 'email' ? filters.sortType : 'asc'}
-                  onClick={() => handleSort('email')}
-                >
-                  Email
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={filters.sortField === 'phone'}
-                  direction={filters.sortField === 'phone' ? filters.sortType : 'asc'}
-                  onClick={() => handleSort('phone')}
-                >
-                  Phone
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={filters.sortField === 'createdAt'}
-                  direction={filters.sortField === 'createdAt' ? filters.sortType : 'asc'}
-                  onClick={() => handleSort('createdAt')}
-                >
-                  Created At
-                </TableSortLabel>
-              </TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRowSkeleton columns={5} />
-            ) : (
-              users.map((user) => (
-                <TableRow key={user._id} hover>
-                  <TableCell>
-                    {user.name} {user.lastName}
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.phone}</TableCell>
-                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => navigate(`/users/edit/${user._id}${location.search}`)}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <DeleteButton
-                      onConfirm={() => deleteUser(user._id)}
-                      isLoading={isDeleting}
-                      message="Delete this user?"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-            {!isLoading && users.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  No users found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={data?.total ?? 0}
-          page={filters.page}
-          onPageChange={(_, newPage) => setFilter({ page: newPage })}
-          rowsPerPage={filters.limit}
-          onRowsPerPageChange={(e) => setFilter({ limit: parseInt(e.target.value, 10), page: 0 })}
-          rowsPerPageOptions={[5, 10, 20, 40, 60, 100]}
-        />
-      </TableContainer>
+          <Add sx={{ fontSize: 20 }} />
+        </IconButton>
+      </Box>
 
-      <UserForm open={dialogOpen} userId={editUserId} onClose={handleCloseDialog} />
+      <Collapse in={showForm}>
+        <UserForm userId={editUserId} onDone={handleFormDone} />
+      </Collapse>
+
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search users..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ fontSize: 18, color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          },
+        }}
+        sx={{
+          mb: 2,
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 1.5,
+            '& input': { fontSize: '0.85rem', py: 1 },
+          },
+        }}
+      />
+
+      {busy ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : (
+        <Box>
+          {filtered.map((user) => (
+            <UserRow key={user._id} user={user} onEdit={handleEdit} onDelete={handleDelete} />
+          ))}
+          {filtered.length === 0 && (
+            <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+              {search ? 'No users match your search' : 'No users found'}
+            </Typography>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }

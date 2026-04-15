@@ -46,10 +46,7 @@ function App() {
               <Users />
             </Suspense>
           }
-        >
-          <Route path="create" element={null} />
-          <Route path="edit/:userId" element={null} />
-        </Route>
+        />
         <Route
           path="plugins"
           element={
