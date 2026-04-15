@@ -1126,6 +1126,115 @@ export function removeChannel(
   }
 }
 
+export interface CronSchedule {
+  kind: string;
+  at?: string;
+  cron?: string;
+  every?: string;
+}
+
+export interface CronPayload {
+  kind: string;
+  message?: string;
+  systemEvent?: string;
+}
+
+export interface CronState {
+  lastRunAtMs?: number;
+  lastRunStatus?: string;
+  lastStatus?: string;
+  lastDurationMs?: number;
+  lastError?: string;
+  consecutiveErrors?: number;
+}
+
+export interface CronJob {
+  id: string;
+  agentId: string;
+  name: string;
+  enabled: boolean;
+  deleteAfterRun: boolean;
+  createdAtMs: number;
+  updatedAtMs: number;
+  schedule: CronSchedule;
+  sessionTarget: string;
+  wakeMode: string;
+  payload: CronPayload;
+  delivery: Record<string, unknown>;
+  state: CronState;
+}
+
+export interface CronListResponse {
+  jobs: CronJob[];
+  total: number;
+}
+
+let cronCache: { data: CronListResponse; ts: number } | null = null;
+const CRON_CACHE_TTL = 60 * 1000;
+
+export function listCronJobs(): CronListResponse {
+  if (cronCache && Date.now() - cronCache.ts < CRON_CACHE_TTL) {
+    return cronCache.data;
+  }
+  try {
+    const raw = execSync(`${OPENCLAW_BIN} cron list --all --json`, {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const parsed = JSON.parse(raw) as CronListResponse;
+    const data: CronListResponse = { jobs: parsed.jobs || [], total: parsed.total || 0 };
+    cronCache = { data, ts: Date.now() };
+    return data;
+  } catch (err) {
+    console.error('[cron] failed to list cron jobs:', err); /* eslint-disable-line */
+    return cronCache?.data ?? { jobs: [], total: 0 };
+  }
+}
+
+export function addCronJob(opts: Record<string, string>): { ok: boolean; error?: string } {
+  try {
+    const args: string[] = [];
+    Object.entries(opts).forEach(([key, val]) => {
+      if (val) args.push(`--${key}`, `"${val}"`);
+    });
+    execSync(`${OPENCLAW_BIN} cron add ${args.join(' ')}`, {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    cronCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to add cron job' };
+  }
+}
+
+export function removeCronJob(id: string): { ok: boolean; error?: string } {
+  try {
+    execSync(`${OPENCLAW_BIN} cron rm "${id}"`, {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    cronCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to remove cron job' };
+  }
+}
+
+export function toggleCronJob(id: string, enable: boolean): { ok: boolean; error?: string } {
+  try {
+    const cmd = enable ? 'enable' : 'disable';
+    execSync(`${OPENCLAW_BIN} cron ${cmd} "${id}"`, {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    cronCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to toggle cron job' };
+  }
+}
+
 export function copyFileToWorkspace(
   _agentId: string,
   srcPath: string,

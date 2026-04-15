@@ -65,6 +65,7 @@ export const baseApi = createApi({
     'SessionSettings',
     'AgentModel',
     'Channel',
+    'Cron',
     'Plugin',
     'Skill',
   ],

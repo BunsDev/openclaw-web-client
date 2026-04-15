@@ -10,6 +10,7 @@ const AgentWorkspace = lazy(() => import('../pages/agent/WorkspacePage'));
 const Plugins = lazy(() => import('../pages/plugins'));
 const Skills = lazy(() => import('../pages/skills'));
 const Channels = lazy(() => import('../pages/channels'));
+const Cron = lazy(() => import('../pages/cron'));
 
 function Loading() {
   return (
@@ -70,6 +71,14 @@ function App() {
           element={
             <Suspense fallback={<Loading />}>
               <Channels />
+            </Suspense>
+          }
+        />
+        <Route
+          path="cron"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Cron />
             </Suspense>
           }
         />

@@ -4,6 +4,7 @@ export interface Conversation {
   _id: string;
   agentId: string;
   title: string | null;
+  sessionKey: string | null;
   createdAt: string;
 }
 

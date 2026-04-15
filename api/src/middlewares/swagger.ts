@@ -14,6 +14,7 @@ const swaggerSpec = swaggerJSDoc({
       { name: 'channel' },
       { name: 'conversation' },
       { name: 'message' },
+      { name: 'cron' },
       { name: 'plugin' },
       { name: 'skill' },
       { name: 'update' },

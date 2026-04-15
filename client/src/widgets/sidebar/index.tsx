@@ -17,6 +17,7 @@ import {
   Extension,
   Psychology,
   Forum,
+  Schedule,
   Add,
   Search,
   KeyboardDoubleArrowUp,
@@ -43,6 +44,7 @@ const menuItems = [
   { text: 'PLUGINS', icon: <Extension sx={{ fontSize: 18 }} />, path: '/plugins' },
   { text: 'SKILLS', icon: <Psychology sx={{ fontSize: 18 }} />, path: '/skills' },
   { text: 'CHANNELS', icon: <Forum sx={{ fontSize: 18 }} />, path: '/channels' },
+  { text: 'CRON', icon: <Schedule sx={{ fontSize: 18 }} />, path: '/cron' },
 ];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

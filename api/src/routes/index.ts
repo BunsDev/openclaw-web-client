@@ -7,6 +7,7 @@ import message from './message';
 import channel from './channel';
 import plugin from './plugin';
 import skill from './skill';
+import cron from './cron';
 import update from './update';
 
 const router = Router();
@@ -18,6 +19,7 @@ router.use(message);
 router.use(channel);
 router.use(plugin);
 router.use(skill);
+router.use(cron);
 router.use(auth);
 router.use(update);
 
