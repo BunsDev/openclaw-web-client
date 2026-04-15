@@ -946,7 +946,7 @@ export function listPlugins(): PluginInfo[] {
     return pluginsCache.data;
   }
   try {
-    const raw = execSync('openclaw plugins list --json', {
+    const raw = execSync(`${OPENCLAW_BIN} plugins list --json`, {
       encoding: 'utf-8',
       timeout: 30000,
     });
@@ -962,7 +962,7 @@ export function listPlugins(): PluginInfo[] {
 export function togglePlugin(pluginId: string, enable: boolean): { ok: boolean; error?: string } {
   try {
     const cmd = enable ? 'enable' : 'disable';
-    execSync(`openclaw plugins ${cmd} ${pluginId}`, {
+    execSync(`${OPENCLAW_BIN} plugins ${cmd} ${pluginId}`, {
       encoding: 'utf-8',
       timeout: 15000,
     });
@@ -1022,7 +1022,7 @@ export function listSkills(): SkillInfo[] {
     return skillsCache.data;
   }
   try {
-    const raw = execSync('openclaw skills list --json --verbose', {
+    const raw = execSync(`${OPENCLAW_BIN} skills list --json --verbose`, {
       encoding: 'utf-8',
       timeout: 30000,
     });
