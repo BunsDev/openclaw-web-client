@@ -16,6 +16,7 @@ import {
   People,
   Extension,
   Psychology,
+  Forum,
   Add,
   Search,
   KeyboardDoubleArrowUp,
@@ -41,6 +42,7 @@ const menuItems = [
   { text: 'USERS', icon: <People sx={{ fontSize: 18 }} />, path: '/users' },
   { text: 'PLUGINS', icon: <Extension sx={{ fontSize: 18 }} />, path: '/plugins' },
   { text: 'SKILLS', icon: <Psychology sx={{ fontSize: 18 }} />, path: '/skills' },
+  { text: 'CHANNELS', icon: <Forum sx={{ fontSize: 18 }} />, path: '/channels' },
 ];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

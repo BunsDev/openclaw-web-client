@@ -64,6 +64,7 @@ export const baseApi = createApi({
     'WorkspaceFile',
     'SessionSettings',
     'AgentModel',
+    'Channel',
     'Plugin',
     'Skill',
   ],

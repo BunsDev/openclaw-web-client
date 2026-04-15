@@ -9,6 +9,7 @@ const AgentChat = lazy(() => import('../pages/agent'));
 const AgentWorkspace = lazy(() => import('../pages/agent/WorkspacePage'));
 const Plugins = lazy(() => import('../pages/plugins'));
 const Skills = lazy(() => import('../pages/skills'));
+const Channels = lazy(() => import('../pages/channels'));
 
 function Loading() {
   return (
@@ -61,6 +62,14 @@ function App() {
           element={
             <Suspense fallback={<Loading />}>
               <Skills />
+            </Suspense>
+          }
+        />
+        <Route
+          path="channels"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Channels />
             </Suspense>
           }
         />

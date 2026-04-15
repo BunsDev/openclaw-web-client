@@ -11,6 +11,7 @@ const swaggerSpec = swaggerJSDoc({
       { name: 'auth' },
       { name: 'user' },
       { name: 'agent' },
+      { name: 'channel' },
       { name: 'conversation' },
       { name: 'message' },
       { name: 'plugin' },

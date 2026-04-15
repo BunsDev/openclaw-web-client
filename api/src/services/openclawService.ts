@@ -1035,6 +1035,97 @@ export function listSkills(): SkillInfo[] {
   }
 }
 
+export interface ChannelChat {
+  id: string;
+  provider: string;
+  enabled: boolean;
+  [key: string]: unknown;
+}
+
+export interface ChannelAuth {
+  id: string;
+  provider: string;
+  type: string;
+  isExternal: boolean;
+}
+
+export interface ChannelsResponse {
+  chat: ChannelChat[];
+  auth: ChannelAuth[];
+}
+
+let channelsCache: { data: ChannelsResponse; ts: number } | null = null;
+const CHANNELS_CACHE_TTL = 10 * 60 * 1000;
+
+export function listChannels(): ChannelsResponse {
+  if (channelsCache && Date.now() - channelsCache.ts < CHANNELS_CACHE_TTL) {
+    return channelsCache.data;
+  }
+  try {
+    const raw = execSync(`${OPENCLAW_BIN} channels list --json --no-usage`, {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const parsed = JSON.parse(raw) as { chat: Record<string, unknown>; auth: Record<string, unknown>[] };
+    const chat = Object.entries(parsed.chat || {}).map(([key, val]) => ({
+      id: key,
+      provider: key,
+      enabled: true,
+      ...(typeof val === 'object' && val !== null ? val : {}),
+    })) as ChannelChat[];
+    const auth = (parsed.auth || []).map((a) => ({
+      id: String(a.id || ''),
+      provider: String(a.provider || ''),
+      type: String(a.type || ''),
+      isExternal: Boolean(a.isExternal),
+    }));
+    const data: ChannelsResponse = { chat, auth };
+    channelsCache = { data, ts: Date.now() };
+    return data;
+  } catch (err) {
+    console.error('[channels] failed to list channels:', err); /* eslint-disable-line */
+    return channelsCache?.data ?? { chat: [], auth: [] };
+  }
+}
+
+export function addChannel(
+  channel: string,
+  opts: Record<string, string>,
+): { ok: boolean; error?: string } {
+  try {
+    const args = [`--channel`, channel];
+    Object.entries(opts).forEach(([key, val]) => {
+      if (val) args.push(`--${key}`, val);
+    });
+    execSync(
+      `${OPENCLAW_BIN} channels add ${args.map((a) => `"${a}"`).join(' ')}`,
+      { encoding: 'utf-8', timeout: 30000 },
+    );
+    channelsCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to add channel' };
+  }
+}
+
+export function removeChannel(
+  channel: string,
+  account?: string,
+): { ok: boolean; error?: string } {
+  try {
+    const args = [`--channel`, channel, `--delete`];
+    if (account) args.push(`--account`, account);
+    execSync(
+      `${OPENCLAW_BIN} channels remove ${args.map((a) => `"${a}"`).join(' ')}`,
+      { encoding: 'utf-8', timeout: 15000 },
+    );
+    channelsCache = null;
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Failed to remove channel' };
+  }
+}
+
 export function copyFileToWorkspace(
   _agentId: string,
   srcPath: string,

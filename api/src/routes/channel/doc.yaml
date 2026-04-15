@@ -1,0 +1,189 @@
+paths:
+  /channel:
+    get:
+      tags:
+        - channel
+      security:
+        - bearerAuth: []
+      operationId: listChannels
+      summary: List configured channels and auth profiles
+      description: >
+        Returns all configured chat channels and authentication/model-provider
+        profiles.
+      responses:
+        200:
+          description: Channels and auth profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/channelsResponse'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    post:
+      tags:
+        - channel
+      security:
+        - bearerAuth: []
+      operationId: addChannel
+      summary: Add or update a channel
+      description: >
+        Adds a new chat channel account (e.g. Telegram, Discord, Slack).
+        The `channel` field selects the provider; remaining fields are
+        provider-specific options passed to `openclaw channels add`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/addChannelBody'
+      responses:
+        200:
+          description: Channel added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/okResult'
+        400:
+          description: Invalid request
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+  /channel/{name}:
+    delete:
+      tags:
+        - channel
+      security:
+        - bearerAuth: []
+      operationId: removeChannel
+      summary: Remove a channel
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Channel provider name
+        - in: query
+          name: account
+          schema:
+            type: string
+          description: Optional account id (defaults to default account)
+      responses:
+        200:
+          description: Channel removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/okResult'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+#
+#
+#
+components:
+  ##
+  schemas:
+    #
+    channelsResponse:
+      type: object
+      properties:
+        chat:
+          type: array
+          items:
+            $ref: '#/components/schemas/channelChat'
+        auth:
+          type: array
+          items:
+            $ref: '#/components/schemas/channelAuth'
+    #
+    channelChat:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'telegram'
+        provider:
+          type: string
+          example: 'telegram'
+        enabled:
+          type: boolean
+      additionalProperties: true
+    #
+    channelAuth:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'ollama:default'
+        provider:
+          type: string
+          example: 'ollama'
+        type:
+          type: string
+          example: 'api_key'
+        isExternal:
+          type: boolean
+    #
+    addChannelBody:
+      type: object
+      required:
+        - channel
+      properties:
+        channel:
+          type: string
+          enum:
+            - telegram
+            - discord
+            - slack
+            - whatsapp
+            - signal
+            - matrix
+            - imessage
+            - msteams
+            - mattermost
+            - googlechat
+            - nostr
+            - irc
+            - twitch
+            - line
+            - feishu
+            - bluebubbles
+            - tlon
+            - nextcloud-talk
+            - synology-chat
+            - qqbot
+            - zalo
+            - zalouser
+        token:
+          type: string
+          description: Bot token (Telegram, Discord)
+        bot-token:
+          type: string
+          description: Slack bot token (xoxb-...)
+        app-token:
+          type: string
+          description: Slack app token (xapp-...)
+        signal-number:
+          type: string
+          description: Signal account number (E.164)
+        account:
+          type: string
+          description: Account id
+        name:
+          type: string
+          description: Display name
+      additionalProperties: true
+    #
+    okResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
