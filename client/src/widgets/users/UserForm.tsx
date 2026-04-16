@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFormik } from 'formik';
 import { Box, Typography, IconButton, TextField, Button, CircularProgress } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import {
@@ -17,11 +18,6 @@ function parseFieldErrors(err: unknown): FieldErrors | null {
   return null;
 }
 
-function fieldError(errors: FieldErrors | null, field: string): string {
-  if (!errors || !errors[field]) return '';
-  return errors[field].join('. ');
-}
-
 const inputSx = {
   mb: 1.5,
   '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
@@ -29,6 +25,8 @@ const inputSx = {
   '& label': { fontSize: '0.85rem' },
   '& .MuiFormHelperText-root': { fontSize: '0.7rem', mx: 0.5 },
 };
+
+const emptyValues = { name: '', lastName: '', email: '', password: '', phone: '' };
 
 export default function UserForm({
   userId,
@@ -41,57 +39,61 @@ export default function UserForm({
   const { data: existing, isLoading: loadingUser } = useGetUserQuery(userId!, { skip: !userId });
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
-
-  const [name, setName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [errors, setErrors] = useState<FieldErrors | null>(null);
+  const [serverErrors, setServerErrors] = useState<FieldErrors | null>(null);
   const [generalError, setGeneralError] = useState('');
+
+  const formik = useFormik({
+    initialValues: emptyValues,
+    onSubmit: async (values) => {
+      setServerErrors(null);
+      setGeneralError('');
+      try {
+        if (isEdit && userId) {
+          const data: Record<string, string> = {
+            name: values.name,
+            lastName: values.lastName,
+            email: values.email,
+            phone: values.phone,
+          };
+          if (values.password) data.password = values.password;
+          await updateUser({ id: userId, data }).unwrap();
+        } else {
+          await createUser(values).unwrap();
+        }
+        onDone();
+      } catch (err: unknown) {
+        const fe = parseFieldErrors(err);
+        if (fe) {
+          setServerErrors(fe);
+        } else {
+          const msg = (err as { data?: { error?: string } })?.data?.error;
+          setGeneralError(msg || (isEdit ? 'Failed to update user' : 'Failed to create user'));
+        }
+      }
+    },
+  });
 
   useEffect(() => {
     if (isEdit && existing) {
-      setName(existing.name || '');
-      setLastName(existing.lastName || '');
-      setEmail(existing.email || '');
-      setPhone(existing.phone || '');
-      setPassword('');
+      formik.resetForm({
+        values: {
+          name: existing.name || '',
+          lastName: existing.lastName || '',
+          email: existing.email || '',
+          password: '',
+          phone: existing.phone || '',
+        },
+      });
     } else if (!isEdit) {
-      setName('');
-      setLastName('');
-      setEmail('');
-      setPassword('');
-      setPhone('');
+      formik.resetForm({ values: emptyValues });
     }
-    setErrors(null);
+    setServerErrors(null);
     setGeneralError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing, isEdit, userId]);
 
-  const handleSubmit = async () => {
-    setErrors(null);
-    setGeneralError('');
-    try {
-      if (isEdit && userId) {
-        const data: Record<string, string> = { name, lastName, email, phone };
-        if (password) data.password = password;
-        await updateUser({ id: userId, data }).unwrap();
-      } else {
-        await createUser({ name, lastName, email, password, phone }).unwrap();
-      }
-      onDone();
-    } catch (err: unknown) {
-      const fe = parseFieldErrors(err);
-      if (fe) {
-        setErrors(fe);
-      } else {
-        const msg = (err as { data?: { error?: string } })?.data?.error;
-        setGeneralError(msg || (isEdit ? 'Failed to update user' : 'Failed to create user'));
-      }
-    }
-  };
-
   const saving = isCreating || isUpdating;
+  const err = (field: string) => serverErrors?.[field]?.join('. ') || '';
 
   return (
     <Box sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
@@ -109,26 +111,24 @@ export default function UserForm({
           <CircularProgress size={20} />
         </Box>
       ) : (
-        <>
+        <form onSubmit={formik.handleSubmit}>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
             <TextField
               fullWidth
               size="small"
               label="First Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={!!fieldError(errors, 'name')}
-              helperText={fieldError(errors, 'name')}
+              {...formik.getFieldProps('name')}
+              error={!!err('name')}
+              helperText={err('name')}
               sx={inputSx}
             />
             <TextField
               fullWidth
               size="small"
               label="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              error={!!fieldError(errors, 'lastName')}
-              helperText={fieldError(errors, 'lastName')}
+              {...formik.getFieldProps('lastName')}
+              error={!!err('lastName')}
+              helperText={err('lastName')}
               sx={inputSx}
             />
           </Box>
@@ -138,10 +138,9 @@ export default function UserForm({
             size="small"
             label="Email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={!!fieldError(errors, 'email')}
-            helperText={fieldError(errors, 'email')}
+            {...formik.getFieldProps('email')}
+            error={!!err('email')}
+            helperText={err('email')}
             sx={inputSx}
           />
 
@@ -151,20 +150,18 @@ export default function UserForm({
               size="small"
               label={isEdit ? 'Password (leave empty to keep)' : 'Password'}
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={!!fieldError(errors, 'password')}
-              helperText={fieldError(errors, 'password')}
+              {...formik.getFieldProps('password')}
+              error={!!err('password')}
+              helperText={err('password')}
               sx={inputSx}
             />
             <TextField
               fullWidth
               size="small"
               label="Phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              error={!!fieldError(errors, 'phone')}
-              helperText={fieldError(errors, 'phone')}
+              {...formik.getFieldProps('phone')}
+              error={!!err('phone')}
+              helperText={err('phone')}
               sx={inputSx}
             />
           </Box>
@@ -176,15 +173,15 @@ export default function UserForm({
           )}
 
           <Button
+            type="submit"
             variant="contained"
             size="small"
             disabled={saving}
-            onClick={handleSubmit}
             sx={{ textTransform: 'none', fontSize: '0.8rem' }}
           >
             {saving ? <CircularProgress size={16} /> : isEdit ? 'Save' : 'Create User'}
           </Button>
-        </>
+        </form>
       )}
     </Box>
   );

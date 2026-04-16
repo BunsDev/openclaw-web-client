@@ -1,3 +1,4 @@
+import { useFormik } from 'formik';
 import { useState } from 'react';
 import {
   Box,
@@ -50,59 +51,79 @@ const inputSx = {
   '& textarea': { fontSize: '0.85rem' },
 };
 
+interface CronFormValues {
+  name: string;
+  scheduleKind: ScheduleKind;
+  scheduleValue: string;
+  atDatetime: string;
+  message: string;
+  agent: string;
+  session: string;
+  tz: string;
+}
+
+const initialValues: CronFormValues = {
+  name: '',
+  scheduleKind: 'cron',
+  scheduleValue: '',
+  atDatetime: '',
+  message: '',
+  agent: '',
+  session: 'isolated',
+  tz: '',
+};
+
 export default function AddCronForm({ onDone }: { onDone: () => void }) {
   const [addCron, { isLoading }] = useAddCronJobMutation();
   const { data: agentsData } = useGetAgentsQuery();
-  const [name, setName] = useState('');
-  const [scheduleKind, setScheduleKind] = useState<ScheduleKind>('cron');
-  const [scheduleValue, setScheduleValue] = useState('');
-  const [atDatetime, setAtDatetime] = useState('');
-  const [message, setMessage] = useState('');
-  const [agent, setAgent] = useState('');
-  const [session, setSession] = useState('isolated');
-  const [tz, setTz] = useState('');
   const [error, setError] = useState('');
 
+  const formik = useFormik<CronFormValues>({
+    initialValues,
+    onSubmit: async (values) => {
+      setError('');
+      const opts: Record<string, string> = {};
+      if (values.name) opts.name = values.name;
+      if (values.message) opts.message = values.message;
+      if (values.agent) opts.agent = values.agent;
+      if (values.session === 'main' || values.session === 'isolated') {
+        opts.session = values.session;
+      } else if (values.session) {
+        opts['session-key'] = values.session;
+        opts.session = `session:${values.session}`;
+      }
+      if (values.tz) opts.tz = values.tz;
+
+      if (values.scheduleKind === 'at') {
+        if (!values.atDatetime) return;
+        opts.at = new Date(values.atDatetime).toISOString();
+      } else {
+        if (!values.scheduleValue.trim()) return;
+        opts[values.scheduleKind] = values.scheduleValue;
+      }
+
+      try {
+        await addCron(opts).unwrap();
+        onDone();
+      } catch (err: unknown) {
+        const msg = (err as { data?: { error?: string } })?.data?.error;
+        setError(msg || 'Failed to add cron job');
+      }
+    },
+  });
+
   const agents = agentsData?.items ?? [];
-  const selectedAgent = agents.find((a) => (a.openclawAgentId || a.name) === agent);
+  const selectedAgent = agents.find((a) => (a.openclawAgentId || a.name) === formik.values.agent);
   const { data: convData } = useGetConversationsQuery(selectedAgent?._id ?? '', {
     skip: !selectedAgent,
   });
   const conversations = convData?.items ?? [];
 
-  const handleSubmit = async () => {
-    setError('');
-    const opts: Record<string, string> = {};
-    if (name) opts.name = name;
-    if (message) opts.message = message;
-    if (agent) opts.agent = agent;
-    if (session === 'main' || session === 'isolated') {
-      opts.session = session;
-    } else if (session) {
-      opts['session-key'] = session;
-      opts.session = `session:${session}`;
-    }
-    if (tz) opts.tz = tz;
-
-    if (scheduleKind === 'at') {
-      if (!atDatetime) return;
-      opts.at = new Date(atDatetime).toISOString();
-    } else {
-      if (!scheduleValue.trim()) return;
-      opts[scheduleKind] = scheduleValue;
-    }
-
-    try {
-      await addCron(opts).unwrap();
-      onDone();
-    } catch (err: unknown) {
-      const msg = (err as { data?: { error?: string } })?.data?.error;
-      setError(msg || 'Failed to add cron job');
-    }
-  };
-
-  const hasSchedule = scheduleKind === 'at' ? !!atDatetime : !!scheduleValue.trim();
-  const canSubmit = hasSchedule && (name.trim() || message.trim());
+  const hasSchedule =
+    formik.values.scheduleKind === 'at'
+      ? !!formik.values.atDatetime
+      : !!formik.values.scheduleValue.trim();
+  const canSubmit = hasSchedule && (formik.values.name.trim() || formik.values.message.trim());
 
   return (
     <Box sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
@@ -115,159 +136,163 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
         </IconButton>
       </Box>
 
-      <TextField
-        fullWidth
-        size="small"
-        label="Job Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        sx={inputSx}
-      />
-
-      <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-        <InputLabel sx={{ fontSize: '0.85rem' }}>Schedule Type</InputLabel>
-        <Select
-          value={scheduleKind}
-          label="Schedule Type"
-          onChange={(e) => {
-            const kind = e.target.value as ScheduleKind;
-            setScheduleKind(kind);
-            if (kind === 'every') setTz('');
-          }}
-          sx={{ fontSize: '0.85rem' }}
-        >
-          {SCHEDULE_KINDS.map((s) => (
-            <MenuItem key={s.value} value={s.value} sx={{ fontSize: '0.85rem' }}>
-              {s.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {scheduleKind === 'at' ? (
+      <form onSubmit={formik.handleSubmit}>
         <TextField
           fullWidth
           size="small"
-          type="datetime-local"
-          label="Run At"
-          value={atDatetime}
-          onChange={(e) => setAtDatetime(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
+          label="Job Name"
+          {...formik.getFieldProps('name')}
           sx={inputSx}
         />
-      ) : (
-        <TextField
-          fullWidth
-          size="small"
-          label={
-            scheduleKind === 'cron'
-              ? 'Cron Expression (e.g. 0 */6 * * *)'
-              : 'Interval (e.g. 30m, 2h)'
-          }
-          value={scheduleValue}
-          onChange={(e) => setScheduleValue(e.target.value)}
-          sx={inputSx}
-        />
-      )}
 
-      <TextField
-        fullWidth
-        size="small"
-        label="Message (agent prompt)"
-        multiline
-        minRows={2}
-        maxRows={4}
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        sx={inputSx}
-      />
-
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ fontSize: '0.85rem' }}>Agent (optional)</InputLabel>
+        <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
+          <InputLabel sx={{ fontSize: '0.85rem' }}>Schedule Type</InputLabel>
           <Select
-            value={agent}
-            label="Agent (optional)"
+            value={formik.values.scheduleKind}
+            label="Schedule Type"
             onChange={(e) => {
-              setAgent(e.target.value);
-              setSession('isolated');
+              const kind = e.target.value as ScheduleKind;
+              formik.setFieldValue('scheduleKind', kind);
+              if (kind === 'every') formik.setFieldValue('tz', '');
             }}
-            sx={{ fontSize: '0.85rem', borderRadius: 1.5 }}
+            sx={{ fontSize: '0.85rem' }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.85rem' }}>
-              <em>None</em>
-            </MenuItem>
-            {agents.map((a) => (
-              <MenuItem key={a._id} value={a.openclawAgentId || a.name} sx={{ fontSize: '0.85rem' }}>
-                {a.name}
+            {SCHEDULE_KINDS.map((s) => (
+              <MenuItem key={s.value} value={s.value} sx={{ fontSize: '0.85rem' }}>
+                {s.label}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        {scheduleKind !== 'every' && (
-          <Autocomplete
+        {formik.values.scheduleKind === 'at' ? (
+          <TextField
             fullWidth
             size="small"
-            freeSolo
-            options={COMMON_TIMEZONES}
-            value={tz || null}
-            onChange={(_e, val) => setTz(val || '')}
-            onInputChange={(_e, val) => setTz(val || '')}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Timezone (optional)"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
-                  '& input': { fontSize: '0.85rem' },
-                  '& label': { fontSize: '0.85rem' },
-                }}
-              />
-            )}
+            type="datetime-local"
+            label="Run At"
+            {...formik.getFieldProps('atDatetime')}
+            slotProps={{ inputLabel: { shrink: true } }}
+            sx={inputSx}
+          />
+        ) : (
+          <TextField
+            fullWidth
+            size="small"
+            label={
+              formik.values.scheduleKind === 'cron'
+                ? 'Cron Expression (e.g. 0 */6 * * *)'
+                : 'Interval (e.g. 30m, 2h)'
+            }
+            {...formik.getFieldProps('scheduleValue')}
+            sx={inputSx}
           />
         )}
-      </Box>
 
-      {agent && (
-        <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-          <InputLabel sx={{ fontSize: '0.85rem' }}>Session</InputLabel>
-          <Select
-            value={session}
-            label="Session"
-            onChange={(e) => setSession(e.target.value)}
-            sx={{ fontSize: '0.85rem', borderRadius: 1.5 }}
-          >
-            <MenuItem value="isolated" sx={{ fontSize: '0.85rem' }}>Isolated (new session)</MenuItem>
-            <MenuItem value="main" sx={{ fontSize: '0.85rem' }}>Main session</MenuItem>
-            {conversations
-              .filter((c) => c.sessionKey)
-              .map((c) => (
+        <TextField
+          fullWidth
+          size="small"
+          label="Message (agent prompt)"
+          multiline
+          minRows={2}
+          maxRows={4}
+          {...formik.getFieldProps('message')}
+          sx={inputSx}
+        />
+
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: '0.85rem' }}>Agent (optional)</InputLabel>
+            <Select
+              value={formik.values.agent}
+              label="Agent (optional)"
+              onChange={(e) => {
+                formik.setFieldValue('agent', e.target.value);
+                formik.setFieldValue('session', 'isolated');
+              }}
+              sx={{ fontSize: '0.85rem', borderRadius: 1.5 }}
+            >
+              <MenuItem value="" sx={{ fontSize: '0.85rem' }}>
+                <em>None</em>
+              </MenuItem>
+              {agents.map((a) => (
                 <MenuItem
-                  key={c._id}
-                  value={`agent:${agent}:${c.sessionKey}`}
+                  key={a._id}
+                  value={a.openclawAgentId || a.name}
                   sx={{ fontSize: '0.85rem' }}
                 >
-                  {c.title || `Session ${c.sessionKey}`}
+                  {a.name}
                 </MenuItem>
               ))}
-          </Select>
-        </FormControl>
-      )}
+            </Select>
+          </FormControl>
 
-      {error && (
-        <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mb: 1 }}>{error}</Typography>
-      )}
+          {formik.values.scheduleKind !== 'every' && (
+            <Autocomplete
+              fullWidth
+              size="small"
+              freeSolo
+              options={COMMON_TIMEZONES}
+              value={formik.values.tz || null}
+              onChange={(_e, val) => formik.setFieldValue('tz', val || '')}
+              onInputChange={(_e, val) => formik.setFieldValue('tz', val || '')}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Timezone (optional)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                    '& input': { fontSize: '0.85rem' },
+                    '& label': { fontSize: '0.85rem' },
+                  }}
+                />
+              )}
+            />
+          )}
+        </Box>
 
-      <Button
-        variant="contained"
-        size="small"
-        disabled={!canSubmit || isLoading}
-        onClick={handleSubmit}
-        sx={{ textTransform: 'none', fontSize: '0.8rem' }}
-      >
-        {isLoading ? <CircularProgress size={16} /> : 'Add Job'}
-      </Button>
+        {formik.values.agent && (
+          <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
+            <InputLabel sx={{ fontSize: '0.85rem' }}>Session</InputLabel>
+            <Select
+              value={formik.values.session}
+              label="Session"
+              onChange={(e) => formik.setFieldValue('session', e.target.value)}
+              sx={{ fontSize: '0.85rem', borderRadius: 1.5 }}
+            >
+              <MenuItem value="isolated" sx={{ fontSize: '0.85rem' }}>
+                Isolated (new session)
+              </MenuItem>
+              <MenuItem value="main" sx={{ fontSize: '0.85rem' }}>Main session</MenuItem>
+              {conversations
+                .filter((c) => c.sessionKey)
+                .map((c) => (
+                  <MenuItem
+                    key={c._id}
+                    value={`agent:${formik.values.agent}:${c.sessionKey}`}
+                    sx={{ fontSize: '0.85rem' }}
+                  >
+                    {c.title || `Session ${c.sessionKey}`}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+        )}
+
+        {error && (
+          <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mb: 1 }}>{error}</Typography>
+        )}
+
+        <Button
+          type="submit"
+          variant="contained"
+          size="small"
+          disabled={!canSubmit || isLoading}
+          sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+        >
+          {isLoading ? <CircularProgress size={16} /> : 'Add Job'}
+        </Button>
+      </form>
     </Box>
   );
 }
