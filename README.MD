@@ -2,7 +2,7 @@
 
 A web-based chat interface for [OpenClaw](https://openclaw.ai) AI agents. Create multiple agents, manage conversations, upload files, and stream AI responses in real time — all through a clean, modern UI.
 
-https://github.com/user-attachments/assets/6f3b006d-b2f2-47f6-8a94-681fda42a408
+https://github.com/user-attachments/assets/500f4f44-13e8-4e08-8bfc-9b2458c22ae1
 
 ## Features
 
