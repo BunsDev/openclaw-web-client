@@ -29,6 +29,16 @@ export interface MessagesQueryArg {
   before?: string;
 }
 
+export interface PollResponse {
+  items: Message[];
+  synced: number;
+}
+
+export interface PollQueryArg {
+  conversationId: string;
+  after?: string;
+}
+
 export const messagesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getMessages: build.query<MessagesResponse, MessagesQueryArg>({
@@ -58,6 +68,14 @@ export const messagesApi = baseApi.injectEndpoints({
         { type: 'Message', id: conversationId },
       ],
     }),
+    pollMessages: build.query<PollResponse, PollQueryArg>({
+      query: ({ conversationId, after }) => {
+        const params = new URLSearchParams();
+        if (after) params.set('after', after);
+        const qs = params.toString();
+        return `/message/conversation/${conversationId}/poll${qs ? `?${qs}` : ''}`;
+      },
+    }),
     createMessage: build.mutation<Message, { conversationId: string; text: string }>({
       query: (body) => ({
         url: '/message',
@@ -80,5 +98,9 @@ export const messagesApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetMessagesQuery, useCreateMessageMutation, useDeleteMessageMutation } =
-  messagesApi;
+export const {
+  useGetMessagesQuery,
+  usePollMessagesQuery,
+  useCreateMessageMutation,
+  useDeleteMessageMutation,
+} = messagesApi;

@@ -215,18 +215,6 @@ const sync: RequestHandler = async (req, res, next) => {
 
     const agentMap = new Map(allAgents.map((a) => [a._id, a]));
 
-    // Get message counts per conversation in one query
-    const msgCounts: { conversationId: number; cnt: string }[] = await msgRepo
-      .createQueryBuilder('m')
-      .select('m.conversationId', 'conversationId')
-      .addSelect('COUNT(*)', 'cnt')
-      .where('m.conversationId IN (:...ids)', {
-        ids: allConversations.map((c) => c._id),
-      })
-      .groupBy('m.conversationId')
-      .getRawMany();
-    const countMap = new Map(msgCounts.map((r) => [r.conversationId, Number(r.cnt)]));
-
     const msgResults = await Promise.allSettled(allConversations.map(async (conv) => {
       const agent = agentMap.get(conv.agentId);
       if (!agent) return 0;
@@ -235,14 +223,13 @@ const sync: RequestHandler = async (req, res, next) => {
       const validMessages = openclawMessages.filter((m) => m.externalId);
       if (!validMessages.length) return 0;
 
-      const dbCount = countMap.get(conv._id) || 0;
-      if (dbCount >= validMessages.length) return 0;
-
       const existingIds = new Set(
         (await msgRepo.find({
           where: { conversationId: conv._id },
           select: ['externalId'],
-        })).map((m) => m.externalId),
+        }))
+          .map((m) => m.externalId)
+          .filter(Boolean),
       );
 
       const toInsert = validMessages.filter((m) => !existingIds.has(m.externalId));

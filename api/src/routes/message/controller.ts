@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { LessThan } from 'typeorm';
+import { RequestHandler } from 'express';
+import { LessThan, IsNull, MoreThan } from 'typeorm';
 import AppDataSource from '../../data-source';
 import { Message, Conversation, Agent } from '../../entities';
 import {
@@ -232,4 +233,120 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-export { listByConversation, create, chat, destroy };
+const poll: RequestHandler<
+  { conversationId: string },
+  unknown,
+  never,
+  { after?: string }
+> = async (req, res, next) => {
+  try {
+    const convId = Number(req.params.conversationId);
+    const { after } = req.query;
+
+    const msgRepo = AppDataSource.getRepository(Message);
+    const convRepo = AppDataSource.getRepository(Conversation);
+    const agentRepo = AppDataSource.getRepository(Agent);
+
+    const conv = await convRepo.findOneBy({ _id: convId });
+    if (!conv?.sessionKey) {
+      return res.json({ items: [], synced: 0 });
+    }
+
+    const agent = await agentRepo.findOneBy({ _id: conv.agentId });
+    if (!agent?.openclawAgentId) {
+      return res.json({ items: [], synced: 0 });
+    }
+
+    let synced = 0;
+    const jsonlMessages = ocService
+      .getSessionMessages(agent.openclawAgentId, conv.sessionKey)
+      .filter((m) => m.externalId);
+
+    if (jsonlMessages.length) {
+      const existingIds = new Set(
+        (await msgRepo.find({
+          where: { conversationId: convId },
+          select: ['externalId'],
+        }))
+          .map((m) => m.externalId)
+          .filter(Boolean),
+      );
+
+      const candidates = jsonlMessages.filter((m) => !existingIds.has(m.externalId));
+
+      // Link any recent unlinked DB messages (saved by the chat handler
+      // before their externalId was known) instead of inserting duplicates.
+      const recentCutoff = new Date(Date.now() - 120_000);
+      const unlinked = await msgRepo.find({
+        where: {
+          conversationId: convId,
+          externalId: IsNull(),
+          createdAt: MoreThan(recentCutoff),
+        },
+        order: { createdAt: 'ASC' },
+      });
+
+      const unlinkedByRole = new Map<string, typeof unlinked>();
+      unlinked.forEach((u) => {
+        const list = unlinkedByRole.get(u.role) || [];
+        list.push(u);
+        unlinkedByRole.set(u.role, list);
+      });
+
+      const toInsert: typeof candidates = [];
+      const updates: Array<{ id: number; externalId: string }> = [];
+
+      candidates.forEach((m) => {
+        const pool = unlinkedByRole.get(m.role);
+        if (pool && pool.length > 0) {
+          const match = pool.shift()!;
+          updates.push({ id: match._id, externalId: m.externalId! });
+        } else {
+          toInsert.push(m);
+        }
+      });
+
+      if (updates.length) {
+        await Promise.all(
+          updates.map((u) => msgRepo.update(u.id, { externalId: u.externalId })),
+        );
+        synced += updates.length;
+      }
+
+      if (toInsert.length) {
+        await msgRepo.save(
+          toInsert.map((m) =>
+            msgRepo.create({
+              conversationId: convId,
+              externalId: m.externalId,
+              text: m.text,
+              thinking: m.thinking || null,
+              files: [],
+              role: m.role as 'user' | 'assistant',
+              createdBy: req.user!._id,
+              createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
+            }),
+          ),
+        );
+        synced += toInsert.length;
+      }
+    }
+
+    const where: Record<string, unknown> = { conversationId: convId };
+    if (after) {
+      where.createdAt = MoreThan(new Date(after));
+    }
+
+    const items = await msgRepo.find({
+      where: where as any,
+      order: { createdAt: 'ASC' },
+      take: 200,
+    });
+
+    return res.json({ items, synced });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export { listByConversation, create, chat, destroy, poll };

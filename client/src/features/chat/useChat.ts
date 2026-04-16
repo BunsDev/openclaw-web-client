@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import type { MessageFile } from '../../entities/message/api';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import type { MessageFile, Message } from '../../entities/message/api';
 import { API_BASE_URL, baseApi } from '../../shared/api/baseApi';
 import { useAppDispatch } from '../../app/store/hooks';
-import { useGetMessagesQuery } from '../../entities/message/api';
+import { useGetMessagesQuery, usePollMessagesQuery, messagesApi } from '../../entities/message/api';
 import type { MessagesResponse } from '../../entities/message/api';
+
+const POLL_INTERVAL_MS = 5000;
 
 export interface ChatState {
   messages: ReturnType<typeof useGetMessagesQuery>['data'] extends infer D
@@ -44,6 +46,7 @@ export default function useChat(conversationId: string | undefined) {
   const initialScrollDone = useRef(false);
   const lastConvId = useRef(conversationId);
   const scrollTickRef = useRef(0);
+  const lastMergedPollTs = useRef<string | undefined>(undefined);
 
   const dispatch = useAppDispatch();
 
@@ -52,13 +55,62 @@ export default function useChat(conversationId: string | undefined) {
     { skip: !conversationId }
   );
 
-  const messages = data?.items ?? [];
+  const messages = useMemo(() => data?.items ?? [], [data?.items]);
   const hasMore = (data as MessagesResponse | undefined)?.hasMore ?? false;
+
+  // Polling: only fetch messages that are newer than the latest one we have.
+  // Skip while streaming so the SSE flow owns the update.
+  const lastMessageTs = messages.length > 0 ? messages[messages.length - 1].createdAt : undefined;
+
+  const { data: pollData } = usePollMessagesQuery(
+    { conversationId: conversationId!, after: lastMessageTs },
+    {
+      skip: !conversationId || isStreaming || isLoading,
+      pollingInterval: POLL_INTERVAL_MS,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
+  // Merge new polled items into the messages cache + trigger auto-scroll.
+  useEffect(() => {
+    if (!conversationId || !pollData || pollData.items.length === 0) return;
+
+    // Dedup by the timestamp of the newest polled message: avoids re-merging
+    // the same response until new data arrives.
+    const newestTs = pollData.items[pollData.items.length - 1].createdAt;
+    if (lastMergedPollTs.current === newestTs) return;
+    lastMergedPollTs.current = newestTs;
+
+    dispatch(
+      messagesApi.util.updateQueryData(
+        'getMessages',
+        { conversationId, before: undefined },
+        (draft) => {
+          const existing = new Set(draft.items.map((m: Message) => m._id));
+          const additions = pollData.items.filter((m) => !existing.has(m._id));
+          if (additions.length === 0) return;
+          draft.items = [...draft.items, ...additions];
+          draft.total = draft.items.length;
+        }
+      )
+    );
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 200) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
+  }, [pollData, conversationId, dispatch]);
 
   useEffect(() => {
     if (lastConvId.current !== conversationId) {
       lastConvId.current = conversationId;
       initialScrollDone.current = false;
+      lastMergedPollTs.current = undefined;
     }
     if (isLoadingMore.current) {
       const container = scrollContainerRef.current;

@@ -112,6 +112,44 @@ paths:
           $ref: '#/components/responses/422'
         500:
           $ref: '#/components/responses/500'
+  /message/conversation/{conversationId}/poll:
+    get:
+      tags:
+        - message
+      security:
+        - bearerAuth: []
+      operationId: pollMessages
+      summary: Poll for new messages (syncs from JSONL first)
+      description: >
+        Syncs any new messages from the OpenClaw session JSONL file into
+        the database for the given conversation, then returns messages
+        created after the specified timestamp. Intended to be called at a
+        low frequency from the client (e.g. every 5s) while the user is
+        viewing a conversation but not actively streaming a response.
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: after
+          required: false
+          description: ISO 8601 timestamp — only return messages created after this time
+          schema:
+            type: string
+            format: date-time
+      responses:
+        200:
+          description: New messages and sync count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pollResponse'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
   /message/{id}:
     delete:
       tags:
@@ -206,6 +244,17 @@ components:
           type: integer
         text:
           type: string
+    #
+    pollResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/message'
+        synced:
+          type: integer
+          description: Number of new messages imported from the JSONL session file
     #
     chatReqBody:
       type: object
