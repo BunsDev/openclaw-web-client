@@ -8,7 +8,8 @@ import {
 } from '@mui/material';
 import { Palette } from '@mui/icons-material';
 import { themeConfigs, type ThemeId } from '../../app/theme';
-import { useAppDispatch, useAppSelector, setTheme } from '../../app/store';
+import { useAppDispatch, useAppSelector } from '../../app/store';
+import { setTheme } from './slice';
 
 const themeEntries = Object.entries(themeConfigs) as [ThemeId, typeof themeConfigs[ThemeId]][];
 

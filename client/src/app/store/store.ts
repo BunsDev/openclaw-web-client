@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { createLogger } from 'redux-logger';
-import { baseApi } from '../../shared/api/baseApi';
-import authReducer from '../../features/auth/slice';
-import themeReducer from '../../features/theme/slice';
+import { baseApi } from '../../shared/api';
+import { authReducer } from '../../features/auth';
+import { themeReducer } from '../../features/theme';
 
 export const store = configureStore({
   reducer: {

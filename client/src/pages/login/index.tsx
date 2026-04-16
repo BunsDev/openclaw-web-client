@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Button, TextField, Card, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { useFormik, FormikProvider, Form } from 'formik';
 import { useNavigate } from 'react-router';
-import { useLoginMutation } from '../../app/store';
+import { useLoginMutation } from '../../features/auth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
