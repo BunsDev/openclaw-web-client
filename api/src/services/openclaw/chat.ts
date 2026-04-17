@@ -1,16 +1,13 @@
 /* eslint-disable no-console */
-import { spawn } from 'child_process';
 import crypto from 'crypto';
 import os from 'os';
 import { Response } from 'express';
 import { ChatRunHandle, SseEmitter } from '../../@types/openclaw';
 import { GwAgentEventPayload, GwEventMessage, GwInboundMessage } from '../../@types/gateway';
-import { gateway, getOpenclawBin, loadGatewayCredentials } from '../openclawGateway';
+import { gateway, loadGatewayCredentials, ocSpawn } from '../openclawGateway';
 import { createSseEmitter, GW_RE_PARTIAL_TAG, stripGatewayTags } from './sseEmitter';
 import { extractThinkingFromJsonl, getSessionSettingsInternal } from './sessions';
 import { errMsg } from '../../utils/errors';
-
-const OPENCLAW_BIN = getOpenclawBin();
 
 function isAgentEvent(msg: GwInboundMessage): msg is GwEventMessage<GwAgentEventPayload> {
   return msg.type === 'event' && (msg.event === 'agent' || msg.event === 'chat');
@@ -110,7 +107,7 @@ function runAgentWithEmitter(
 
   console.log(`[chat] CLI fallback: openclaw ${args.join(' ')}`);
 
-  const child = spawn(OPENCLAW_BIN, args, {
+  const child = ocSpawn(args, {
     cwd: os.homedir(),
     env: { ...process.env, NO_COLOR: '1' },
   });
@@ -180,14 +177,14 @@ function runAgentWithEmitter(
     }
   }
 
-  child.stdout.on('data', (data: Buffer) => {
+  child.stdout?.on('data', (data: Buffer) => {
     const cleaned = data.toString();
     if (!cleaned) return;
     buf += cleaned;
     processBuf();
   });
 
-  child.stderr.on('data', (data: Buffer) => {
+  child.stderr?.on('data', (data: Buffer) => {
     stderrBuf += data.toString();
   });
 

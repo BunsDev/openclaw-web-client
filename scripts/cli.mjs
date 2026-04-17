@@ -18,6 +18,13 @@ import {
   writeLaunchAgentPlist,
 } from './launchd.mjs';
 import { portEnv, readPorts } from './ports.mjs';
+import { IS_DARWIN, IS_WINDOWS, NPM_BIN, killPort, portListening } from './proc.mjs';
+import {
+  getStartupCmdPath,
+  removeWindowsAutostart,
+  windowsAutostartInstalled,
+  writeWindowsAutostart,
+} from './windows-autostart.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(os.homedir(), '.openclaw_client');
@@ -34,35 +41,17 @@ function currentPorts() {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function isDarwin() {
-  return process.platform === 'darwin';
-}
-
 function killPorts() {
   const { all } = currentPorts();
-  for (const port of all) {
-    try {
-      const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
-      for (const p of pids.split('\n').filter(Boolean)) {
-        try { process.kill(+p); } catch { /* gone */ }
-      }
-    } catch { /* free */ }
-  }
-}
-
-function portListening(port) {
-  try {
-    const out = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
-    return out.length > 0;
-  } catch { return false; }
+  for (const port of all) killPort(port);
 }
 
 function linkGlobal() {
-  execFileSync('npm', ['link'], { cwd: ROOT, stdio: 'pipe' });
+  execFileSync(NPM_BIN, ['link'], { cwd: ROOT, stdio: 'pipe' });
 }
 
 function unlinkGlobal() {
-  try { execFileSync('npm', ['unlink', '-g', 'openclaw-client'], { stdio: 'pipe' }); } catch { /* ok */ }
+  try { execFileSync(NPM_BIN, ['unlink', '-g', 'openclaw-client'], { stdio: 'pipe' }); } catch { /* ok */ }
 }
 
 function assertBuilt() {
@@ -92,11 +81,25 @@ function installLaunchd() {
   bootstrapLaunchAgent();
 }
 
+function installWindowsAutostart() {
+  const runner = path.join(DIST, 'service-runner.mjs');
+  writeWindowsAutostart({
+    nodePath: process.execPath,
+    runnerPath: runner,
+    workDir: DIST,
+    logPath: LOG_FILE,
+  });
+}
+
 function detachStart() {
   const fd = openSync(LOG_FILE, 'w');
   const env = { ...process.env, NODE_ENV: 'production', ...portEnv() };
-  const api = spawn('node', ['build/src/app.js'], { cwd: API_DIST, stdio: ['ignore', fd, fd], env, detached: true });
-  const client = spawn('node', ['serve.mjs'], { cwd: CLIENT_DIST, stdio: ['ignore', fd, fd], env, detached: true });
+  const common = { stdio: ['ignore', fd, fd], env, detached: true };
+  // On Windows, `detached: true` with `windowsHide: true` keeps the servers
+  // alive after the parent exits without flashing a console window.
+  if (IS_WINDOWS) common.windowsHide = true;
+  const api = spawn(process.execPath, ['build/src/app.js'], { cwd: API_DIST, ...common });
+  const client = spawn(process.execPath, ['serve.mjs'], { cwd: CLIENT_DIST, ...common });
   api.unref();
   client.unref();
   closeSync(fd);
@@ -114,13 +117,16 @@ function confirm(question) {
 
 // ── commands ─────────────────────────────────────────────────────────────────
 
-/** npm start only — full build + deploy + launchd + global link */
+/** npm start only — full build + deploy + autostart (os-specific) + global link */
 export function fullStart() {
   deploy();
   killPorts();
 
-  if (isDarwin()) {
+  if (IS_DARWIN) {
     installLaunchd();
+  } else if (IS_WINDOWS) {
+    installWindowsAutostart();
+    detachStart();
   } else {
     detachStart();
   }
@@ -131,7 +137,8 @@ export function fullStart() {
   console.log('');
   console.log('  🚀 OpenClaw Client is running');
   console.log(`  🌐 http://localhost:${clientPort}`);
-  if (isDarwin()) console.log('  🔄 Starts automatically on login (LaunchAgent)');
+  if (IS_DARWIN) console.log('  🔄 Starts automatically on login (LaunchAgent)');
+  else if (IS_WINDOWS) console.log('  🔄 Starts automatically on login (Startup folder)');
   console.log('  📁 ~/.openclaw_client');
   console.log('  ⚙️  Ports: ~/.openclaw_client/.env');
   console.log('  🛠️  openclaw_client status | stop | restart | uninstall');
@@ -143,8 +150,11 @@ function cmdStart() {
   assertBuilt();
   killPorts();
 
-  if (isDarwin()) {
+  if (IS_DARWIN) {
     installLaunchd();
+  } else if (IS_WINDOWS) {
+    installWindowsAutostart();
+    detachStart();
   } else {
     detachStart();
   }
@@ -157,13 +167,13 @@ function cmdStart() {
 }
 
 function cmdStop() {
-  if (isDarwin()) bootoutLaunchAgent();
+  if (IS_DARWIN) bootoutLaunchAgent();
   killPorts();
   console.log('  🛑 OpenClaw Client stopped');
 }
 
 function cmdRestart() {
-  if (isDarwin()) {
+  if (IS_DARWIN) {
     if (!existsSync(getPlistPath())) {
       console.log('❌ No LaunchAgent installed. Run `npm start` first.');
       return;
@@ -187,7 +197,7 @@ function cmdStatus() {
   console.log('  📦 OpenClaw Client');
   console.log(`  📁 ${DIST}`);
 
-  if (isDarwin()) {
+  if (IS_DARWIN) {
     try {
       const out = execFileSync('launchctl', ['print', `${getLaunchdDomain()}/${LAUNCH_AGENT_LABEL}`], { encoding: 'utf-8' });
       const state = out.match(/^\s*state = (\S+)/m)?.[1] ?? 'unknown';
@@ -199,6 +209,12 @@ function cmdStatus() {
       }
     } catch {
       console.log('  ❌ LaunchAgent: not loaded');
+    }
+  } else if (IS_WINDOWS) {
+    if (windowsAutostartInstalled()) {
+      console.log(`  ✅ Autostart: installed (${getStartupCmdPath()})`);
+    } else {
+      console.log('  ❌ Autostart: not installed');
     }
   }
 
@@ -230,9 +246,11 @@ async function cmdUninstall(args) {
     }
   }
 
-  if (isDarwin()) {
+  if (IS_DARWIN) {
     bootoutLaunchAgent();
     removePlistFile();
+  } else if (IS_WINDOWS) {
+    removeWindowsAutostart();
   }
   killPorts();
   unlinkGlobal();

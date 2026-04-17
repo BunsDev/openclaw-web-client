@@ -1,12 +1,15 @@
 import { Server as HttpServer } from 'http';
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execFileSync, ChildProcess } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import * as pty from 'node-pty';
 import { WebSocketServer, WebSocket } from 'ws';
 import { URL } from 'url';
 import jwt from 'jsonwebtoken';
 import { getOpenclawBin } from './openclawGateway';
+
+const IS_WINDOWS = process.platform === 'win32';
 
 function resolveBridge(): string {
   const candidates = [
@@ -38,11 +41,17 @@ function verifyToken(token: string): boolean {
 }
 
 function findBinary(name: string): string {
+  const lookup = IS_WINDOWS ? 'where' : 'which';
   try {
-    return execSync(`which ${name}`, { encoding: 'utf8' }).trim();
+    const out = execFileSync(lookup, [name], { encoding: 'utf8' }).toString().trim();
+    return out.split(/\r?\n/)[0].trim() || name;
   } catch {
     return name;
   }
+}
+
+function defaultCwd(): string {
+  return process.env.HOME || process.env.USERPROFILE || os.homedir() || os.tmpdir();
 }
 
 /** Strip undefined so node-pty / spawn do not get invalid env values. */
@@ -55,9 +64,10 @@ function cleanEnv(env: NodeJS.ProcessEnv): { [key: string]: string } {
   return out;
 }
 
-function isPosixSpawnFailure(err: unknown): boolean {
+function isRecoverableSpawnFailure(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('posix_spawn');
+  // posix_spawn is the macOS/Linux case; CreateProcess is node-pty on Windows (ConPTY).
+  return msg.includes('posix_spawn') || /CreateProcess/i.test(msg) || /EACCES|ENOENT/.test(msg);
 }
 
 function trySpawnNodePty(openclawBin: string, agentName: string): pty.IPty {
@@ -65,16 +75,27 @@ function trySpawnNodePty(openclawBin: string, agentName: string): pty.IPty {
     name: 'xterm-256color' as const,
     cols: 80,
     rows: 24,
-    cwd: process.env.HOME || '/tmp',
+    cwd: defaultCwd(),
     env: cleanEnv({ ...process.env, TERM: 'xterm-256color' }),
   };
 
-  const attempts: [string, string[]][] = [[openclawBin, ['agents', 'add', agentName]]];
+  // On Windows, .cmd/.bat shims must go through cmd.exe; node-pty can't spawn them directly.
+  const baseArgs = ['agents', 'add', agentName];
+  const attempts: [string, string[]][] = [];
+  if (IS_WINDOWS && /\.(cmd|bat)$/i.test(openclawBin)) {
+    attempts.push(['cmd.exe', ['/d', '/s', '/c', openclawBin, ...baseArgs]]);
+  } else {
+    attempts.push([openclawBin, baseArgs]);
+  }
 
   try {
     const resolved = fs.realpathSync(openclawBin);
     if (resolved !== openclawBin) {
-      attempts.push([resolved, ['agents', 'add', agentName]]);
+      if (IS_WINDOWS && /\.(cmd|bat)$/i.test(resolved)) {
+        attempts.push(['cmd.exe', ['/d', '/s', '/c', resolved, ...baseArgs]]);
+      } else {
+        attempts.push([resolved, baseArgs]);
+      }
     }
   } catch {
     /* keep single attempt */
@@ -87,7 +108,7 @@ function trySpawnNodePty(openclawBin: string, agentName: string): pty.IPty {
       return pty.spawn(file, args, opts);
     } catch (e) {
       lastErr = e;
-      if (!isPosixSpawnFailure(e)) {
+      if (!isRecoverableSpawnFailure(e)) {
         if (e instanceof Error) throw e;
         throw new Error(String(e));
       }
@@ -107,7 +128,7 @@ function spawnPythonBridge(
     python3Bin,
     ['-u', BRIDGE_SCRIPT, '80', '24', openclawBin, 'agents', 'add', agentName],
     {
-      cwd: process.env.HOME || '/tmp',
+      cwd: defaultCwd(),
       env: process.env as NodeJS.ProcessEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
     }
@@ -253,7 +274,8 @@ export default function attachPtyWebSocket(server: HttpServer): void {
       return;
     }
 
-    const forcePython = process.env.PTY_BACKEND === 'python';
+    // Python bridge is POSIX-only (fcntl/termios/forkpty); Windows uses node-pty + ConPTY.
+    const forcePython = !IS_WINDOWS && process.env.PTY_BACKEND === 'python';
 
     if (!forcePython) {
       try {
@@ -265,7 +287,8 @@ export default function attachPtyWebSocket(server: HttpServer): void {
         return;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (!isPosixSpawnFailure(err)) {
+        const canFallback = !IS_WINDOWS && isRecoverableSpawnFailure(err);
+        if (!canFallback) {
           console.error(`[pty] spawn failed: ${msg}`); /* eslint-disable-line */
           ws.send(JSON.stringify({ type: 'error', message: `Failed to start PTY: ${msg}` }));
           ws.close();

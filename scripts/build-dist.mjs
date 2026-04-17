@@ -5,13 +5,15 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { portEnv, readPorts } from './ports.mjs';
+import { NPM_BIN } from './proc.mjs';
 
 const SERVE_MJS = `
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DIST = path.join(path.dirname(new URL(import.meta.url).pathname), 'dist');
+const DIST = path.join(path.dirname(fileURLToPath(import.meta.url)), 'dist');
 const PORT = Number(process.env.CLIENT_PORT) || Number(process.env.PORT) || 18800;
 const API_PORT = Number(process.env.API_PORT) || 18802;
 
@@ -88,14 +90,14 @@ export function deploy() {
   const buildEnv = { ...process.env, ...portEnv() };
 
   process.stdout.write('📦 Installing dependencies...\n');
-  run('npm', ['ci', '--include=dev'], API_SRC);
-  run('npm', ['ci', '--include=dev'], CLIENT_SRC);
+  run(NPM_BIN, ['ci', '--include=dev'], API_SRC);
+  run(NPM_BIN, ['ci', '--include=dev'], CLIENT_SRC);
 
   process.stdout.write('🔨 Building...\n');
-  run('npm', ['run', 'build'], API_SRC);
+  run(NPM_BIN, ['run', 'build'], API_SRC);
   // VITE_API_BASE_URL is embedded into the bundle at build time
   try {
-    execFileSync('npm', ['run', 'build'], { cwd: CLIENT_SRC, stdio: 'pipe', env: buildEnv });
+    execFileSync(NPM_BIN, ['run', 'build'], { cwd: CLIENT_SRC, stdio: 'pipe', env: buildEnv });
   } catch (err) {
     const output = err.stdout?.toString() || '';
     const stderr = err.stderr?.toString() || '';
@@ -208,5 +210,5 @@ export function deploy() {
   );
 
   process.stdout.write('📦 Installing production dependencies...\n');
-  run('npm', ['ci', '--omit=dev'], apiDist);
+  run(NPM_BIN, ['ci', '--omit=dev'], apiDist);
 }

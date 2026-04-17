@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { portEnv, readPorts } from './ports.mjs';
+import { NPM_BIN } from './proc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const API_DIR = path.join(ROOT, 'api');
@@ -26,11 +27,11 @@ run('node', [path.join(ROOT, 'scripts', 'setup.js')]);
 // 2. Install dependencies if needed
 if (!fs.existsSync(path.join(API_DIR, 'node_modules'))) {
   process.stdout.write('📦 Installing API dependencies...\n');
-  run('npm', ['install'], API_DIR);
+  run(NPM_BIN, ['install'], API_DIR);
 }
 if (!fs.existsSync(path.join(CLIENT_DIR, 'node_modules'))) {
   process.stdout.write('📦 Installing Client dependencies...\n');
-  run('npm', ['install'], CLIENT_DIR);
+  run(NPM_BIN, ['install'], CLIENT_DIR);
 }
 
 // 3. Start both services in dev mode
@@ -44,8 +45,8 @@ console.log(`  🧩 API:    http://localhost:${apiPort}`);
 console.log('  ⚙️  Ports: ~/.openclaw_client/.env');
 console.log();
 
-const api = spawn('npm', ['run', 'dev'], { cwd: API_DIR, stdio: 'pipe', env: childEnv });
-const client = spawn('npm', ['run', 'dev'], { cwd: CLIENT_DIR, stdio: 'pipe', env: childEnv });
+const api = spawn(NPM_BIN, ['run', 'dev'], { cwd: API_DIR, stdio: 'pipe', env: childEnv });
+const client = spawn(NPM_BIN, ['run', 'dev'], { cwd: CLIENT_DIR, stdio: 'pipe', env: childEnv });
 
 prefix(api.stdout, 'API');
 prefix(api.stderr, 'API');

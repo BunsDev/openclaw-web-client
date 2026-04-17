@@ -1,11 +1,9 @@
 /* eslint-disable no-console */
-import { execFileSync } from 'child_process';
 import { ChannelAuth, ChannelChat, ChannelOpResult, ChannelsResponse } from '../../@types/channel';
-import { getOpenclawBin } from '../openclawGateway';
+import { ocExec } from '../openclawGateway';
 import { withCache } from '../../utils/cache';
 import { errMsg } from '../../utils/errors';
 
-const OPENCLAW_BIN = getOpenclawBin();
 const CHANNELS_CACHE_TTL = 10 * 60 * 1000;
 
 interface RawChannelAuth {
@@ -21,7 +19,7 @@ interface RawChannelsResponse {
 }
 
 const channelsCache = withCache<ChannelsResponse>(CHANNELS_CACHE_TTL, () => {
-  const raw = execFileSync(OPENCLAW_BIN, ['channels', 'list', '--json', '--no-usage'], {
+  const raw = ocExec(['channels', 'list', '--json', '--no-usage'], {
     encoding: 'utf-8',
     timeout: 30000,
   });
@@ -56,7 +54,7 @@ export function addChannel(channel: string, opts: Record<string, string>): Chann
     Object.entries(opts).forEach(([key, val]) => {
       if (val) args.push(`--${key}`, val);
     });
-    execFileSync(OPENCLAW_BIN, args, { encoding: 'utf-8', timeout: 30000 });
+    ocExec(args, { encoding: 'utf-8', timeout: 30000 });
     channelsCache.invalidate();
     return { ok: true };
   } catch (err) {
@@ -68,7 +66,7 @@ export function removeChannel(channel: string, account?: string): ChannelOpResul
   try {
     const args = ['channels', 'remove', '--channel', channel, '--delete'];
     if (account) args.push('--account', account);
-    execFileSync(OPENCLAW_BIN, args, { encoding: 'utf-8', timeout: 15000 });
+    ocExec(args, { encoding: 'utf-8', timeout: 15000 });
     channelsCache.invalidate();
     return { ok: true };
   } catch (err) {

@@ -1,15 +1,13 @@
 /* eslint-disable no-console */
-import { execFileSync } from 'child_process';
 import { CronJob, CronListResponse, CronOpResult } from '../../@types/cron';
-import { getOpenclawBin } from '../openclawGateway';
+import { ocExec } from '../openclawGateway';
 import { withCache } from '../../utils/cache';
 import { errMsg } from '../../utils/errors';
 
-const OPENCLAW_BIN = getOpenclawBin();
 const CRON_CACHE_TTL = 60 * 1000;
 
 const cronCache = withCache<CronListResponse>(CRON_CACHE_TTL, () => {
-  const raw = execFileSync(OPENCLAW_BIN, ['cron', 'list', '--all', '--json'], {
+  const raw = ocExec(['cron', 'list', '--all', '--json'], {
     encoding: 'utf-8',
     timeout: 30000,
   });
@@ -32,7 +30,7 @@ export function addCronJob(opts: Record<string, string>): CronOpResult {
     Object.entries(opts).forEach(([key, val]) => {
       if (val) args.push(`--${key}`, val);
     });
-    execFileSync(OPENCLAW_BIN, args, { encoding: 'utf-8', timeout: 30000 });
+    ocExec(args, { encoding: 'utf-8', timeout: 30000 });
     cronCache.invalidate();
     return { ok: true };
   } catch (err) {
@@ -42,7 +40,7 @@ export function addCronJob(opts: Record<string, string>): CronOpResult {
 
 export function removeCronJob(id: string): CronOpResult {
   try {
-    execFileSync(OPENCLAW_BIN, ['cron', 'rm', id], { encoding: 'utf-8', timeout: 15000 });
+    ocExec(['cron', 'rm', id], { encoding: 'utf-8', timeout: 15000 });
     cronCache.invalidate();
     return { ok: true };
   } catch (err) {
@@ -53,7 +51,7 @@ export function removeCronJob(id: string): CronOpResult {
 export function toggleCronJob(id: string, enable: boolean): CronOpResult {
   try {
     const cmd = enable ? 'enable' : 'disable';
-    execFileSync(OPENCLAW_BIN, ['cron', cmd, id], { encoding: 'utf-8', timeout: 15000 });
+    ocExec(['cron', cmd, id], { encoding: 'utf-8', timeout: 15000 });
     cronCache.invalidate();
     return { ok: true };
   } catch (err) {

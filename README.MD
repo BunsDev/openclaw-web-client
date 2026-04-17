@@ -28,6 +28,20 @@ openclaw --version
 openclaw auth status
 ```
 
+### Platform notes
+
+- **macOS / Linux** — works out of the box.
+- **Windows 10/11** — supported. Additionally requires:
+  - **Git for Windows** (the auto-update flow uses `git`)
+  - **Visual Studio Build Tools** (for native modules `better-sqlite3` and `node-pty`).
+    Install with `npm install --global --production windows-build-tools` _or_ install the
+    "Desktop development with C++" workload from the Visual Studio installer.
+  - The legacy Python PTY fallback (`pty-bridge.py`) is POSIX-only and is automatically
+    skipped on Windows — `node-pty` uses ConPTY there instead.
+  - Run **PowerShell as Administrator** the first time you execute `npm start` so that
+    `npm link` can create the global `openclaw_client` shim, and so that auto-start can
+    be installed.
+
 ## Quick Start
 
 ```bash
@@ -36,7 +50,7 @@ cd openclaw_client
 npm start
 ```
 
-`npm start` builds everything, deploys to `~/.openclaw_client`, registers a macOS **LaunchAgent** (starts on login), and installs the global **`openclaw_client`** command.
+`npm start` builds everything, deploys to `~/.openclaw_client`, installs an OS-appropriate auto-start (macOS **LaunchAgent**, Windows **Startup folder** shortcut), and installs the global **`openclaw_client`** command.
 
 | Service  | URL                             |
 | -------- | ------------------------------- |
@@ -63,7 +77,7 @@ After `npm start`, the **`openclaw_client`** command works from any directory:
 | `openclaw_client stop`              | Stop servers                                                            |
 | `openclaw_client restart`           | Stop + start                                                            |
 | `openclaw_client status`            | Show service status                                                     |
-| `openclaw_client uninstall`         | Remove LaunchAgent, global CLI, api & client artifacts (keeps database) |
+| `openclaw_client uninstall`         | Remove auto-start, global CLI, api & client artifacts (keeps database)  |
 | `openclaw_client uninstall --purge` | Also delete database (asks for confirmation)                            |
 
 To rebuild after code changes, run **`npm start`** from the repo again.

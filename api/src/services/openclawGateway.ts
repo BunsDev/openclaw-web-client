@@ -1,7 +1,13 @@
 /* eslint-disable no-console */
 import { WebSocket as WsWebSocket } from 'ws';
 import crypto from 'crypto';
-import { execFileSync } from 'child_process';
+import {
+  execFileSync,
+  ExecFileSyncOptionsWithStringEncoding,
+  spawn,
+  SpawnOptions,
+  ChildProcess,
+} from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -280,18 +286,33 @@ export class GatewayClient {
 export const gateway = new GatewayClient();
 
 const OPENCLAW_BIN = (() => {
-  const candidates = [
-    process.env.OPENCLAW_BIN,
-    '/opt/homebrew/bin/openclaw',
-    '/usr/local/bin/openclaw',
-    path.join(os.homedir(), '.local', 'bin', 'openclaw'),
-  ];
+  const isWin = process.platform === 'win32';
+  const candidates = isWin
+    ? [
+        process.env.OPENCLAW_BIN,
+        process.env.APPDATA ? path.join(process.env.APPDATA, 'npm', 'openclaw.cmd') : undefined,
+        process.env.APPDATA ? path.join(process.env.APPDATA, 'npm', 'openclaw.exe') : undefined,
+        process.env.LOCALAPPDATA
+          ? path.join(process.env.LOCALAPPDATA, 'Programs', 'openclaw', 'openclaw.exe')
+          : undefined,
+        path.join(os.homedir(), '.local', 'bin', 'openclaw.exe'),
+      ]
+    : [
+        process.env.OPENCLAW_BIN,
+        '/opt/homebrew/bin/openclaw',
+        '/usr/local/bin/openclaw',
+        path.join(os.homedir(), '.local', 'bin', 'openclaw'),
+      ];
   const found = candidates.find((c) => c && fs.existsSync(c));
   if (found) return found;
   try {
-    return execFileSync(process.platform === 'win32' ? 'where' : 'which', ['openclaw'], {
+    const out = execFileSync(isWin ? 'where' : 'which', ['openclaw'], {
       encoding: 'utf-8',
-    }).trim();
+    })
+      .toString()
+      .trim();
+    // `where` can return multiple matches separated by newlines — take the first.
+    return out.split(/\r?\n/)[0].trim() || 'openclaw';
   } catch {
     return 'openclaw';
   }
@@ -299,6 +320,42 @@ const OPENCLAW_BIN = (() => {
 
 export function getOpenclawBin(): string {
   return OPENCLAW_BIN;
+}
+
+const IS_WINDOWS = process.platform === 'win32';
+const NEEDS_SHELL_RE = /\.(cmd|bat)$/i;
+
+/**
+ * Cross-platform invocation of the OpenClaw CLI.
+ *
+ * On Windows, npm-installed CLIs are typically `.cmd` shims, which Node's
+ * `execFileSync` cannot run directly without a shell. This helper transparently
+ * routes those calls through `cmd.exe /d /s /c` so the rest of the codebase
+ * doesn't need to know about that detail.
+ *
+ * NOTE: arguments are passed as separate argv entries (not concatenated into a
+ * shell string), so spaces in args are handled by Node — but cmd.exe still
+ * interprets `&`, `|`, `^` if they appear unquoted in user-supplied args.
+ * All current call sites pass admin-controlled identifiers, not raw user input.
+ */
+export function ocExec(
+  args: string[],
+  options: ExecFileSyncOptionsWithStringEncoding
+): string;
+export function ocExec(args: string[], options?: Parameters<typeof execFileSync>[2]): Buffer;
+export function ocExec(args: string[], options: Parameters<typeof execFileSync>[2] = {}): unknown {
+  if (IS_WINDOWS && NEEDS_SHELL_RE.test(OPENCLAW_BIN)) {
+    return execFileSync('cmd.exe', ['/d', '/s', '/c', OPENCLAW_BIN, ...args], options);
+  }
+  return execFileSync(OPENCLAW_BIN, args, options);
+}
+
+/** Cross-platform `spawn` of the OpenClaw CLI (see {@link ocExec}). */
+export function ocSpawn(args: string[], options: SpawnOptions = {}): ChildProcess {
+  if (IS_WINDOWS && NEEDS_SHELL_RE.test(OPENCLAW_BIN)) {
+    return spawn('cmd.exe', ['/d', '/s', '/c', OPENCLAW_BIN, ...args], options);
+  }
+  return spawn(OPENCLAW_BIN, args, options);
 }
 
 export async function ensureDevicePaired(): Promise<void> {
@@ -313,17 +370,13 @@ export async function ensureDevicePaired(): Promise<void> {
   const opts = { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 };
 
   try {
-    execFileSync(OPENCLAW_BIN, ['gateway', 'call', 'health', '--json'], opts);
+    ocExec(['gateway', 'call', 'health', '--json'], opts);
   } catch {
     /* may fail with pairing required */
   }
 
   try {
-    const out = execFileSync(
-      OPENCLAW_BIN,
-      ['devices', 'approve', '--latest', '--json'],
-      opts
-    ).toString();
+    const out = ocExec(['devices', 'approve', '--latest', '--json'], opts).toString();
     console.log(
       '[setup] approved pending device:',
       out.includes('"requestId"') ? 'ok' : out.trim().slice(0, 200)
@@ -338,7 +391,7 @@ export async function ensureDevicePaired(): Promise<void> {
   }
 
   try {
-    execFileSync(OPENCLAW_BIN, ['gateway', 'call', 'health', '--json'], opts);
+    ocExec(['gateway', 'call', 'health', '--json'], opts);
   } catch {
     /* non-critical */
   }

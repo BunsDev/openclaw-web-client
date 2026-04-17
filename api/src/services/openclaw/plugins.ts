@@ -1,11 +1,9 @@
 /* eslint-disable no-console */
-import { execFileSync } from 'child_process';
 import { PluginInfo } from '../../@types/plugin';
-import { getOpenclawBin } from '../openclawGateway';
+import { ocExec } from '../openclawGateway';
 import { withCache } from '../../utils/cache';
 import { errMsg } from '../../utils/errors';
 
-const OPENCLAW_BIN = getOpenclawBin();
 const PLUGINS_CACHE_TTL = 5 * 60 * 1000;
 
 interface RawPlugin {
@@ -36,7 +34,7 @@ function parsePluginList(raw: string): PluginInfo[] {
 }
 
 const pluginsCache = withCache<PluginInfo[]>(PLUGINS_CACHE_TTL, () => {
-  const raw = execFileSync(OPENCLAW_BIN, ['plugins', 'list', '--json'], {
+  const raw = ocExec(['plugins', 'list', '--json'], {
     encoding: 'utf-8',
     timeout: 30000,
   });
@@ -55,7 +53,7 @@ export function listPlugins(): PluginInfo[] {
 export function togglePlugin(pluginId: string, enable: boolean): { ok: boolean; error?: string } {
   try {
     const cmd = enable ? 'enable' : 'disable';
-    execFileSync(OPENCLAW_BIN, ['plugins', cmd, pluginId], {
+    ocExec(['plugins', cmd, pluginId], {
       encoding: 'utf-8',
       timeout: 15000,
     });

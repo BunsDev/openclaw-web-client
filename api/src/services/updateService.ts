@@ -134,7 +134,9 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
       stdio: ['ignore', fd, fd],
       env: {
         ...process.env,
-        PATH: [path.dirname(process.execPath), process.env.PATH || ''].filter(Boolean).join(':'),
+        PATH: [path.dirname(process.execPath), process.env.PATH || '']
+          .filter(Boolean)
+          .join(path.delimiter),
       },
     });
     child.unref();

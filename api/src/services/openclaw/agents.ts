@@ -2,12 +2,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execFileSync } from 'child_process';
-import { getOpenclawBin } from '../openclawGateway';
+import { ocExec } from '../openclawGateway';
 import { agentDir, agentsDir, agentWorkspacePath } from './paths';
 import { execErrText } from '../../utils/errors';
-
-const OPENCLAW_BIN = getOpenclawBin();
 
 const CLI_OPTS = {
   cwd: os.homedir(),
@@ -59,8 +56,7 @@ export function registerAgent(agentId: string): {
   const workspace = agentWorkspacePath(agentId);
   console.log(`[register] adding agent: ${agentId}, workspace: ${workspace}`);
   try {
-    const output = execFileSync(
-      OPENCLAW_BIN,
+    const output = ocExec(
       ['agents', 'add', agentId, '--non-interactive', '--workspace', workspace, '--json'],
       CLI_OPTS
     ).toString();
@@ -79,7 +75,7 @@ export function setAgentIdentity(agentId: string, name: string): { ok: boolean; 
   try {
     const args = ['agents', 'set-identity', '--agent', agentId];
     if (name) args.push('--name', name);
-    const output = execFileSync(OPENCLAW_BIN, args, CLI_OPTS).toString();
+    const output = ocExec(args, CLI_OPTS).toString();
     console.log(`[set-identity] success: ${output.trim()}`);
     return { ok: true };
   } catch (err) {
@@ -96,8 +92,7 @@ export function removeAgent(agentId: string): {
 } {
   console.log(`[remove] removing agent: ${agentId}`);
   try {
-    const output = execFileSync(
-      OPENCLAW_BIN,
+    const output = ocExec(
       ['agents', 'delete', agentId, '--force', '--json'],
       CLI_OPTS
     ).toString();
