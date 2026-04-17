@@ -6,7 +6,17 @@ import {
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:18802/api';
+declare global {
+  interface Window {
+    __OPENCLAW_CONFIG__?: { apiBaseUrl?: string; apiPort?: number };
+  }
+}
+
+const runtimeApiBase =
+  typeof window !== 'undefined' ? window.__OPENCLAW_CONFIG__?.apiBaseUrl : undefined;
+
+export const API_BASE_URL =
+  runtimeApiBase || import.meta.env.VITE_API_BASE_URL || 'http://localhost:18802/api';
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,

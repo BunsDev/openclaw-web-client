@@ -1,15 +1,49 @@
 /**
- * Supervises API (18802) + static UI server (18800) under one launchd job.
+ * Supervises API + static UI server under one launchd job.
+ * Ports come from ~/.openclaw_client/.env (API_PORT, CLIENT_PORT).
  * Installed to ~/.openclaw_client/service-runner.mjs
  */
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DIST = path.dirname(fileURLToPath(import.meta.url));
 const API_DIST = path.join(DIST, 'api');
 const CLIENT_DIST = path.join(DIST, 'client');
+const USER_ENV = path.join(DIST, '.env');
 const node = process.execPath;
+
+function parseEnvFile(file) {
+  const out = {};
+  if (!fs.existsSync(file)) return out;
+  for (const raw of fs.readFileSync(file, 'utf-8').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    out[key] = val;
+  }
+  return out;
+}
+
+const userEnv = parseEnvFile(USER_ENV);
+const apiPort = Number(userEnv.API_PORT) || 18802;
+const clientPort = Number(userEnv.CLIENT_PORT) || 18800;
+const childEnv = {
+  ...process.env,
+  NODE_ENV: 'production',
+  API_PORT: String(apiPort),
+  CLIENT_PORT: String(clientPort),
+  PORT: String(apiPort),
+  ALLOWED_DOMAIN: `http://localhost:${clientPort}`,
+  API_PUBLIC_URL: `http://localhost:${apiPort}`,
+};
 
 const children = [];
 
@@ -34,13 +68,13 @@ process.on('SIGINT', () => {
 
 const api = spawn(node, ['build/src/app.js'], {
   cwd: API_DIST,
-  env: { ...process.env, NODE_ENV: 'production' },
+  env: childEnv,
   stdio: 'inherit',
 });
 
 const client = spawn(node, ['serve.mjs'], {
   cwd: CLIENT_DIST,
-  env: { ...process.env, NODE_ENV: 'production' },
+  env: { ...childEnv, PORT: String(clientPort) },
   stdio: 'inherit',
 });
 

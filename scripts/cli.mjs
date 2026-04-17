@@ -17,6 +17,7 @@ import {
   removePlistFile,
   writeLaunchAgentPlist,
 } from './launchd.mjs';
+import { portEnv, readPorts } from './ports.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(os.homedir(), '.openclaw_client');
@@ -25,7 +26,11 @@ const API_DIST = path.join(DIST, 'api');
 const CLIENT_DIST = path.join(DIST, 'client');
 const DATA_DIR = path.join(DIST, 'data');
 const LOG_FILE = path.join(DIST, 'openclaw.log');
-const PORTS = [18800, 18802];
+
+function currentPorts() {
+  const { apiPort, clientPort } = readPorts();
+  return { apiPort, clientPort, all: [apiPort, clientPort] };
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +39,8 @@ function isDarwin() {
 }
 
 function killPorts() {
-  for (const port of PORTS) {
+  const { all } = currentPorts();
+  for (const port of all) {
     try {
       const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8' }).trim();
       for (const p of pids.split('\n').filter(Boolean)) {
@@ -88,8 +94,9 @@ function installLaunchd() {
 
 function detachStart() {
   const fd = openSync(LOG_FILE, 'w');
-  const api = spawn('node', ['build/src/app.js'], { cwd: API_DIST, stdio: ['ignore', fd, fd], env: { ...process.env, NODE_ENV: 'production' }, detached: true });
-  const client = spawn('node', ['serve.mjs'], { cwd: CLIENT_DIST, stdio: ['ignore', fd, fd], env: { ...process.env, NODE_ENV: 'production' }, detached: true });
+  const env = { ...process.env, NODE_ENV: 'production', ...portEnv() };
+  const api = spawn('node', ['build/src/app.js'], { cwd: API_DIST, stdio: ['ignore', fd, fd], env, detached: true });
+  const client = spawn('node', ['serve.mjs'], { cwd: CLIENT_DIST, stdio: ['ignore', fd, fd], env, detached: true });
   api.unref();
   client.unref();
   closeSync(fd);
@@ -120,11 +127,13 @@ export function fullStart() {
 
   linkGlobal();
 
+  const { clientPort } = currentPorts();
   console.log('');
   console.log('  🚀 OpenClaw Client is running');
-  console.log('  🌐 http://localhost:18800');
+  console.log(`  🌐 http://localhost:${clientPort}`);
   if (isDarwin()) console.log('  🔄 Starts automatically on login (LaunchAgent)');
   console.log('  📁 ~/.openclaw_client');
+  console.log('  ⚙️  Ports: ~/.openclaw_client/.env');
   console.log('  🛠️  openclaw_client status | stop | restart | uninstall');
   console.log('');
 }
@@ -140,9 +149,10 @@ function cmdStart() {
     detachStart();
   }
 
+  const { clientPort } = currentPorts();
   console.log('');
   console.log('  🚀 OpenClaw Client started');
-  console.log('  🌐 http://localhost:18800');
+  console.log(`  🌐 http://localhost:${clientPort}`);
   console.log('');
 }
 
@@ -163,8 +173,9 @@ function cmdRestart() {
     } else {
       bootstrapLaunchAgent();
     }
+    const { clientPort } = currentPorts();
     console.log('  🔄 OpenClaw Client restarted');
-    console.log('  🌐 http://localhost:18800');
+    console.log(`  🌐 http://localhost:${clientPort}`);
     return;
   }
   cmdStop();
@@ -191,10 +202,11 @@ function cmdStatus() {
     }
   }
 
-  const api = portListening(18802);
-  const ui = portListening(18800);
-  console.log(`  ${api ? '✅' : '❌'} API:    port 18802 ${api ? '(listening)' : '(down)'}`);
-  console.log(`  ${ui ? '✅' : '❌'} Client: port 18800 ${ui ? '(listening)' : '(down)'}`);
+  const { apiPort, clientPort } = currentPorts();
+  const api = portListening(apiPort);
+  const ui = portListening(clientPort);
+  console.log(`  ${api ? '✅' : '❌'} API:    port ${apiPort} ${api ? '(listening)' : '(down)'}`);
+  console.log(`  ${ui ? '✅' : '❌'} Client: port ${clientPort} ${ui ? '(listening)' : '(down)'}`);
   console.log(`  📄 Logs: ~/.openclaw_client/openclaw.log`);
   console.log('');
 }

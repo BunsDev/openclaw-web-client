@@ -2,9 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureUserEnv, readPorts } from './ports.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const API_ENV = path.join(ROOT, 'api', '.env');
+
+ensureUserEnv();
+const { apiPort, clientPort } = readPorts();
 
 if (fs.existsSync(API_ENV)) {
   console.log(`${API_ENV} already exists; skipping setup.`);
@@ -19,9 +23,12 @@ fs.writeFileSync(
     `NODE_ENV=development`,
     `JWT_SECRET=${JWT_SECRET}`,
     `DB_PATH=./data/openclaw.sqlite`,
-    `ALLOWED_DOMAIN=http://localhost:18800`,
+    `PORT=${apiPort}`,
+    `ALLOWED_DOMAIN=http://localhost:${clientPort}`,
+    `API_PUBLIC_URL=http://localhost:${apiPort}`,
     '',
   ].join('\n'),
 );
 
 console.log('Environment file created at api/.env');
+console.log(`Port configuration at ~/.openclaw_client/.env (api=${apiPort}, client=${clientPort})`);

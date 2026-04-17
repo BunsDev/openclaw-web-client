@@ -2,6 +2,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { portEnv, readPorts } from './ports.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const API_DIR = path.join(ROOT, 'api');
@@ -33,12 +34,18 @@ if (!fs.existsSync(path.join(CLIENT_DIR, 'node_modules'))) {
 }
 
 // 3. Start both services in dev mode
+const { apiPort, clientPort } = readPorts();
+const childEnv = { ...process.env, ...portEnv() };
+
 console.log();
 console.log('  🔧 Starting in development mode...');
+console.log(`  🌐 Client: http://localhost:${clientPort}`);
+console.log(`  🧩 API:    http://localhost:${apiPort}`);
+console.log('  ⚙️  Ports: ~/.openclaw_client/.env');
 console.log();
 
-const api = spawn('npm', ['run', 'dev'], { cwd: API_DIR, stdio: 'pipe' });
-const client = spawn('npm', ['run', 'dev'], { cwd: CLIENT_DIR, stdio: 'pipe' });
+const api = spawn('npm', ['run', 'dev'], { cwd: API_DIR, stdio: 'pipe', env: childEnv });
+const client = spawn('npm', ['run', 'dev'], { cwd: CLIENT_DIR, stdio: 'pipe', env: childEnv });
 
 prefix(api.stdout, 'API');
 prefix(api.stderr, 'API');

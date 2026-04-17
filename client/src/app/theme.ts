@@ -721,4 +721,4 @@ export const themes: Record<ThemeId, Theme> = Object.fromEntries(
   Object.entries(themeConfigs).map(([id, cfg]) => [id, buildTheme(cfg)])
 ) as Record<ThemeId, Theme>;
 
-export default themes.amber;
+export default themes.studio;

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { portEnv, readPorts } from './ports.mjs';
 
 const SERVE_MJS = `
 import http from 'node:http';
@@ -11,7 +12,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DIST = path.join(path.dirname(new URL(import.meta.url).pathname), 'dist');
-const PORT = 18800;
+const PORT = Number(process.env.CLIENT_PORT) || Number(process.env.PORT) || 18800;
+const API_PORT = Number(process.env.API_PORT) || 18802;
 
 const MIME = {
   '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
@@ -21,6 +23,15 @@ const MIME = {
   '.ttf': 'font/ttf', '.webp': 'image/webp',
 };
 
+function injectRuntimeConfig(html, hostHeader) {
+  const hostname = (hostHeader || '').split(':')[0] || 'localhost';
+  const apiBaseUrl = 'http://' + hostname + ':' + API_PORT + '/api';
+  const cfg = JSON.stringify({ apiBaseUrl, apiPort: API_PORT });
+  const tag = '<script>window.__OPENCLAW_CONFIG__=' + cfg + ';</script>';
+  if (html.includes('</head>')) return html.replace('</head>', '  ' + tag + '\\n  </head>');
+  return tag + html;
+}
+
 http.createServer((req, res) => {
   let filePath = path.join(DIST, req.url === '/' ? 'index.html' : req.url);
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
@@ -29,6 +40,16 @@ http.createServer((req, res) => {
   const ext = path.extname(filePath);
   const mime = MIME[ext] || 'application/octet-stream';
   try {
+    if (mime === 'text/html') {
+      const html = fs.readFileSync(filePath, 'utf-8');
+      const out = injectRuntimeConfig(html, req.headers.host);
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      res.end(out);
+      return;
+    }
     const data = fs.readFileSync(filePath);
     res.writeHead(200, { 'Content-Type': mime });
     res.end(data);
@@ -63,13 +84,25 @@ export function deploy() {
     }
   }
 
+  const { apiPort, clientPort } = readPorts();
+  const buildEnv = { ...process.env, ...portEnv() };
+
   process.stdout.write('📦 Installing dependencies...\n');
   run('npm', ['ci', '--include=dev'], API_SRC);
   run('npm', ['ci', '--include=dev'], CLIENT_SRC);
 
   process.stdout.write('🔨 Building...\n');
   run('npm', ['run', 'build'], API_SRC);
-  run('npm', ['run', 'build'], CLIENT_SRC);
+  // VITE_API_BASE_URL is embedded into the bundle at build time
+  try {
+    execFileSync('npm', ['run', 'build'], { cwd: CLIENT_SRC, stdio: 'pipe', env: buildEnv });
+  } catch (err) {
+    const output = err.stdout?.toString() || '';
+    const stderr = err.stderr?.toString() || '';
+    if (output) process.stderr.write(output);
+    if (stderr) process.stderr.write(stderr);
+    throw err;
+  }
 
   mkdirSync(apiDist, { recursive: true });
   mkdirSync(clientDist, { recursive: true });
@@ -94,6 +127,9 @@ export function deploy() {
   const canonicalDbPath = path.join(dataDir, 'openclaw.sqlite');
 
   const envDist = path.join(apiDist, '.env');
+  const allowedDomain = `http://localhost:${clientPort}`;
+  const apiPublicUrl = `http://localhost:${apiPort}`;
+
   if (!existsSync(envDist)) {
     writeFileSync(
       envDist,
@@ -101,21 +137,33 @@ export function deploy() {
         'NODE_ENV=production',
         `JWT_SECRET=${crypto.randomBytes(32).toString('hex')}`,
         `DB_PATH=${canonicalDbPath}`,
-        'ALLOWED_DOMAIN=http://localhost:18800',
+        `PORT=${apiPort}`,
+        `ALLOWED_DOMAIN=${allowedDomain}`,
+        `API_PUBLIC_URL=${apiPublicUrl}`,
         '',
       ].join('\n')
     );
   } else {
+    const overrides = {
+      DB_PATH: canonicalDbPath,
+      PORT: String(apiPort),
+      ALLOWED_DOMAIN: allowedDomain,
+      API_PUBLIC_URL: apiPublicUrl,
+    };
+    const seen = new Set();
     const lines = readFileSync(envDist, 'utf-8').split('\n');
-    let hasDbPath = false;
     const updated = lines.map((line) => {
-      if (line.startsWith('DB_PATH=')) {
-        hasDbPath = true;
-        return `DB_PATH=${canonicalDbPath}`;
+      for (const [k, v] of Object.entries(overrides)) {
+        if (line.startsWith(`${k}=`)) {
+          seen.add(k);
+          return `${k}=${v}`;
+        }
       }
       return line;
     });
-    if (!hasDbPath) updated.push(`DB_PATH=${canonicalDbPath}`);
+    for (const [k, v] of Object.entries(overrides)) {
+      if (!seen.has(k)) updated.push(`${k}=${v}`);
+    }
     writeFileSync(envDist, updated.join('\n'));
   }
 
