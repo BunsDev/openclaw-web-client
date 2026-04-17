@@ -10,16 +10,22 @@ const auth: RequestHandler = async (req, res, next) => {
     const { authorization = '' } = req.headers;
     const token = authorization.replace('Bearer ', '');
 
-    const { id, valid } = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+    let payload: JwtPayload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+    } catch {
+      return next(createError(401));
+    }
+
+    const { id, valid } = payload;
     if (!id || !valid) return next(createError(401));
 
-    const numericId = Number(id);
     const blacklistRepo = AppDataSource.getRepository(BlackList);
-    const isBlackListed = await blacklistRepo.findOneBy({ userId: numericId, hash: valid });
+    const isBlackListed = await blacklistRepo.findOneBy({ userId: id, hash: valid });
     if (isBlackListed) return next(createError(401));
 
     const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOneBy({ _id: numericId, active: true });
+    const user = await userRepo.findOneBy({ _id: id, active: true });
     if (!user) return next(createError(401));
 
     req.user = user;

@@ -1,4 +1,4 @@
-import Router, { Request, Response } from 'express';
+import Router from 'express';
 import auth from './auth';
 import user from './user';
 import agent from './agent';
@@ -22,7 +22,5 @@ router.use(skill);
 router.use(cron);
 router.use(auth);
 router.use(update);
-
-router.use('*', (req: Request, res: Response) => res.status(404).json());
 
 export default router;

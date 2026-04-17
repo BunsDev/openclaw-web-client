@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execFileSync, spawn } from 'child_process';
 import { VersionMeta, UpdateStatus } from '../@types/update';
+import { errMsg } from '../utils/errors';
 
 const DIST = path.join(os.homedir(), '.openclaw_client');
 const UPDATE_DIR = path.join(DIST, 'update');
@@ -113,9 +114,9 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
         env: GIT_ENV,
       });
     }
-  } catch (err: any) {
+  } catch (err) {
     updating = false;
-    return { ok: false, error: `git failed: ${err.message}` };
+    return { ok: false, error: `git failed: ${errMsg(err)}` };
   }
 
   const startScript = path.join(UPDATE_DIR, 'scripts', 'start.js');
@@ -138,14 +139,14 @@ export async function applyUpdate(): Promise<{ ok: boolean; error?: string }> {
     });
     child.unref();
     fs.closeSync(fd);
-  } catch (err: any) {
+  } catch (err) {
     updating = false;
-    return { ok: false, error: `Failed to start update: ${err.message}` };
+    return { ok: false, error: `Failed to start update: ${errMsg(err)}` };
   }
 
   setTimeout(() => {
     updating = false;
-  }, 300000);
+  }, 300000).unref();
   return { ok: true };
 }
 
@@ -153,5 +154,5 @@ export function startUpdateChecker(): void {
   checkForUpdate().catch(() => {});
   setInterval(() => {
     checkForUpdate().catch(() => {});
-  }, CHECK_INTERVAL);
+  }, CHECK_INTERVAL).unref();
 }

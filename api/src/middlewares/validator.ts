@@ -10,7 +10,7 @@ const validate =
 
       if (errors.isEmpty()) return next();
 
-      const errorMessages: any = {};
+      const errorMessages: Record<string, string[]> = {};
       errors.array().forEach(({ param, msg }) => {
         if (errorMessages[param]) errorMessages[param].push(msg);
         else errorMessages[param] = [msg];

@@ -46,4 +46,4 @@ export type List = RequestHandler<never, APIResponse<UserResponse>, never, UserF
 export type Get = RequestHandler<RequestParams, UserResponse | null, never, never>;
 export type Create = RequestHandler<never, UserResponse, CreateUserBody, never>;
 export type Update = RequestHandler<RequestParams, UserResponse | null, UpdateUserBody, never>;
-export type Destroy = RequestHandler<RequestParams, null, never, never>;
+export type Destroy = RequestHandler<RequestParams, null | { error: string }, never, never>;

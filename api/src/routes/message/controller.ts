@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { RequestHandler } from 'express';
-import { LessThan, IsNull, MoreThan } from 'typeorm';
+import { LessThan, IsNull, MoreThan, FindOptionsWhere } from 'typeorm';
 import AppDataSource from '../../data-source';
 import { Message, Conversation, Agent } from '../../entities';
 import {
@@ -12,13 +12,16 @@ import {
   MessageFile,
   MessageResponse,
 } from '../../@types/message';
-import * as ocService from '../../services/openclawService';
+import * as ocService from '../../services/openclaw';
 
 const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:18802';
 
 function stripWrapperTags(text: string): string {
   return text
-    .replace(/<(?:think|thinking|redacted_thinking)>[\s\S]*?<\/(?:think|thinking|redacted_thinking)>/gi, '')
+    .replace(
+      /<(?:think|thinking|redacted_thinking)>[\s\S]*?<\/(?:think|thinking|redacted_thinking)>/gi,
+      ''
+    )
     .replace(/^<(?:final|output|think|thinking|redacted_thinking)\b[^>]*>/i, '')
     .replace(/<\/(?:final|output|think|thinking|redacted_thinking)\s*>\s*$/i, '')
     .replace(/<\/[a-z]*\s*$/i, '')
@@ -43,13 +46,13 @@ const listByConversation: ListByConversation = async (req, res, next) => {
 
     const msgRepo = AppDataSource.getRepository(Message);
 
-    const where: Record<string, unknown> = { conversationId: Number(conversationId) };
+    const where: FindOptionsWhere<Message> = { conversationId: Number(conversationId) };
     if (before) {
       where.createdAt = LessThan(new Date(before));
     }
 
     const items = await msgRepo.find({
-      where: where as any,
+      where,
       order: { createdAt: 'DESC' },
       take: limit + 1,
     });
@@ -233,12 +236,11 @@ const destroy: Destroy = async (req, res, next) => {
   }
 };
 
-const poll: RequestHandler<
-  { conversationId: string },
-  unknown,
-  never,
-  { after?: string }
-> = async (req, res, next) => {
+const poll: RequestHandler<{ conversationId: string }, unknown, never, { after?: string }> = async (
+  req,
+  res,
+  next
+) => {
   try {
     const convId = Number(req.params.conversationId);
     const { after } = req.query;
@@ -264,15 +266,43 @@ const poll: RequestHandler<
 
     if (jsonlMessages.length) {
       const existingIds = new Set(
-        (await msgRepo.find({
-          where: { conversationId: convId },
-          select: ['externalId'],
-        }))
+        (
+          await msgRepo.find({
+            where: { conversationId: convId },
+            select: ['externalId'],
+          })
+        )
           .map((m) => m.externalId)
-          .filter(Boolean),
+          .filter(Boolean)
       );
 
       const candidates = jsonlMessages.filter((m) => !existingIds.has(m.externalId));
+
+      // Backfill: earlier versions stripped the `[cron:...]` header before
+      // storing user messages. Re-apply the full JSONL text for already-linked
+      // messages so they render as scheduled-task events in the UI.
+      const cronBackfillSource = jsonlMessages.filter(
+        (m) => m.role === 'user' && /^\[cron:/i.test(m.text) && existingIds.has(m.externalId)
+      );
+      if (cronBackfillSource.length) {
+        const linkedUserMessages = await msgRepo.find({
+          where: { conversationId: convId, role: 'user' },
+          select: ['_id', 'externalId', 'text'],
+        });
+        const byExternalId = new Map(
+          linkedUserMessages.filter((m) => m.externalId).map((m) => [m.externalId!, m])
+        );
+        const textBackfills = cronBackfillSource
+          .map((m) => {
+            const row = byExternalId.get(m.externalId);
+            if (!row || row.text === m.text) return null;
+            return { id: row._id, text: m.text };
+          })
+          .filter((b): b is { id: number; text: string } => b !== null);
+        if (textBackfills.length) {
+          await Promise.all(textBackfills.map((b) => msgRepo.update(b.id, { text: b.text })));
+        }
+      }
 
       // Link any recent unlinked DB messages (saved by the chat handler
       // before their externalId was known) instead of inserting duplicates.
@@ -307,9 +337,7 @@ const poll: RequestHandler<
       });
 
       if (updates.length) {
-        await Promise.all(
-          updates.map((u) => msgRepo.update(u.id, { externalId: u.externalId })),
-        );
+        await Promise.all(updates.map((u) => msgRepo.update(u.id, { externalId: u.externalId })));
         synced += updates.length;
       }
 
@@ -325,20 +353,20 @@ const poll: RequestHandler<
               role: m.role as 'user' | 'assistant',
               createdBy: req.user!._id,
               createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
-            }),
-          ),
+            })
+          )
         );
         synced += toInsert.length;
       }
     }
 
-    const where: Record<string, unknown> = { conversationId: convId };
+    const where: FindOptionsWhere<Message> = { conversationId: convId };
     if (after) {
       where.createdAt = MoreThan(new Date(after));
     }
 
     const items = await msgRepo.find({
-      where: where as any,
+      where,
       order: { createdAt: 'ASC' },
       take: 200,
     });

@@ -1,7 +1,7 @@
-import { RequestHandler } from 'express';
-import * as ocService from '../../services/openclawService';
+import { Add, List, Remove } from '../../@types/channel';
+import * as ocService from '../../services/openclaw';
 
-const list: RequestHandler = async (_req, res, next) => {
+export const list: List = async (_req, res, next) => {
   try {
     return res.json(ocService.listChannels());
   } catch (error) {
@@ -9,11 +9,11 @@ const list: RequestHandler = async (_req, res, next) => {
   }
 };
 
-const add: RequestHandler = async (req, res, next) => {
+export const add: Add = async (req, res, next) => {
   try {
-    const { channel, ...opts } = req.body as { channel: string; [key: string]: string };
+    const { channel, ...opts } = req.body;
     if (!channel) {
-      return res.status(400).json({ error: 'channel is required' });
+      return res.status(400).json({ ok: false, error: 'channel is required' });
     }
     const result = ocService.addChannel(channel, opts);
     if (!result.ok) {
@@ -25,10 +25,10 @@ const add: RequestHandler = async (req, res, next) => {
   }
 };
 
-const remove: RequestHandler = async (req, res, next) => {
+export const remove: Remove = async (req, res, next) => {
   try {
     const { name } = req.params;
-    const { account } = req.query as { account?: string };
+    const { account } = req.query;
     const result = ocService.removeChannel(name, account);
     if (!result.ok) {
       return res.status(500).json(result);
@@ -38,5 +38,3 @@ const remove: RequestHandler = async (req, res, next) => {
     return next(error);
   }
 };
-
-export { list, add, remove };

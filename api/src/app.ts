@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import express, { Application, Request, Response } from 'express';
@@ -27,34 +28,31 @@ app.use(bodyParser.json());
 if (['test', 'development'].includes(process.env.NODE_ENV)) app.use(morgan('dev'));
 if (process.env.NODE_ENV === 'development') app.use('/api/docs', swaggerUi.serve, swaggerConf);
 app.use('/api', routes);
-app.use('/', (req: Request, res: Response) => res.status(200).json());
-app.use('*', (req: Request, res: Response) => res.status(404).json());
+app.use((_req: Request, res: Response) => res.status(404).json({ message: 'Not found' }));
 app.use(expressErrorHandler);
+
+const PORT = Number(process.env.PORT) || 18802;
 
 (async () => {
   try {
-    if (process.env.NODE_ENV !== 'test') {
-      await AppDataSource.initialize();
-      console.log(colors.green('SQLite database connected')); /* eslint-disable-line */
-      await seedAdminUser();
-      await ensureDevicePaired();
-      const gwOk = await gateway.ensureConnected();
-      if (gwOk)
-        console.log(
-          colors.green('[gateway] persistent connection ready')
-        ); /* eslint-disable-line */
-      else
-        console.warn(
-          colors.yellow('[gateway] initial connection failed, will use CLI fallback')
-        ); /* eslint-disable-line */
-      const server = app.listen(18802, () =>
-        console.log(colors.green('running on port 18802'))
-      ); /* eslint-disable-line */
-      attachPtyWebSocket(server);
-      startUpdateChecker();
-    }
+    if (process.env.NODE_ENV === 'test') return;
+
+    await AppDataSource.initialize();
+    console.log(colors.green('SQLite database connected'));
+    await seedAdminUser();
+    await ensureDevicePaired();
+    const gwOk = await gateway.ensureConnected();
+    console.log(
+      gwOk
+        ? colors.green('[gateway] persistent connection ready')
+        : colors.yellow('[gateway] initial connection failed, will use CLI fallback')
+    );
+
+    const server = app.listen(PORT, () => console.log(colors.green(`running on port ${PORT}`)));
+    attachPtyWebSocket(server);
+    startUpdateChecker();
   } catch (error) {
-    console.log(colors.red('%s'), error); /* eslint-disable-line */
+    console.log(colors.red('%s'), error);
   }
 })();
 

@@ -1,7 +1,7 @@
 import AppDataSource from '../../data-source';
 import { Agent, Conversation, Message } from '../../entities';
 import { ListAll, ListByAgent, Create, Update, Destroy } from '../../@types/conversation';
-import * as ocService from '../../services/openclawService';
+import * as ocService from '../../services/openclaw';
 
 const listAll: ListAll = async (req, res, next) => {
   try {

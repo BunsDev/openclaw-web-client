@@ -1,4 +1,4 @@
 export type JwtPayload = {
-  id: string;
+  id: number;
   valid: string;
 };

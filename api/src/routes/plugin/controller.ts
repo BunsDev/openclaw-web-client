@@ -1,7 +1,7 @@
-import { RequestHandler } from 'express';
-import * as ocService from '../../services/openclawService';
+import { List, Toggle } from '../../@types/plugin';
+import * as ocService from '../../services/openclaw';
 
-const list: RequestHandler = async (_req, res, next) => {
+export const list: List = async (_req, res, next) => {
   try {
     return res.json(ocService.listPlugins());
   } catch (error) {
@@ -9,12 +9,12 @@ const list: RequestHandler = async (_req, res, next) => {
   }
 };
 
-const toggle: RequestHandler = async (req, res, next) => {
+export const toggle: Toggle = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { enable } = req.body as { enable: boolean };
+    const { enable } = req.body;
     if (typeof enable !== 'boolean') {
-      return res.status(400).json({ error: 'enable (boolean) is required' });
+      return res.status(400).json({ ok: false, error: 'enable (boolean) is required' });
     }
     const result = ocService.togglePlugin(id, enable);
     if (!result.ok) {
@@ -25,5 +25,3 @@ const toggle: RequestHandler = async (req, res, next) => {
     return next(error);
   }
 };
-
-export { list, toggle };

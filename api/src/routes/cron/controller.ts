@@ -1,7 +1,7 @@
-import { RequestHandler } from 'express';
-import * as ocService from '../../services/openclawService';
+import { Add, List, Remove, Toggle } from '../../@types/cron';
+import * as ocService from '../../services/openclaw';
 
-const list: RequestHandler = async (_req, res, next) => {
+export const list: List = async (_req, res, next) => {
   try {
     return res.json(ocService.listCronJobs());
   } catch (error) {
@@ -9,11 +9,11 @@ const list: RequestHandler = async (_req, res, next) => {
   }
 };
 
-const add: RequestHandler = async (req, res, next) => {
+export const add: Add = async (req, res, next) => {
   try {
-    const opts = req.body as Record<string, string>;
+    const opts = req.body;
     if (!opts.name && !opts.message) {
-      return res.status(400).json({ error: 'name or message is required' });
+      return res.status(400).json({ ok: false, error: 'name or message is required' });
     }
     const result = ocService.addCronJob(opts);
     if (!result.ok) {
@@ -25,7 +25,7 @@ const add: RequestHandler = async (req, res, next) => {
   }
 };
 
-const remove: RequestHandler = async (req, res, next) => {
+export const remove: Remove = async (req, res, next) => {
   try {
     const { id } = req.params;
     const result = ocService.removeCronJob(id);
@@ -38,12 +38,12 @@ const remove: RequestHandler = async (req, res, next) => {
   }
 };
 
-const toggle: RequestHandler = async (req, res, next) => {
+export const toggle: Toggle = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { enable } = req.body as { enable: boolean };
+    const { enable } = req.body;
     if (typeof enable !== 'boolean') {
-      return res.status(400).json({ error: 'enable (boolean) is required' });
+      return res.status(400).json({ ok: false, error: 'enable (boolean) is required' });
     }
     const result = ocService.toggleCronJob(id, enable);
     if (!result.ok) {
@@ -54,5 +54,3 @@ const toggle: RequestHandler = async (req, res, next) => {
     return next(error);
   }
 };
-
-export { list, add, remove, toggle };

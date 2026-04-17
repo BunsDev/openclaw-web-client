@@ -4,10 +4,15 @@ import AppDataSource from '../../data-source';
 import { Agent, Conversation, Message } from '../../entities';
 import { MessageRole } from '../../@types/message';
 import { List, Get, Create, Update, Destroy, AgentJson } from '../../@types/agent';
-import * as ocService from '../../services/openclawService';
+import * as ocService from '../../services/openclaw';
 
 function toSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent';
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'agent'
+  );
 }
 
 const list: List = async (req, res, next) => {
@@ -30,7 +35,10 @@ const list: List = async (req, res, next) => {
     const items = await qb
       .skip(Number(page) * Number(limit))
       .take(Number(limit))
-      .orderBy(`agent.${sortField as string}`, (sortType as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+      .orderBy(
+        `agent.${sortField as string}`,
+        (sortType as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+      )
       .getMany();
 
     const ocIds = items.map((a) => a.openclawAgentId);
@@ -122,7 +130,8 @@ const destroy: Destroy = async (req, res, next) => {
 
     const agent = await agentRepo.findOneBy({ _id: id });
     await agentRepo.softDelete(id);
-    await convRepo.createQueryBuilder()
+    await convRepo
+      .createQueryBuilder()
       .update(Conversation)
       .set({ deletedAt: new Date() })
       .where('agentId = :id', { id })
@@ -157,12 +166,14 @@ const sync: RequestHandler = async (req, res, next) => {
       const newAgents = openclawAgents.filter((a) => !existingAgentIds.has(a.agentId));
       if (newAgents.length) {
         await agentRepo.save(
-          newAgents.map((a) => agentRepo.create({
-            name: a.name,
-            openclawAgentId: a.agentId,
-            createdBy: req.user!._id,
-            createdAt: a.createdAt,
-          })),
+          newAgents.map((a) =>
+            agentRepo.create({
+              name: a.name,
+              openclawAgentId: a.agentId,
+              createdBy: req.user!._id,
+              createdAt: a.createdAt,
+            })
+          )
         );
         syncedAgents = newAgents.length;
       }
@@ -171,42 +182,50 @@ const sync: RequestHandler = async (req, res, next) => {
     // Phase 2: Sync conversations (skip JSONL parsing for first messages)
     const allAgents = await agentRepo.find();
 
-    const convResults = await Promise.allSettled(allAgents.map(async (agent) => {
-      const sessions = ocService.listSessions(agent.openclawAgentId, true);
-      if (!sessions.length) return 0;
+    const convResults = await Promise.allSettled(
+      allAgents.map(async (agent) => {
+        const sessions = ocService.listSessions(agent.openclawAgentId, true);
+        if (!sessions.length) return 0;
 
-      const existingConvs = await convRepo.find({
-        where: {
-          agentId: agent._id,
-          sessionKey: In(sessions.map((s) => s.sessionKey)),
-        },
-      });
-      const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
-
-      const newSessions = sessions.filter((s) => !existingByKey.get(s.sessionKey));
-      if (newSessions.length) {
-        await convRepo.save(
-          newSessions.map((s) => convRepo.create({
+        const existingConvs = await convRepo.find({
+          where: {
             agentId: agent._id,
-            sessionKey: s.sessionKey,
-            title: s.label || null,
-            createdBy: req.user!._id,
-            createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
-          })),
+            sessionKey: In(sessions.map((s) => s.sessionKey)),
+          },
+        });
+        const existingByKey = new Map(existingConvs.map((c) => [c.sessionKey, c]));
+
+        const newSessions = sessions.filter((s) => !existingByKey.get(s.sessionKey));
+        if (newSessions.length) {
+          await convRepo.save(
+            newSessions.map((s) =>
+              convRepo.create({
+                agentId: agent._id,
+                sessionKey: s.sessionKey,
+                title: s.label || null,
+                createdBy: req.user!._id,
+                createdAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+              })
+            )
+          );
+        }
+
+        const titleUpdates = sessions
+          .map((s) => ({ session: s, existing: existingByKey.get(s.sessionKey) }))
+          .filter(({ session, existing }) => existing && !existing.title && session.label);
+        await Promise.all(
+          titleUpdates.map(({ session, existing }) =>
+            convRepo.update(existing!._id, { title: session.label })
+          )
         );
-      }
 
-      const titleUpdates = sessions
-        .map((s) => ({ session: s, existing: existingByKey.get(s.sessionKey) }))
-        .filter(({ session, existing }) => existing && !existing.title && session.label);
-      await Promise.all(
-        titleUpdates.map(({ session, existing }) => convRepo.update(existing!._id, { title: session.label })),
-      );
-
-      return newSessions.length;
-    }));
-    const syncedConversations = convResults
-      .reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
+        return newSessions.length;
+      })
+    );
+    const syncedConversations = convResults.reduce(
+      (sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0),
+      0
+    );
 
     // Phase 3: Sync messages (only for conversations missing messages)
     const allConversations = await convRepo.find({
@@ -215,42 +234,53 @@ const sync: RequestHandler = async (req, res, next) => {
 
     const agentMap = new Map(allAgents.map((a) => [a._id, a]));
 
-    const msgResults = await Promise.allSettled(allConversations.map(async (conv) => {
-      const agent = agentMap.get(conv.agentId);
-      if (!agent) return 0;
+    const msgResults = await Promise.allSettled(
+      allConversations.map(async (conv) => {
+        const agent = agentMap.get(conv.agentId);
+        if (!agent) return 0;
 
-      const openclawMessages = ocService.getSessionMessages(agent.openclawAgentId, conv.sessionKey!);
-      const validMessages = openclawMessages.filter((m) => m.externalId);
-      if (!validMessages.length) return 0;
+        const openclawMessages = ocService.getSessionMessages(
+          agent.openclawAgentId,
+          conv.sessionKey!
+        );
+        const validMessages = openclawMessages.filter((m) => m.externalId);
+        if (!validMessages.length) return 0;
 
-      const existingIds = new Set(
-        (await msgRepo.find({
-          where: { conversationId: conv._id },
-          select: ['externalId'],
-        }))
-          .map((m) => m.externalId)
-          .filter(Boolean),
-      );
+        const existingIds = new Set(
+          (
+            await msgRepo.find({
+              where: { conversationId: conv._id },
+              select: ['externalId'],
+            })
+          )
+            .map((m) => m.externalId)
+            .filter(Boolean)
+        );
 
-      const toInsert = validMessages.filter((m) => !existingIds.has(m.externalId));
-      if (!toInsert.length) return 0;
+        const toInsert = validMessages.filter((m) => !existingIds.has(m.externalId));
+        if (!toInsert.length) return 0;
 
-      await msgRepo.save(
-        toInsert.map((m) => msgRepo.create({
-          conversationId: conv._id,
-          externalId: m.externalId,
-          text: m.text,
-          thinking: m.thinking || null,
-          files: [],
-          role: m.role as MessageRole,
-          createdBy: req.user!._id,
-          createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
-        })),
-      );
-      return toInsert.length;
-    }));
-    const syncedMessages = msgResults
-      .reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
+        await msgRepo.save(
+          toInsert.map((m) =>
+            msgRepo.create({
+              conversationId: conv._id,
+              externalId: m.externalId,
+              text: m.text,
+              thinking: m.thinking || null,
+              files: [],
+              role: m.role as MessageRole,
+              createdBy: req.user!._id,
+              createdAt: m.timestamp ? new Date(m.timestamp) : new Date(),
+            })
+          )
+        );
+        return toInsert.length;
+      })
+    );
+    const syncedMessages = msgResults.reduce(
+      (sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0),
+      0
+    );
 
     return res.json({ syncedAgents, syncedConversations, syncedMessages });
   } catch (error) {
@@ -315,7 +345,11 @@ const patchSessionSettings: RequestHandler = async (req, res, next) => {
     }
     const conv = await convRepo.findOneBy({ _id: Number(req.params.conversationId) });
     const sessionKey = conv?.sessionKey || String(conv?._id);
-    const result = await ocService.patchSessionSettings(agent.openclawAgentId, sessionKey, req.body);
+    const result = await ocService.patchSessionSettings(
+      agent.openclawAgentId,
+      sessionKey,
+      req.body
+    );
     if (!result.ok) {
       return res.status(500).json(result);
     }

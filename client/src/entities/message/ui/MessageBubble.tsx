@@ -4,6 +4,8 @@ import { DeleteOutline, ContentCopy, Done } from '@mui/icons-material';
 import { DeleteButton, MarkdownContent } from '../../../shared/ui';
 import ThinkingBlock from './ThinkingBlock';
 import FileAttachments from './FileAttachments';
+import CronMessageBubble from './CronMessageBubble';
+import { parseCronMessage } from '../lib/parseCronMessage';
 import { useDeleteMessageMutation, type Message, type MessageFile } from '../api';
 
 export type MessageLike =
@@ -32,6 +34,7 @@ const MessageBubble = memo(function MessageBubble({
   const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
   const files = ('files' in message ? message.files : undefined) ?? [];
   const hasTextContent = message.text && !message.text.startsWith('[Attached ');
+  const parsedCron = isUser && !isStreaming ? parseCronMessage(message.text) : null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.text || '');
@@ -44,6 +47,10 @@ const MessageBubble = memo(function MessageBubble({
       deleteMessage({ id: messageId, conversationId: message.conversationId });
     }
   }, [messageId, message, deleteMessage]);
+
+  if (parsedCron) {
+    return <CronMessageBubble message={message as Message} messageId={messageId} parsed={parsedCron} />;
+  }
 
   return (
     <Box

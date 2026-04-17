@@ -1,0 +1,284 @@
+/* eslint-disable no-console */
+import { spawn } from 'child_process';
+import crypto from 'crypto';
+import os from 'os';
+import { Response } from 'express';
+import { ChatRunHandle, SseEmitter } from '../../@types/openclaw';
+import { GwAgentEventPayload, GwEventMessage, GwInboundMessage } from '../../@types/gateway';
+import { gateway, getOpenclawBin, loadGatewayCredentials } from '../openclawGateway';
+import { createSseEmitter, GW_RE_PARTIAL_TAG, stripGatewayTags } from './sseEmitter';
+import { extractThinkingFromJsonl, getSessionSettingsInternal } from './sessions';
+import { errMsg } from '../../utils/errors';
+
+const OPENCLAW_BIN = getOpenclawBin();
+
+function isAgentEvent(msg: GwInboundMessage): msg is GwEventMessage<GwAgentEventPayload> {
+  return msg.type === 'event' && (msg.event === 'agent' || msg.event === 'chat');
+}
+
+function runAgentViaGateway(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  emitter: SseEmitter
+): ChatRunHandle {
+  const runId = crypto.randomUUID();
+  const listenerKey = `agent-${runId}`;
+  let assistantSent = '';
+  let reasoningSent = '';
+
+  gateway.onEvent(listenerKey, (msg: GwInboundMessage) => {
+    if (!isAgentEvent(msg)) return;
+    const p = msg.payload;
+    if (p.runId !== runId) return;
+
+    if (msg.event !== 'agent' || !p.data?.delta) return;
+
+    const { stream } = p;
+    if (stream !== 'assistant' && stream !== 'reasoning') return;
+
+    const fullText = p.data.text;
+    if (fullText == null) return;
+
+    const clean = stripGatewayTags(fullText);
+    if (!clean || GW_RE_PARTIAL_TAG.test(clean)) return;
+
+    const alreadySent = stream === 'assistant' ? assistantSent : reasoningSent;
+    const sseType =
+      stream === 'assistant' ? 'response.output_text.delta' : 'response.thinking.delta';
+
+    if (alreadySent.length === 0 || clean.startsWith(alreadySent)) {
+      if (clean.length > alreadySent.length) {
+        const newContent = clean.substring(alreadySent.length);
+        if (stream === 'assistant') assistantSent = clean;
+        else reasoningSent = clean;
+        emitter.send(sseType, newContent);
+      }
+    } else {
+      if (stream === 'assistant') assistantSent = clean;
+      else reasoningSent = clean;
+      emitter.send(sseType, clean);
+    }
+  });
+
+  const sessionSettings = getSessionSettingsInternal(agentId, sessionKey);
+  const params: Record<string, unknown> = {
+    message,
+    agentId,
+    idempotencyKey: runId,
+    thinking: sessionSettings.thinkingLevel || 'medium',
+  };
+  if (sessionKey) {
+    const fullKey = `agent:${agentId}:${sessionKey}`;
+    params.sessionId = sessionKey;
+    params.sessionKey = fullKey;
+  }
+
+  gateway
+    .request('agent', params, { expectFinal: true, timeoutMs: 120000 })
+    .then(() => {
+      gateway.offEvent(listenerKey);
+      if (sessionKey) {
+        const thinking = extractThinkingFromJsonl(agentId, sessionKey);
+        if (thinking) emitter.send('response.thinking.delta', thinking);
+      }
+      emitter.done();
+    })
+    .catch((err: Error) => {
+      console.error('[gateway] agent error:', err.message);
+      gateway.offEvent(listenerKey);
+      emitter.error(err.message);
+    });
+
+  return { kill: () => gateway.offEvent(listenerKey) };
+}
+
+function runAgentWithEmitter(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  emitter: SseEmitter
+): void {
+  const sessionSettings = getSessionSettingsInternal(agentId, sessionKey);
+  const thinkingArg =
+    sessionSettings.thinkingLevel === 'inherit' ? 'medium' : sessionSettings.thinkingLevel;
+  const args = ['agent', '--agent', agentId, '-m', message, '--thinking', thinkingArg];
+  if (sessionSettings.reasoningLevel && sessionSettings.reasoningLevel !== 'inherit') {
+    args.push('--reasoning', sessionSettings.reasoningLevel);
+  }
+  if (sessionKey) args.push('--session-id', sessionKey);
+
+  console.log(`[chat] CLI fallback: openclaw ${args.join(' ')}`);
+
+  const child = spawn(OPENCLAW_BIN, args, {
+    cwd: os.homedir(),
+    env: { ...process.env, NO_COLOR: '1' },
+  });
+
+  let hasOutput = false;
+  let stderrBuf = '';
+  let buf = '';
+  let mode: 'idle' | 'think' | 'output' = 'idle';
+
+  function emit(text: string, isThinking: boolean) {
+    if (!text) return;
+    const type = isThinking ? 'response.thinking.delta' : 'response.output_text.delta';
+    emitter.send(type, text);
+    hasOutput = true;
+  }
+
+  function processBuf() {
+    while (buf.length > 0) {
+      if (mode === 'idle') {
+        const thinkIdx = buf.indexOf('<think>');
+        const outputIdx = buf.indexOf('<output>');
+        if (thinkIdx === -1 && outputIdx === -1) {
+          const ltIdx = buf.lastIndexOf('<');
+          if (ltIdx !== -1 && buf.length - ltIdx < '<output>'.length) {
+            if (ltIdx > 0) emit(buf.slice(0, ltIdx), false);
+            buf = buf.slice(ltIdx);
+          } else {
+            emit(buf, false);
+            buf = '';
+          }
+          break;
+        }
+        const firstTag =
+          thinkIdx !== -1 && (outputIdx === -1 || thinkIdx < outputIdx) ? thinkIdx : -1;
+        const tagIdx = firstTag !== -1 ? thinkIdx : outputIdx;
+        if (tagIdx > 0) emit(buf.slice(0, tagIdx), false);
+        if (firstTag !== -1) {
+          buf = buf.slice(thinkIdx + '<think>'.length);
+          mode = 'think';
+        } else {
+          buf = buf.slice(outputIdx + '<output>'.length);
+          mode = 'output';
+        }
+      } else if (mode === 'think') {
+        const endIdx = buf.indexOf('</think>');
+        if (endIdx !== -1) {
+          emit(buf.slice(0, endIdx), true);
+          buf = buf.slice(endIdx + '</think>'.length);
+          mode = 'idle';
+        } else {
+          emit(buf, true);
+          buf = '';
+          break;
+        }
+      } else {
+        const endIdx = buf.indexOf('</output>');
+        if (endIdx !== -1) {
+          emit(buf.slice(0, endIdx), false);
+          buf = buf.slice(endIdx + '</output>'.length);
+          mode = 'idle';
+        } else {
+          emit(buf, false);
+          buf = '';
+          break;
+        }
+      }
+    }
+  }
+
+  child.stdout.on('data', (data: Buffer) => {
+    const cleaned = data.toString();
+    if (!cleaned) return;
+    buf += cleaned;
+    processBuf();
+  });
+
+  child.stderr.on('data', (data: Buffer) => {
+    stderrBuf += data.toString();
+  });
+
+  child.on('close', () => {
+    if (buf.trim()) emit(buf, mode === 'think');
+
+    const isUnknownAgent = stderrBuf.includes('Unknown agent id');
+    if (isUnknownAgent && agentId !== 'main') {
+      console.warn(`[chat] agent "${agentId}" not found, falling back to "main"`);
+      runAgentWithEmitter('main', message, sessionKey, emitter);
+      return;
+    }
+
+    if (!hasOutput && stderrBuf.trim()) {
+      const errorLines = stderrBuf
+        .split('\n')
+        .filter((l) => {
+          const trimmed = l.trim();
+          if (!trimmed) return false;
+          return (
+            trimmed.includes('Error') ||
+            trimmed.includes('error') ||
+            trimmed.includes('failed') ||
+            trimmed.includes('No API key')
+          );
+        })
+        .join(' | ');
+      if (errorLines) {
+        emitter.send('response.output_text.delta', `[Error] ${errorLines}`);
+      }
+    }
+    emitter.done();
+  });
+
+  child.on('error', (err: Error) => {
+    console.error('[openclaw] spawn error:', err);
+    emitter.error(err.message);
+  });
+}
+
+// eslint-disable-next-line import/prefer-default-export
+export async function runChat(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  filePaths: string[],
+  res: Response
+): Promise<void> {
+  let fullMessage = message || '';
+  if (filePaths.length) {
+    const fileList = filePaths.map((p) => `- ${p}`).join('\n');
+    const fileNote = `\n\nThe user attached file(s) saved to your workspace:\n${fileList}\nYou can read them directly.`;
+    fullMessage = fullMessage ? fullMessage + fileNote : fileNote.trim();
+  }
+
+  if (!fullMessage.trim()) {
+    res.status(400).json({ error: 'message or files required' });
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.socket?.setNoDelay(true);
+  res.flushHeaders();
+
+  const emitter = createSseEmitter(res);
+
+  try {
+    const gwReady = await gateway.ensureConnected();
+    const creds = gwReady ? loadGatewayCredentials() : null;
+    const hasWriteScope = creds
+      ? (creds.auth.tokens?.operator?.scopes || []).includes('operator.write')
+      : false;
+
+    if (gwReady && hasWriteScope) {
+      console.log('[chat] using gateway direct connection');
+      runAgentViaGateway(agentId, fullMessage, sessionKey, emitter);
+    } else {
+      if (gwReady && !hasWriteScope) {
+        console.log(
+          '[chat] gateway connected but device-auth lacks operator.write — using CLI fallback. ' +
+            'Fix: openclaw devices list → openclaw devices approve <id>'
+        );
+      } else {
+        console.log('[chat] gateway unavailable, using CLI fallback');
+      }
+      runAgentWithEmitter(agentId, fullMessage, sessionKey, emitter);
+    }
+  } catch (err) {
+    emitter.error(errMsg(err));
+  }
+}

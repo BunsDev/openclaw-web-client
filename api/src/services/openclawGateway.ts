@@ -1,14 +1,23 @@
+/* eslint-disable no-console */
 import { WebSocket as WsWebSocket } from 'ws';
 import crypto from 'crypto';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import {
   GatewayCredentials,
+  GatewayRequestOpts,
+  GwConnectChallengePayload,
+  GwInboundMessage,
+  GwResponseMessage,
   PendingRequest,
   EventListener,
+  DeviceCredentials,
+  AuthCredentials,
 } from '../@types/gateway';
+import { OpenclawConfig } from '../@types/openclaw';
+import { errMsg, execErrText } from '../utils/errors';
 
 const OPENCLAW_HOME = process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw');
 
@@ -33,14 +42,24 @@ export function loadGatewayCredentials(): GatewayCredentials | null {
     const identityPath = path.join(OPENCLAW_HOME, 'identity', 'device.json');
     const authPath = path.join(OPENCLAW_HOME, 'identity', 'device-auth.json');
     const configPath = path.join(OPENCLAW_HOME, 'openclaw.json');
-    const device = JSON.parse(fs.readFileSync(identityPath, 'utf-8'));
-    const auth = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const device = JSON.parse(fs.readFileSync(identityPath, 'utf-8')) as DeviceCredentials;
+    const auth = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthCredentials;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as OpenclawConfig;
     return { device, auth, gatewayPort: config.gateway?.port || 18789 };
-  } catch (err: any) {
-    console.warn('[gateway] could not load credentials:', err.message);
+  } catch (err) {
+    console.warn('[gateway] could not load credentials:', errMsg(err));
     return null;
   }
+}
+
+function isConnectChallenge(
+  msg: GwInboundMessage
+): msg is { type: 'event'; event: 'connect.challenge'; payload: GwConnectChallengePayload } {
+  return msg.type === 'event' && msg.event === 'connect.challenge';
+}
+
+function isResponseMessage(msg: GwInboundMessage): msg is GwResponseMessage {
+  return msg.type === 'res';
 }
 
 export class GatewayClient {
@@ -94,14 +113,14 @@ export class GatewayClient {
       ws.on('open', () => console.log('[gateway] ws open'));
 
       ws.on('message', (data: Buffer) => {
-        let msg: any;
+        let msg: GwInboundMessage;
         try {
-          msg = JSON.parse(data.toString());
+          msg = JSON.parse(data.toString()) as GwInboundMessage;
         } catch {
           return;
         }
 
-        if (msg.type === 'event' && msg.event === 'connect.challenge') {
+        if (isConnectChallenge(msg)) {
           const { nonce } = msg.payload;
           const role = 'operator';
           const scopes = auth.tokens?.operator?.scopes || [
@@ -156,7 +175,7 @@ export class GatewayClient {
           return;
         }
 
-        if (msg.type === 'res') {
+        if (isResponseMessage(msg)) {
           if (!this.authenticated && msg.ok) {
             this.authenticated = true;
             clearTimeout(timeout);
@@ -166,14 +185,18 @@ export class GatewayClient {
           }
           if (!this.authenticated && !msg.ok) {
             clearTimeout(timeout);
-            console.error('[gateway] auth failed:', msg.error);
+            console.error('[gateway] auth failed:', msg.error?.message || 'unknown');
             resolve(false);
             return;
           }
           const p = this.pending.get(msg.id);
           if (p) {
-            if (p.expectFinal && msg.payload?.status === 'accepted') {
-              p.runId = msg.payload.runId;
+            const { payload } = msg;
+            const payloadObj =
+              payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
+            if (p.expectFinal && payloadObj && payloadObj.status === 'accepted') {
+              p.runId =
+                typeof payloadObj.runId === 'string' ? (payloadObj.runId as string) : undefined;
               return;
             }
             this.pending.delete(msg.id);
@@ -214,12 +237,12 @@ export class GatewayClient {
     }, 5000);
   }
 
-  request(
+  request<T = unknown>(
     method: string,
-    params: Record<string, any>,
-    opts: { timeoutMs?: number; expectFinal?: boolean } = {}
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
+    params: Record<string, unknown>,
+    opts: GatewayRequestOpts = {}
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WsWebSocket.OPEN) {
         reject(new Error('gateway not connected'));
         return;
@@ -231,9 +254,9 @@ export class GatewayClient {
         reject(new Error('timeout'));
       }, timeoutMs);
       this.pending.set(id, {
-        resolve: (v: any) => {
+        resolve: (v: unknown) => {
           clearTimeout(timer);
-          resolve(v);
+          resolve(v as T);
         },
         reject: (e: Error) => {
           clearTimeout(timer);
@@ -266,7 +289,9 @@ const OPENCLAW_BIN = (() => {
   const found = candidates.find((c) => c && fs.existsSync(c));
   if (found) return found;
   try {
-    return execSync('which openclaw', { encoding: 'utf-8' }).trim();
+    return execFileSync(process.platform === 'win32' ? 'where' : 'which', ['openclaw'], {
+      encoding: 'utf-8',
+    }).trim();
   } catch {
     return 'openclaw';
   }
@@ -288,19 +313,23 @@ export async function ensureDevicePaired(): Promise<void> {
   const opts = { cwd: os.homedir(), env: { ...process.env, NO_COLOR: '1' }, timeout: 15000 };
 
   try {
-    execSync(`${OPENCLAW_BIN} gateway call health --json 2>/dev/null`, opts);
+    execFileSync(OPENCLAW_BIN, ['gateway', 'call', 'health', '--json'], opts);
   } catch {
     /* may fail with pairing required */
   }
 
   try {
-    const out = execSync(`${OPENCLAW_BIN} devices approve --latest --json 2>&1`, opts).toString();
+    const out = execFileSync(
+      OPENCLAW_BIN,
+      ['devices', 'approve', '--latest', '--json'],
+      opts
+    ).toString();
     console.log(
       '[setup] approved pending device:',
       out.includes('"requestId"') ? 'ok' : out.trim().slice(0, 200)
     );
-  } catch (err: any) {
-    const msg = err.stderr?.toString() || err.stdout?.toString() || err.message;
+  } catch (err) {
+    const msg = execErrText(err);
     if (msg.includes('no pending')) {
       console.log('[setup] no pending pairing requests');
     } else {
@@ -309,7 +338,7 @@ export async function ensureDevicePaired(): Promise<void> {
   }
 
   try {
-    execSync(`${OPENCLAW_BIN} gateway call health --json 2>/dev/null`, opts);
+    execFileSync(OPENCLAW_BIN, ['gateway', 'call', 'health', '--json'], opts);
   } catch {
     /* non-critical */
   }
@@ -328,4 +357,3 @@ export async function ensureDevicePaired(): Promise<void> {
 export function getOpenclawHome(): string {
   return OPENCLAW_HOME;
 }
-

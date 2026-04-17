@@ -1,12 +1,11 @@
-import { RequestHandler } from 'express';
-import * as ocService from '../../services/openclawService';
+import { List } from '../../@types/skill';
+import * as ocService from '../../services/openclaw';
 
-const list: RequestHandler = async (_req, res, next) => {
+// eslint-disable-next-line import/prefer-default-export
+export const list: List = async (_req, res, next) => {
   try {
     return res.json(ocService.listSkills());
   } catch (error) {
     return next(error);
   }
 };
-
-export default { list };

@@ -84,7 +84,7 @@ const update: Update = async (req, res, next) => {
 const destroy: Destroy = async (req, res, next) => {
   try {
     if (Number(req.params.id) === req.user!._id) {
-      return res.status(400).json({ error: 'You cannot delete your own account' } as any);
+      return res.status(400).json({ error: 'You cannot delete your own account' });
     }
     const userRepo = AppDataSource.getRepository(User);
     await userRepo.softDelete(Number(req.params.id));

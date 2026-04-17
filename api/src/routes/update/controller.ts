@@ -1,16 +1,15 @@
-import { RequestHandler } from 'express';
+import { Apply, Check, Status } from '../../@types/update';
 import * as updateService from '../../services/updateService';
 
-export const status: RequestHandler = async (_req, res, next) => {
+export const status: Status = async (_req, res, next) => {
   try {
-    const result = updateService.getUpdateStatus();
-    return res.json(result);
+    return res.json(updateService.getUpdateStatus());
   } catch (error) {
     return next(error);
   }
 };
 
-export const check: RequestHandler = async (_req, res, next) => {
+export const check: Check = async (_req, res, next) => {
   try {
     const result = await updateService.checkForUpdate();
     return res.json(result);
@@ -19,7 +18,7 @@ export const check: RequestHandler = async (_req, res, next) => {
   }
 };
 
-export const apply: RequestHandler = async (_req, res, next) => {
+export const apply: Apply = async (_req, res, next) => {
   try {
     if (updateService.isUpdating()) {
       return res.status(409).json({ ok: false, error: 'Update already in progress' });

@@ -19,3 +19,108 @@ export interface OpenClawSession {
   label: string | null;
   firstMessage: string | null;
 }
+
+// ── Session file shapes ──
+
+export interface SessionEntry {
+  sessionId: string;
+  sessionFile?: string;
+  updatedAt: number;
+  label?: string | null;
+  thinkingLevel?: string | null;
+  fastMode?: boolean | null;
+  verboseLevel?: string | null;
+  reasoningLevel?: string | null;
+}
+
+export type SessionsFile = Record<string, SessionEntry>;
+
+// ── JSONL message file shapes ──
+
+export interface JsonlTextPart {
+  type: 'text';
+  text: string;
+}
+
+export interface JsonlThinkingPart {
+  type: 'thinking';
+  thinking: string;
+}
+
+export interface JsonlOtherPart {
+  type: string;
+  [key: string]: unknown;
+}
+
+export type JsonlContentPart = JsonlTextPart | JsonlThinkingPart | JsonlOtherPart;
+
+export interface JsonlMessageEntry {
+  type: 'message';
+  id: string;
+  timestamp?: string | null;
+  message: {
+    role: 'user' | 'assistant' | string;
+    content: JsonlContentPart[] | string;
+  };
+}
+
+export interface JsonlEntry {
+  type: string;
+  id?: string;
+  timestamp?: string | null;
+  message?: {
+    role: 'user' | 'assistant' | string;
+    content: JsonlContentPart[] | string;
+  };
+  [key: string]: unknown;
+}
+
+// ── Session settings ──
+
+export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high' | 'inherit';
+export type VerboseLevel = 'low' | 'medium' | 'high' | 'inherit';
+export type ReasoningLevel = 'minimal' | 'low' | 'medium' | 'high' | 'inherit';
+
+export interface SessionSettings {
+  thinkingLevel: string;
+  fastMode: boolean | null;
+  verboseLevel: string;
+  reasoningLevel: string;
+}
+
+export interface SessionSettingsPatchBody {
+  thinkingLevel?: string;
+  fastMode?: boolean | null;
+  verboseLevel?: string;
+  reasoningLevel?: string;
+  label?: string | null;
+}
+
+// ── OpenClaw config (openclaw.json) ──
+
+export interface OpenclawAgentEntry {
+  id?: string;
+  model?: string | { primary?: string } | null;
+  [key: string]: unknown;
+}
+
+export interface OpenclawAgentsSection {
+  list?: OpenclawAgentEntry[];
+  defaults?: {
+    model?: { primary?: string } | null;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface OpenclawConfig {
+  agents?: OpenclawAgentsSection;
+  gateway?: { port?: number };
+  [key: string]: unknown;
+}
+
+// ── Chat runner ──
+
+export interface ChatRunHandle {
+  kill: () => void;
+}
