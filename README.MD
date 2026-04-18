@@ -12,6 +12,7 @@ https://github.com/user-attachments/assets/500f4f44-13e8-4e08-8bfc-9b2458c22ae1
 - **Conversation management** — Multiple conversations per agent, editable titles, searchable sidebar.
 - **User authentication** — JWT-based auth with a default admin account created on first run.
 - **Theming** — 14 built-in color themes with a sidebar picker.
+- **Installable PWA** — Runs as a standalone desktop/mobile app via the browser's "Install app" feature. One-click install from Chrome, Edge, Brave, or any Chromium-based browser; iOS Safari supports "Add to Home Screen".
 
 - **Client** — React 19 + Vite + Material UI + Redux Toolkit Query, organized with [Feature-Sliced Design](https://feature-sliced.design/)
 - **API** — Express + TypeScript + TypeORM + SQLite — single server that also handles OpenClaw gateway communication and CLI execution
@@ -71,14 +72,14 @@ On first startup, a default admin user is created:
 
 After `npm start`, the **`openclaw_client`** command works from any directory:
 
-| Command                             | What it does                                                            |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| `openclaw_client start`             | Start servers from `~/.openclaw_client` (no build)                      |
-| `openclaw_client stop`              | Stop servers                                                            |
-| `openclaw_client restart`           | Stop + start                                                            |
-| `openclaw_client status`            | Show service status                                                     |
-| `openclaw_client uninstall`         | Remove auto-start, global CLI, api & client artifacts (keeps database)  |
-| `openclaw_client uninstall --purge` | Also delete database (asks for confirmation)                            |
+| Command                             | What it does                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `openclaw_client start`             | Start servers from `~/.openclaw_client` (no build)                     |
+| `openclaw_client stop`              | Stop servers                                                           |
+| `openclaw_client restart`           | Stop + start                                                           |
+| `openclaw_client status`            | Show service status                                                    |
+| `openclaw_client uninstall`         | Remove auto-start, global CLI, api & client artifacts (keeps database) |
+| `openclaw_client uninstall --purge` | Also delete database (asks for confirmation)                           |
 
 To rebuild after code changes, run **`npm start`** from the repo again.
 
@@ -115,14 +116,14 @@ npm run dev                 # development
 
 Generated automatically on first run in `api/.env` (see `api/.env.example` for reference):
 
-| Variable         | Default                  | Description                                       |
-| ---------------- | ------------------------ | ------------------------------------------------- |
-| `NODE_ENV`       | `development`            | Environment mode                                  |
-| `JWT_SECRET`     | _(random)_               | Secret for JWT signing                            |
-| `DB_PATH`        | `./data/openclaw.sqlite` | Path to SQLite database file                      |
-| `PORT`           | _(API_PORT)_             | API listen port (driven by `~/.openclaw_client/.env`)    |
-| `ALLOWED_DOMAIN` | _(CLIENT origin)_        | CORS allowed origin(s), comma-separated           |
-| `API_PUBLIC_URL` | _(API origin)_           | Public base URL used for generated workspace URLs |
+| Variable         | Default                  | Description                                           |
+| ---------------- | ------------------------ | ----------------------------------------------------- |
+| `NODE_ENV`       | `development`            | Environment mode                                      |
+| `JWT_SECRET`     | _(random)_               | Secret for JWT signing                                |
+| `DB_PATH`        | `./data/openclaw.sqlite` | Path to SQLite database file                          |
+| `PORT`           | _(API_PORT)_             | API listen port (driven by `~/.openclaw_client/.env`) |
+| `ALLOWED_DOMAIN` | _(CLIENT origin)_        | CORS allowed origin(s), comma-separated               |
+| `API_PUBLIC_URL` | _(API origin)_           | Public base URL used for generated workspace URLs     |
 
 The client reads `VITE_API_BASE_URL` at build time; it is set automatically to match `API_PORT`. Override by setting it in `client/.env` only if you deploy behind a custom host.
 
@@ -147,3 +148,19 @@ When running `npm start`, built artifacts are deployed to `~/.openclaw_client/`:
 ```
 
 The source directory is only needed for building. Production processes run entirely from `~/.openclaw_client/`.
+
+## Install as an App (PWA)
+
+Once the client is running, Chromium-based browsers (Chrome, Edge, Brave, Arc, Opera) detect that the app is installable:
+
+- An **Install app** banner appears in the sidebar — click it to install.
+- Alternatively, click the install icon in the address bar, or use the browser menu (**More → Install OpenClaw…**).
+
+After install, the app launches in its own window (no tabs, own dock/taskbar icon) and behaves like a native desktop app. It still communicates with the local API server — the PWA is a UI shell, not a replacement for the background service.
+
+| Browser             | Support                                                                          |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Chrome / Edge / Arc | Full — custom install banner, standalone window, auto-updates via service worker |
+| Brave / Opera       | Full                                                                             |
+| Safari (macOS/iOS)  | "Add to Dock" / "Add to Home Screen" from the Share menu                         |
+| Firefox             | Not installable (Firefox disabled PWA install on desktop); runs as a normal tab  |

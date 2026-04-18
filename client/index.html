@@ -2,9 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo_128.png" />
+    <link rel="icon" type="image/png" href="/logo_128.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0b0b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="OpenClaw" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>OpenClaw Client</title>
+    <script>
+      // Self-heal for stale dev-mode PWA service workers from prior sessions.
+      // vite-plugin-pwa registers /dev-sw.js during `npm run dev`; if left
+      // alive after we disable devOptions.enabled, it intercepts Vite's ESM
+      // requests and serves index.html back, breaking HMR with MIME errors.
+      // Only targets the dev SW — the production /sw.js is untouched.
+      (function () {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          var stale = regs.filter(function (r) {
+            var w = r.active || r.installing || r.waiting;
+            return w && /\/dev-sw\.js(\?|$)/.test(w.scriptURL);
+          });
+          if (stale.length === 0) return;
+          Promise.all(stale.map(function (r) { return r.unregister(); }))
+            .then(function () {
+              if (!('caches' in window)) return [];
+              return caches.keys();
+            })
+            .then(function (keys) {
+              return Promise.all((keys || []).map(function (k) { return caches.delete(k); }));
+            })
+            .then(function () { location.reload(); });
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

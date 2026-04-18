@@ -5,6 +5,7 @@ node_modules/
 api/data/
 api/build/
 client/dist/
+client/dev-dist/
 api/src/public/uploads/
 .vscode/
 openclaw.log

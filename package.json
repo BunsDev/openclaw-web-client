@@ -1,6 +1,6 @@
 {
   "name": "openclaw-client",
-  "version": "2.3.9",
+  "version": "2.4.0",
   "description": "Web-based chat interface for OpenClaw AI agents",
   "private": true,
   "type": "module",
@@ -13,5 +13,9 @@
   "bin": {
     "openclaw-client": "scripts/cli.mjs",
     "openclaw_client": "scripts/cli.mjs"
+  },
+  "devDependencies": {
+    "vite-plugin-pwa": "^1.2.0",
+    "workbox-window": "^7.4.0"
   }
 }

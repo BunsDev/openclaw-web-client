@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { UpdateBanner } from '../../features/update/install';
+import { InstallAppBanner } from '../../features/pwa/install';
 import { ThemePicker } from '../../features/theme';
 import SidebarHeader from './ui/SidebarHeader';
 import SidebarSearch from './ui/SidebarSearch';
@@ -35,6 +36,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
       <SidebarMenu onNavigate={onNavigate} />
       <AgentsPanel searchQuery={searchQuery} onNavigate={onNavigate} />
+      <InstallAppBanner />
       <UpdateBanner />
       <ThemePicker />
     </Box>

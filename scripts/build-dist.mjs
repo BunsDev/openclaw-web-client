@@ -18,12 +18,19 @@ const PORT = Number(process.env.CLIENT_PORT) || Number(process.env.PORT) || 1880
 const API_PORT = Number(process.env.API_PORT) || 18802;
 
 const MIME = {
-  '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
-  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf', '.webp': 'image/webp',
+  '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript',
+  '.css': 'text/css', '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
+  '.map': 'application/json',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+  '.webp': 'image/webp',
 };
+
+// Service-worker files must not be cached long-term or users get stuck on
+// old bundles. Everything else can use the default (immutable hashed names).
+const NO_CACHE_FILES = new Set(['sw.js', 'registerSW.js', 'workbox-window.prod.es5.mjs']);
 
 function injectRuntimeConfig(html, hostHeader) {
   const hostname = (hostHeader || '').split(':')[0] || 'localhost';
@@ -53,7 +60,12 @@ http.createServer((req, res) => {
       return;
     }
     const data = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': mime });
+    const headers = { 'Content-Type': mime };
+    if (NO_CACHE_FILES.has(path.basename(filePath))) {
+      headers['Cache-Control'] = 'no-cache';
+      headers['Service-Worker-Allowed'] = '/';
+    }
+    res.writeHead(200, headers);
     res.end(data);
   } catch {
     res.writeHead(404);
