@@ -56,6 +56,13 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function isDarkBackground(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
+}
+
 interface ThemeConfig {
   name: string;
   primary: { main: string; light: string; dark: string; contrastText: string };
@@ -95,6 +102,7 @@ function buildTheme(config: ThemeConfig): Theme {
 
   return createTheme({
     palette: {
+      mode: isDarkBackground(config.background.default) ? 'dark' : 'light',
       primary: config.primary,
       secondary: config.secondary,
       error: config.error,
@@ -128,16 +136,14 @@ function buildTheme(config: ThemeConfig): Theme {
           },
         },
       },
-      MuiTextField: {
+      MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 8,
-              backgroundColor: background.paper,
-              '& fieldset': { borderColor: divider },
-              '&:hover fieldset': { borderColor: text.secondary },
-              '&.Mui-focused fieldset': { borderColor: primary.main },
-            },
+            borderRadius: 8,
+            backgroundColor: background.paper,
+            '& fieldset': { borderColor: divider },
+            '&:hover fieldset': { borderColor: text.secondary },
+            '&.Mui-focused fieldset': { borderColor: primary.main },
           },
         },
       },
