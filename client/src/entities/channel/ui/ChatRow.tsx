@@ -1,7 +1,7 @@
 import { Box, Typography, Chip, IconButton } from '@mui/material';
 import { Delete } from '@mui/icons-material';
 import type { ChannelChat } from '../api';
-import providerEmoji from './providerEmoji';
+import ChannelLogo from './ChannelLogo';
 
 interface ChatRowProps {
   channel: ChannelChat;
@@ -21,9 +21,9 @@ export default function ChatRow({ channel, onRemove }: ChatRowProps) {
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >
-      <Typography sx={{ fontSize: '1.1rem', flexShrink: 0, width: 24, textAlign: 'center' }}>
-        {providerEmoji[channel.provider] || '📡'}
-      </Typography>
+      <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+        <ChannelLogo provider={channel.provider} size={18} />
+      </Box>
       <Box
         sx={{
           width: 8,

@@ -17,7 +17,7 @@ import {
   useAddChannelMutation,
   CHANNEL_PROVIDERS,
   CHANNEL_FIELDS,
-  providerEmoji,
+  ChannelLogo,
   type ChannelProvider,
 } from '../../../../entities/channel';
 
@@ -50,9 +50,7 @@ export default function AddChannelForm({ onDone }: { onDone: () => void }) {
     },
   });
 
-  const fieldDefs = formik.values.provider
-    ? (CHANNEL_FIELDS[formik.values.provider] ?? [])
-    : [];
+  const fieldDefs = formik.values.provider ? (CHANNEL_FIELDS[formik.values.provider] ?? []) : [];
 
   const hasRequired = fieldDefs
     .filter((f) => f.required)
@@ -87,7 +85,10 @@ export default function AddChannelForm({ onDone }: { onDone: () => void }) {
           >
             {CHANNEL_PROVIDERS.map((p) => (
               <MenuItem key={p} value={p} sx={{ fontSize: '0.85rem' }}>
-                {providerEmoji[p] || '📡'} {p}
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <ChannelLogo provider={p} size={16} />
+                  {p}
+                </Box>
               </MenuItem>
             ))}
           </Select>

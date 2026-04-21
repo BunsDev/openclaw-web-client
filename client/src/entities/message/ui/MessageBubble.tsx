@@ -5,7 +5,9 @@ import { DeleteButton, MarkdownContent } from '../../../shared/ui';
 import ThinkingBlock from './ThinkingBlock';
 import FileAttachments from './FileAttachments';
 import CronMessageBubble from './CronMessageBubble';
+import ChannelMetadataHeader from './ChannelMetadataHeader';
 import { parseCronMessage } from '../lib/parseCronMessage';
+import { parseChannelMetadata } from '../lib/parseChannelMetadata';
 import { useDeleteMessageMutation, type Message, type MessageFile } from '../api';
 
 export type MessageLike =
@@ -33,11 +35,14 @@ const MessageBubble = memo(function MessageBubble({
   const isUser = message.role === 'user';
   const thinking = thinkingText || ('thinking' in message ? message.thinking : null);
   const files = ('files' in message ? message.files : undefined) ?? [];
-  const hasTextContent = message.text && !message.text.startsWith('[Attached ');
   const parsedCron = isUser && !isStreaming ? parseCronMessage(message.text) : null;
+  const parsedChannel =
+    isUser && !isStreaming && !parsedCron ? parseChannelMetadata(message.text) : null;
+  const displayText = parsedChannel?.cleanText ?? message.text ?? '';
+  const hasTextContent = displayText && !displayText.startsWith('[Attached ');
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.text || '');
+    navigator.clipboard.writeText(displayText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -49,7 +54,9 @@ const MessageBubble = memo(function MessageBubble({
   }, [messageId, message, deleteMessage]);
 
   if (parsedCron) {
-    return <CronMessageBubble message={message as Message} messageId={messageId} parsed={parsedCron} />;
+    return (
+      <CronMessageBubble message={message as Message} messageId={messageId} parsed={parsedCron} />
+    );
   }
 
   return (
@@ -113,12 +120,18 @@ const MessageBubble = memo(function MessageBubble({
         {!isUser && thinking && (
           <ThinkingBlock text={thinking} isStreaming={isStreaming && !message.text} />
         )}
+        {parsedChannel && (parsedChannel.sender || parsedChannel.conversation) && (
+          <ChannelMetadataHeader
+            sender={parsedChannel.sender}
+            conversation={parsedChannel.conversation}
+          />
+        )}
         {files.length > 0 && <FileAttachments files={files} isUser={isUser} />}
         {hasTextContent &&
           (isUser ? (
-            <MarkdownContent inheritColor>{message.text!}</MarkdownContent>
+            <MarkdownContent inheritColor>{displayText}</MarkdownContent>
           ) : (
-            <MarkdownContent isStreaming={isStreaming}>{message.text!}</MarkdownContent>
+            <MarkdownContent isStreaming={isStreaming}>{displayText}</MarkdownContent>
           ))}
         {isStreaming && !hasTextContent && (
           <Box

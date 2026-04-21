@@ -1,6 +1,6 @@
 import { Box, Typography, Chip } from '@mui/material';
 import type { ChannelAuth } from '../api';
-import providerEmoji from './providerEmoji';
+import ChannelLogo from './ChannelLogo';
 
 export default function AuthRow({ profile }: { profile: ChannelAuth }) {
   return (
@@ -15,9 +15,9 @@ export default function AuthRow({ profile }: { profile: ChannelAuth }) {
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >
-      <Typography sx={{ fontSize: '1.1rem', flexShrink: 0, width: 24, textAlign: 'center' }}>
-        {providerEmoji[profile.provider] || '🔑'}
-      </Typography>
+      <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+        <ChannelLogo provider={profile.provider} size={18} fallback="🔑" />
+      </Box>
       <Box
         sx={{
           width: 8,
