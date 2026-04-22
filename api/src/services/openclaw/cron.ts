@@ -28,7 +28,9 @@ export function addCronJob(opts: Record<string, string>): CronOpResult {
   try {
     const args = ['cron', 'add'];
     Object.entries(opts).forEach(([key, val]) => {
-      if (val) args.push(`--${key}`, val);
+      if (!val) return;
+      if (val === 'true') args.push(`--${key}`);
+      else args.push(`--${key}`, val);
     });
     ocExec(args, { encoding: 'utf-8', timeout: 30000 });
     cronCache.invalidate();

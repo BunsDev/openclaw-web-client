@@ -12,11 +12,15 @@ import {
   FormControl,
   CircularProgress,
   Autocomplete,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { useAddCronJobMutation } from '../../../../entities/cron';
 import { useGetAgentsQuery } from '../../../../entities/agent';
 import { useGetConversationsQuery } from '../../../../entities/conversation';
+import { useListChannelsQuery } from '../../../../entities/channel/api';
+import { ChannelLogo } from '../../../../entities/channel';
 
 type ScheduleKind = 'cron' | 'every' | 'at';
 
@@ -60,6 +64,9 @@ interface CronFormValues {
   agent: string;
   session: string;
   tz: string;
+  channel: string;
+  to: string;
+  announce: boolean;
 }
 
 const initialValues: CronFormValues = {
@@ -71,11 +78,45 @@ const initialValues: CronFormValues = {
   agent: '',
   session: 'isolated',
   tz: '',
+  channel: '',
+  to: '',
+  announce: false,
 };
+
+function destinationPlaceholder(provider: string): string {
+  switch (provider) {
+    case 'telegram':
+      return 'Chat ID (e.g. -1001234567890 or @channel)';
+    case 'discord':
+      return 'Channel ID or User ID';
+    case 'slack':
+      return 'Channel (C12345) or @user';
+    case 'whatsapp':
+    case 'signal':
+      return 'Phone number (E.164, e.g. +15551234567)';
+    case 'matrix':
+      return 'Room ID (!xxx:server) or @user:server';
+    case 'line':
+      return 'User or Group ID';
+    case 'msteams':
+    case 'mattermost':
+    case 'googlechat':
+    case 'nextcloud-talk':
+    case 'synology-chat':
+      return 'Channel or Room ID';
+    case 'nostr':
+      return 'npub... pubkey';
+    case 'imessage':
+      return 'Phone (E.164) or Apple ID';
+    default:
+      return 'Destination';
+  }
+}
 
 export default function AddCronForm({ onDone }: { onDone: () => void }) {
   const [addCron, { isLoading }] = useAddCronJobMutation();
   const { data: agentsData } = useGetAgentsQuery();
+  const { data: channelsData } = useListChannelsQuery();
   const [error, setError] = useState('');
 
   const formik = useFormik<CronFormValues>({
@@ -93,6 +134,9 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
         opts.session = `session:${values.session}`;
       }
       if (values.tz) opts.tz = values.tz;
+      if (values.channel) opts.channel = values.channel;
+      if (values.to) opts.to = values.to;
+      if (values.announce) opts.announce = 'true';
 
       if (values.scheduleKind === 'at') {
         if (!values.atDatetime) return;
@@ -118,6 +162,7 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
     skip: !selectedAgent,
   });
   const conversations = convData?.items ?? [];
+  const channels = channelsData?.chat ?? [];
 
   const hasSchedule =
     formik.values.scheduleKind === 'at'
@@ -128,9 +173,7 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
   return (
     <Box sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, flex: 1 }}>
-          Add Cron Job
-        </Typography>
+        <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, flex: 1 }}>Add Cron Job</Typography>
         <IconButton size="small" onClick={onDone}>
           <Close sx={{ fontSize: 16 }} />
         </IconButton>
@@ -263,7 +306,9 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
               <MenuItem value="isolated" sx={{ fontSize: '0.85rem' }}>
                 Isolated (new session)
               </MenuItem>
-              <MenuItem value="main" sx={{ fontSize: '0.85rem' }}>Main session</MenuItem>
+              <MenuItem value="main" sx={{ fontSize: '0.85rem' }}>
+                Main session
+              </MenuItem>
               {conversations
                 .filter((c) => c.sessionKey)
                 .map((c) => (
@@ -277,6 +322,85 @@ export default function AddCronForm({ onDone }: { onDone: () => void }) {
                 ))}
             </Select>
           </FormControl>
+        )}
+
+        <Box sx={{ display: 'flex', gap: 1.5, mb: formik.values.channel ? 1.5 : 0.5 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: '0.85rem' }}>Deliver to channel (optional)</InputLabel>
+            <Select
+              value={formik.values.channel}
+              label="Deliver to channel (optional)"
+              onChange={(e) => {
+                formik.setFieldValue('channel', e.target.value);
+                if (!e.target.value) formik.setFieldValue('to', '');
+              }}
+              sx={{ fontSize: '0.85rem', borderRadius: 1.5 }}
+              renderValue={(val) => {
+                if (!val) return <em>None</em>;
+                if (val === 'last') return 'Auto (last used chat)';
+                const ch = channels.find((c) => c.id === val);
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <ChannelLogo provider={ch?.provider ?? String(val)} size={16} />
+                    <span>{ch?.provider ?? String(val)}</span>
+                  </Box>
+                );
+              }}
+            >
+              <MenuItem value="" sx={{ fontSize: '0.85rem' }}>
+                <em>None</em>
+              </MenuItem>
+              <MenuItem value="last" sx={{ fontSize: '0.85rem' }}>
+                Auto (last used chat)
+              </MenuItem>
+              {channels.map((ch) => (
+                <MenuItem
+                  key={ch.id}
+                  value={ch.id}
+                  sx={{ fontSize: '0.85rem', display: 'flex', gap: 0.8 }}
+                >
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <ChannelLogo provider={ch.provider} size={16} />
+                  </Box>
+                  {ch.provider}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {formik.values.channel && formik.values.channel !== 'last' && (
+            <TextField
+              fullWidth
+              size="small"
+              label="Send to"
+              placeholder={destinationPlaceholder(formik.values.channel)}
+              {...formik.getFieldProps('to')}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                '& input': { fontSize: '0.85rem' },
+                '& input::placeholder': { fontSize: '0.8rem' },
+                '& label': { fontSize: '0.85rem' },
+              }}
+            />
+          )}
+        </Box>
+
+        {formik.values.channel && (
+          <FormControlLabel
+            sx={{
+              mb: 1.5,
+              ml: 0,
+              '& .MuiFormControlLabel-label': { fontSize: '0.8rem', color: 'text.secondary' },
+            }}
+            control={
+              <Switch
+                size="small"
+                checked={formik.values.announce}
+                onChange={(e) => formik.setFieldValue('announce', e.target.checked)}
+              />
+            }
+            label="Announce agent result to chat"
+          />
         )}
 
         {error && (
