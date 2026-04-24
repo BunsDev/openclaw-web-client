@@ -397,6 +397,74 @@ paths:
           $ref: '#/components/responses/422'
         500:
           $ref: '#/components/responses/500'
+  /agent/{id}/provider-models:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentProviderModels
+      summary: List models for the agent's currently configured provider
+      description: >
+        Returns the agent's current model and every model exposed by that
+        provider (derived from the `provider/model` prefix). Use to power a
+        scoped model picker — no provider switching is offered because that
+        would require different credentials.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Provider-scoped model catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentProviderModelsResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentProviderModel
+      summary: Hot-swap the agent's model (same provider)
+      description: >
+        Updates the agent's configured model via the Gateway RPC `agents.update`
+        so the change takes effect on the next turn without a gateway restart.
+        When `conversationId` is provided, any pinned `modelOverride` on that
+        session is cleared via `sessions.patch` so the running chat picks up
+        the new default immediately.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentProviderModelPatch'
+      responses:
+        200:
+          description: Updated model configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentProviderModelMutationResponse'
+        400:
+          description: Model update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentProviderModelMutationResponse'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
   /agent/{id}/skills:
     get:
       tags:
@@ -709,6 +777,77 @@ components:
           nullable: true
         config:
           $ref: '#/components/schemas/agentBudgetResponse'
+    #
+    agentProviderModel:
+      type: object
+      description: A single model entry surfaced by `openclaw models list --provider <id>`.
+      properties:
+        key:
+          type: string
+          description: Full model key (e.g. `google/gemini-2.5-pro`).
+        name:
+          type: string
+        contextWindow:
+          type: integer
+          nullable: true
+        local:
+          type: boolean
+        available:
+          type: boolean
+          description: Whether the agent currently has credentials for this provider.
+        missing:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+    #
+    agentProviderModelsResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+        currentModel:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          nullable: true
+          description: Provider id derived from the `provider/model` prefix.
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentProviderModel'
+    #
+    agentProviderModelPatch:
+      type: object
+      required:
+        - model
+      properties:
+        model:
+          type: string
+          description: Full model key (must belong to the agent's current provider).
+        conversationId:
+          type: integer
+          nullable: true
+          description: When provided, also clears any session override so the change applies mid-chat.
+    #
+    agentProviderModelMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        restartHint:
+          type: string
+          nullable: true
+          description: Present when a gateway restart or new conversation is required.
+        config:
+          $ref: '#/components/schemas/agentProviderModelsResponse'
     #
     agentSkillSummary:
       type: object

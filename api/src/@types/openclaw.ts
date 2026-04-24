@@ -171,6 +171,24 @@ export interface AgentBudgetResponse {
 
 export type AgentBudgetPatch = Partial<Record<AgentBudgetKey, number | null>>;
 
+export interface AgentProviderModel {
+  key: string;
+  name: string;
+  contextWindow: number | null;
+  local: boolean;
+  available: boolean;
+  missing: boolean;
+  tags: string[];
+}
+
+export interface AgentProviderModelsResponse {
+  agentId: string;
+  known: boolean;
+  currentModel: string | null;
+  provider: string | null;
+  models: AgentProviderModel[];
+}
+
 // ── Agent skills (per-agent allowlist) ──
 
 export interface AgentSkillSummary {

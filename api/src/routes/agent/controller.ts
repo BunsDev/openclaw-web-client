@@ -462,6 +462,50 @@ const updateSubagentsConfig: RequestHandler = async (req, res, next) => {
   }
 };
 
+const getProviderModels: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    return res.json(ocService.getAgentProviderModels(agent.openclawAgentId));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateProviderModel: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const convRepo = AppDataSource.getRepository(Conversation);
+
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    const body = (req.body ?? {}) as { model?: string; conversationId?: number | string };
+    const modelKey = typeof body.model === 'string' ? body.model : '';
+
+    let sessionKey: string | null = null;
+    if (body.conversationId !== undefined && body.conversationId !== null) {
+      const conv = await convRepo.findOneBy({ _id: Number(body.conversationId) });
+      sessionKey = conv?.sessionKey || (conv ? String(conv._id) : null);
+    }
+
+    const result = await ocService.setAgentProviderModel(
+      agent.openclawAgentId,
+      modelKey,
+      sessionKey
+    );
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -497,4 +541,6 @@ export {
   updateSkillsConfig,
   getSubagentsConfig,
   updateSubagentsConfig,
+  getProviderModels,
+  updateProviderModel,
 };

@@ -126,6 +126,31 @@ export interface AgentSubagentsMutationResponse {
   config?: AgentSubagentsResponse;
 }
 
+export interface AgentProviderModel {
+  key: string;
+  name: string;
+  contextWindow: number | null;
+  local: boolean;
+  available: boolean;
+  missing: boolean;
+  tags: string[];
+}
+
+export interface AgentProviderModelsResponse {
+  agentId: string;
+  known: boolean;
+  currentModel: string | null;
+  provider: string | null;
+  models: AgentProviderModel[];
+}
+
+export interface AgentProviderModelMutationResponse {
+  ok: boolean;
+  error?: string;
+  restartHint?: string | null;
+  config?: AgentProviderModelsResponse;
+}
+
 export const WORKSPACE_TAB_FILES = [
   { label: 'AGENTS', file: 'AGENTS.md' },
   { label: 'SOUL', file: 'SOUL.md' },
@@ -273,6 +298,24 @@ export const agentsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentSubagents', id: agentId }],
     }),
+    getAgentProviderModels: build.query<AgentProviderModelsResponse, string>({
+      query: (agentId) => `/agent/${agentId}/provider-models`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentProviderModels', id: agentId }],
+    }),
+    updateAgentProviderModel: build.mutation<
+      AgentProviderModelMutationResponse,
+      { agentId: string; model: string; conversationId?: number | string }
+    >({
+      query: ({ agentId, model, conversationId }) => ({
+        url: `/agent/${agentId}/provider-models`,
+        method: 'PATCH',
+        body: { model, ...(conversationId !== undefined ? { conversationId } : {}) },
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [
+        { type: 'AgentProviderModels', id: agentId },
+        'Agent',
+      ],
+    }),
   }),
 });
 
@@ -294,4 +337,6 @@ export const {
   useUpdateAgentSkillsMutation,
   useGetAgentSubagentsQuery,
   useUpdateAgentSubagentsMutation,
+  useGetAgentProviderModelsQuery,
+  useUpdateAgentProviderModelMutation,
 } = agentsApi;

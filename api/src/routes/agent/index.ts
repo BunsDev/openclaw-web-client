@@ -37,6 +37,11 @@ router
   .patch(auth, validate.budgetPatch, controller.updateBudget);
 
 router
+  .route('/agent/:id(\\d+)/provider-models')
+  .get(auth, validate.id, controller.getProviderModels)
+  .patch(auth, validate.providerModelPatch, controller.updateProviderModel);
+
+router
   .route('/agent/:id(\\d+)/conversation/:conversationId(\\d+)/session-settings')
   .get(auth, controller.getSessionSettings)
   .patch(auth, controller.patchSessionSettings);

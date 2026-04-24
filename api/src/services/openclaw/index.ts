@@ -30,6 +30,7 @@ export {
   copyFileToWorkspace,
 } from './workspace';
 export { getAgentModel, getAgentModelsForOpenclawIds } from './config';
+export { getAgentProviderModels, setAgentProviderModel } from './agentProviderModels';
 export { getAgentBudget, setAgentBudget, BUDGET_FIELDS } from './budget';
 export { getAgentSkillsConfig, setAgentSkills } from './agentSkills';
 export { getAgentSubagentsConfig, setAgentSubagents } from './agentSubagents';

@@ -142,4 +142,27 @@ export default {
       return true;
     }),
   ]),
+
+  providerModelPatch: validate([
+    param('id').isInt().withMessage('Incorrect request url'),
+    body().custom((value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Body must be an object.');
+      }
+      const v = value as Record<string, unknown>;
+      const allowed = ['model', 'conversationId'];
+      const unknown = Object.keys(v).find((k) => !allowed.includes(k));
+      if (unknown) throw new Error(`Unknown field: ${unknown}`);
+      if (typeof v.model !== 'string' || !v.model.trim()) {
+        throw new Error('"model" must be a non-empty string.');
+      }
+      if (v.conversationId !== undefined && v.conversationId !== null) {
+        const n = Number(v.conversationId);
+        if (!Number.isInteger(n) || n <= 0) {
+          throw new Error('"conversationId" must be a positive integer when provided.');
+        }
+      }
+      return true;
+    }),
+  ]),
 };

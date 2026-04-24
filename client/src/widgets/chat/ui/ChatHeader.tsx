@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Box, TextField, IconButton, Typography, CircularProgress } from '@mui/material';
+import { Box, TextField, IconButton, Typography, CircularProgress, Stack } from '@mui/material';
 import { Edit, Check, Settings, TuneOutlined } from '@mui/icons-material';
 import { Link } from 'react-router';
 import { useGetAgentQuery, useUpdateAgentMutation } from '../../../entities/agent';
+import { AgentModelPicker } from '../../../features/agent/provider-model';
 
 interface ChatHeaderProps {
   agentId: string;
@@ -98,19 +99,26 @@ export default function ChatHeader({
         </>
       ) : (
         <>
-          <Typography
-            variant="h6"
-            fontWeight={600}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {agent.name}
-          </Typography>
+          <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                lineHeight: 1.2,
+              }}
+            >
+              {agent.name}
+            </Typography>
+            <AgentModelPicker
+              agentId={agentId}
+              currentModel={agent.model ?? null}
+              conversationId={conversationId}
+            />
+          </Stack>
           <IconButton
             size="small"
             onClick={onToggleSessionSettings}
