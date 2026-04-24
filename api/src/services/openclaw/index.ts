@@ -31,7 +31,6 @@ export {
 } from './workspace';
 export { getAgentModel, getAgentModelsForOpenclawIds } from './config';
 export { getAgentBudget, setAgentBudget, BUDGET_FIELDS } from './budget';
-export { getAgentModelConfig, setAgentModel } from './agentModel';
 export { getAgentSkillsConfig, setAgentSkills } from './agentSkills';
 export { getAgentSubagentsConfig, setAgentSubagents } from './agentSubagents';
 export { listPlugins, togglePlugin } from './plugins';

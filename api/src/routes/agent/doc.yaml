@@ -397,72 +397,6 @@ paths:
           $ref: '#/components/responses/422'
         500:
           $ref: '#/components/responses/500'
-  /agent/{id}/model-config:
-    get:
-      tags:
-        - agent
-      security:
-        - bearerAuth: []
-      operationId: getAgentModelConfig
-      summary: Get per-agent model override
-      description: >
-        Returns the agent's model override (if any), the effective model,
-        the system default, and the list of configured models available
-        to pick from.
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        200:
-          description: Model configuration for this agent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/agentModelConfigResponse'
-        404:
-          description: Agent not found
-        401:
-          $ref: '#/components/responses/401'
-        500:
-          $ref: '#/components/responses/500'
-    patch:
-      tags:
-        - agent
-      security:
-        - bearerAuth: []
-      operationId: updateAgentModelConfig
-      summary: Set or clear the per-agent model override
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                model:
-                  type: string
-                  nullable: true
-                  description: Model key to pin for this agent. Send null to inherit default.
-      responses:
-        200:
-          description: Updated model configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/agentModelConfigMutationResponse'
-        400:
-          description: Model update failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/agentModelConfigMutationResponse'
-        401:
-          $ref: '#/components/responses/401'
-        422:
-          $ref: '#/components/responses/422'
-        500:
-          $ref: '#/components/responses/500'
   /agent/{id}/skills:
     get:
       tags:
@@ -776,48 +710,6 @@ components:
         config:
           $ref: '#/components/schemas/agentBudgetResponse'
     #
-    agentModelOption:
-      type: object
-      properties:
-        key:
-          type: string
-          description: Model key (what gets written to config).
-        alias:
-          type: string
-          nullable: true
-    #
-    agentModelConfigResponse:
-      type: object
-      properties:
-        agentId:
-          type: string
-        known:
-          type: boolean
-        override:
-          type: string
-          nullable: true
-        systemDefault:
-          type: string
-          nullable: true
-        effective:
-          type: string
-          nullable: true
-        available:
-          type: array
-          items:
-            $ref: '#/components/schemas/agentModelOption'
-    #
-    agentModelConfigMutationResponse:
-      type: object
-      properties:
-        ok:
-          type: boolean
-        error:
-          type: string
-          nullable: true
-        config:
-          $ref: '#/components/schemas/agentModelConfigResponse'
-    #
     agentSkillSummary:
       type: object
       properties:
@@ -874,9 +766,6 @@ components:
           items:
             type: string
           description: Explicit child-agent allowlist, or null when unrestricted.
-        model:
-          type: string
-          nullable: true
         thinking:
           type: string
           nullable: true
@@ -908,10 +797,6 @@ components:
           items:
             $ref: '#/components/schemas/agentRef'
           description: Configured agents (excluding self) that can appear in allowAgents.
-        availableModels:
-          type: array
-          items:
-            $ref: '#/components/schemas/agentModelOption'
     #
     agentSubagentsPatch:
       type: object
@@ -922,9 +807,6 @@ components:
           nullable: true
           items:
             type: string
-        model:
-          type: string
-          nullable: true
         thinking:
           type: string
           nullable: true

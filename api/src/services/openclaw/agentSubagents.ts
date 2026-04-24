@@ -2,13 +2,11 @@
 import fs from 'fs';
 import os from 'os';
 import {
-  AgentModelOption,
   AgentSubagentsConfig,
   AgentSubagentsPatch,
   AgentSubagentsResponse,
   OpenclawAgentEntry,
   OpenclawConfig,
-  OpenclawSubagentsSection,
 } from '../../@types/openclaw';
 import { ocExec } from '../openclawGateway';
 import { openclawConfigPath } from './paths';
@@ -35,19 +33,10 @@ function findAgentIndex(config: OpenclawConfig | null, openclawAgentId: string):
   return list.findIndex((a) => a?.id === openclawAgentId);
 }
 
-function extractModel(section: OpenclawSubagentsSection | undefined): string | null {
-  const m = section?.model;
-  if (!m) return null;
-  if (typeof m === 'string') return m;
-  if (typeof m === 'object') return m.primary ?? null;
-  return null;
-}
-
 function normalizeConfig(entry: OpenclawAgentEntry | undefined): AgentSubagentsConfig {
   const s = entry?.subagents;
   return {
     allowAgents: Array.isArray(s?.allowAgents) ? s!.allowAgents.map(String) : null,
-    model: extractModel(s),
     thinking: typeof s?.thinking === 'string' ? s!.thinking : null,
     requireAgentId: typeof s?.requireAgentId === 'boolean' ? s!.requireAgentId : null,
   };
@@ -63,14 +52,6 @@ function availableAgents(config: OpenclawConfig | null, selfId: string) {
     }));
 }
 
-function availableModels(config: OpenclawConfig | null): AgentModelOption[] {
-  const models = config?.agents?.defaults?.models ?? {};
-  return Object.entries(models).map(([key, val]) => ({
-    key,
-    alias: val && typeof val === 'object' && typeof val.alias === 'string' ? val.alias : null,
-  }));
-}
-
 export function getAgentSubagentsConfig(openclawAgentId: string): AgentSubagentsResponse {
   const config = readConfig();
   const agentIndex = findAgentIndex(config, openclawAgentId);
@@ -81,7 +62,6 @@ export function getAgentSubagentsConfig(openclawAgentId: string): AgentSubagents
     known: agentIndex >= 0,
     config: normalizeConfig(entry),
     availableAgents: availableAgents(config, openclawAgentId),
-    availableModels: availableModels(config),
   };
 }
 
@@ -102,11 +82,6 @@ const HANDLERS: Record<keyof AgentSubagentsPatch, PatchHandler> = {
     if (!Array.isArray(v)) return { op: 'error', error: '"allowAgents" must be an array.' };
     const normalized = Array.from(new Set(v.map((x) => String(x).trim()).filter(Boolean)));
     return { op: 'set', value: JSON.stringify(normalized) };
-  },
-  model: (_b, v) => {
-    if (v === null || v === '') return { op: 'unset' };
-    if (typeof v !== 'string') return { op: 'error', error: '"model" must be a string or null.' };
-    return { op: 'set', value: JSON.stringify(v) };
   },
   thinking: (_b, v) => {
     if (v === null || v === '' || v === 'inherit') return { op: 'unset' };
@@ -136,12 +111,7 @@ export function setAgentSubagents(
     return { ok: false, error: `Agent "${openclawAgentId}" not found in openclaw config.` };
   }
 
-  const keys: (keyof AgentSubagentsPatch)[] = [
-    'allowAgents',
-    'model',
-    'thinking',
-    'requireAgentId',
-  ];
+  const keys: (keyof AgentSubagentsPatch)[] = ['allowAgents', 'thinking', 'requireAgentId'];
 
   const pending = keys.filter((k) => k in patch);
 

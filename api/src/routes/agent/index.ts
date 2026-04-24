@@ -32,11 +32,6 @@ router
   .patch(auth, validate.subagentsPatch, controller.updateSubagentsConfig);
 
 router
-  .route('/agent/:id(\\d+)/model-config')
-  .get(auth, validate.id, controller.getModelConfig)
-  .patch(auth, validate.modelPatch, controller.updateModelConfig);
-
-router
   .route('/agent/:id(\\d+)/budget')
   .get(auth, validate.id, controller.getBudget)
   .patch(auth, validate.budgetPatch, controller.updateBudget);

@@ -26,10 +26,6 @@ import {
   type AgentSubagentsPatch,
 } from '../../../../entities/agent';
 
-interface AgentSubagentsProps {
-  agentId: string;
-}
-
 const THINKING_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit' },
   { value: 'minimal', label: 'Minimal' },
@@ -38,7 +34,9 @@ const THINKING_OPTIONS: { value: string; label: string }[] = [
   { value: 'high', label: 'High' },
 ];
 
-const INHERIT_MODEL = '__inherit__';
+interface AgentSubagentsProps {
+  agentId: string;
+}
 
 function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -55,7 +53,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
 
   const [restrict, setRestrict] = useState(false);
   const [allowed, setAllowed] = useState<Set<string>>(new Set());
-  const [model, setModel] = useState<string>(INHERIT_MODEL);
   const [thinking, setThinking] = useState<string>('inherit');
   const [requireAgentId, setRequireAgentId] = useState<boolean | null>(null);
   const [query, setQuery] = useState('');
@@ -71,7 +68,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
         setRestrict(true);
         setAllowed(new Set(data.config.allowAgents));
       }
-      setModel(data.config.model ?? INHERIT_MODEL);
       setThinking(data.config.thinking ?? 'inherit');
       setRequireAgentId(data.config.requireAgentId);
     }
@@ -98,10 +94,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
         : nextAllow === null || !sameSet(currentAllow, nextAllow);
     if (changedAllow) result.allowAgents = nextAllow;
 
-    const currentModel = data.config.model;
-    const nextModel = model === INHERIT_MODEL ? null : model;
-    if ((currentModel ?? null) !== (nextModel ?? null)) result.model = nextModel;
-
     const currentThinking = data.config.thinking;
     const nextThinking = thinking === 'inherit' ? null : thinking;
     if ((currentThinking ?? null) !== (nextThinking ?? null)) result.thinking = nextThinking;
@@ -111,7 +103,7 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
       result.requireAgentId = requireAgentId;
 
     return result;
-  }, [data, restrict, allowed, model, thinking, requireAgentId]);
+  }, [data, restrict, allowed, thinking, requireAgentId]);
 
   const dirty = Object.keys(patch).length > 0;
 
@@ -149,7 +141,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
       setRestrict(true);
       setAllowed(new Set(data.config.allowAgents));
     }
-    setModel(data.config.model ?? INHERIT_MODEL);
     setThinking(data.config.thinking ?? 'inherit');
     setRequireAgentId(data.config.requireAgentId);
   }
@@ -368,44 +359,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
           }}
         >
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ mb: 0.5 }}>
-            <FormControl fullWidth size="small" disabled={!data.known || saving}>
-              <InputLabel id="subagent-model-label">Default model for subagents</InputLabel>
-              <Select
-                labelId="subagent-model-label"
-                label="Default model for subagents"
-                value={model}
-                onChange={(e) => setModel(String(e.target.value))}
-              >
-                <MenuItem value={INHERIT_MODEL}>Inherit</MenuItem>
-                {data.availableModels.length === 0 && (
-                  <MenuItem value="" disabled>
-                    No models configured
-                  </MenuItem>
-                )}
-                {data.availableModels.map((m) => (
-                  <MenuItem key={m.key} value={m.key}>
-                    <Box
-                      component="span"
-                      sx={{
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                        fontSize: '0.8rem',
-                      }}
-                    >
-                      {m.key}
-                    </Box>
-                    {m.alias && (
-                      <Box
-                        component="span"
-                        sx={{ color: 'text.secondary', fontSize: '0.72rem', ml: 1 }}
-                      >
-                        alias {m.alias}
-                      </Box>
-                    )}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             <FormControl fullWidth size="small" disabled={!data.known || saving}>
               <InputLabel id="subagent-thinking-label">Thinking level</InputLabel>
               <Select

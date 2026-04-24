@@ -78,26 +78,6 @@ export interface AgentBudgetMutationResponse {
   budget?: AgentBudgetResponse;
 }
 
-export interface AgentModelOption {
-  key: string;
-  alias: string | null;
-}
-
-export interface AgentModelConfigResponse {
-  agentId: string;
-  known: boolean;
-  override: string | null;
-  systemDefault: string | null;
-  effective: string | null;
-  available: AgentModelOption[];
-}
-
-export interface AgentModelConfigMutationResponse {
-  ok: boolean;
-  error?: string;
-  config?: AgentModelConfigResponse;
-}
-
 export interface AgentSkillSummary {
   name: string;
   description: string;
@@ -123,7 +103,6 @@ export interface AgentSkillsMutationResponse {
 
 export interface AgentSubagentsConfig {
   allowAgents: string[] | null;
-  model: string | null;
   thinking: string | null;
   requireAgentId: boolean | null;
 }
@@ -133,12 +112,10 @@ export interface AgentSubagentsResponse {
   known: boolean;
   config: AgentSubagentsConfig;
   availableAgents: { id: string; name: string | null }[];
-  availableModels: AgentModelOption[];
 }
 
 export interface AgentSubagentsPatch {
   allowAgents?: string[] | null;
-  model?: string | null;
   thinking?: string | null;
   requireAgentId?: boolean | null;
 }
@@ -266,24 +243,6 @@ export const agentsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentBudget', id: agentId }],
     }),
-    getAgentModelConfig: build.query<AgentModelConfigResponse, string>({
-      query: (agentId) => `/agent/${agentId}/model-config`,
-      providesTags: (_res, _err, agentId) => [{ type: 'AgentModelConfig', id: agentId }],
-    }),
-    updateAgentModelConfig: build.mutation<
-      AgentModelConfigMutationResponse,
-      { agentId: string; model: string | null }
-    >({
-      query: ({ agentId, model }) => ({
-        url: `/agent/${agentId}/model-config`,
-        method: 'PATCH',
-        body: { model },
-      }),
-      invalidatesTags: (_res, _err, { agentId }) => [
-        { type: 'AgentModelConfig', id: agentId },
-        'Agent',
-      ],
-    }),
     getAgentSkills: build.query<AgentSkillsResponse, string>({
       query: (agentId) => `/agent/${agentId}/skills`,
       providesTags: (_res, _err, agentId) => [{ type: 'AgentSkills', id: agentId }],
@@ -331,8 +290,6 @@ export const {
   usePatchSessionSettingsMutation,
   useGetAgentBudgetQuery,
   useUpdateAgentBudgetMutation,
-  useGetAgentModelConfigQuery,
-  useUpdateAgentModelConfigMutation,
   useGetAgentSkillsQuery,
   useUpdateAgentSkillsMutation,
   useGetAgentSubagentsQuery,

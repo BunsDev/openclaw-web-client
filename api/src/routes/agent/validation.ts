@@ -89,7 +89,7 @@ export default {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new Error('Body must be an object.');
       }
-      const allowed = ['allowAgents', 'model', 'thinking', 'requireAgentId'];
+      const allowed = ['allowAgents', 'thinking', 'requireAgentId'];
       const unknownKey = Object.keys(value).find((k) => !allowed.includes(k));
       if (unknownKey) {
         throw new Error(`Unknown field: ${unknownKey}`);
@@ -103,9 +103,6 @@ export default {
           throw new Error('Every allowed agent id must be a string.');
         }
       }
-      if ('model' in v && v.model !== null && typeof v.model !== 'string') {
-        throw new Error('"model" must be a string or null.');
-      }
       if ('thinking' in v && v.thinking !== null && typeof v.thinking !== 'string') {
         throw new Error('"thinking" must be a string or null.');
       }
@@ -115,20 +112,6 @@ export default {
         typeof v.requireAgentId !== 'boolean'
       ) {
         throw new Error('"requireAgentId" must be a boolean or null.');
-      }
-      return true;
-    }),
-  ]),
-
-  modelPatch: validate([
-    param('id').isInt().withMessage('Incorrect request url'),
-    body('model').custom((value) => {
-      if (value === null) return true;
-      if (typeof value !== 'string') {
-        throw new Error('"model" must be a string or null.');
-      }
-      if (value.length > 200) {
-        throw new Error('"model" is too long.');
       }
       return true;
     }),

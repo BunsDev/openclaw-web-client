@@ -111,7 +111,6 @@ export interface OpenclawSkillsLimits {
 
 export interface OpenclawSubagentsSection {
   allowAgents?: string[];
-  model?: string | { primary?: string; fallbacks?: string[] };
   thinking?: string;
   requireAgentId?: boolean;
 }
@@ -172,26 +171,6 @@ export interface AgentBudgetResponse {
 
 export type AgentBudgetPatch = Partial<Record<AgentBudgetKey, number | null>>;
 
-// ── Agent model config ──
-
-export interface AgentModelOption {
-  key: string;
-  alias: string | null;
-}
-
-export interface AgentModelConfigResponse {
-  agentId: string;
-  known: boolean;
-  override: string | null;
-  systemDefault: string | null;
-  effective: string | null;
-  available: AgentModelOption[];
-}
-
-export interface AgentModelConfigPatch {
-  model: string | null;
-}
-
 // ── Agent skills (per-agent allowlist) ──
 
 export interface AgentSkillSummary {
@@ -221,7 +200,6 @@ export type AgentSubagentsThinking = 'minimal' | 'low' | 'medium' | 'high' | 'in
 
 export interface AgentSubagentsConfig {
   allowAgents: string[] | null;
-  model: string | null;
   thinking: string | null;
   requireAgentId: boolean | null;
 }
@@ -231,12 +209,10 @@ export interface AgentSubagentsResponse {
   known: boolean;
   config: AgentSubagentsConfig;
   availableAgents: { id: string; name: string | null }[];
-  availableModels: AgentModelOption[];
 }
 
 export interface AgentSubagentsPatch {
   allowAgents?: string[] | null;
-  model?: string | null;
   thinking?: string | null;
   requireAgentId?: boolean | null;
 }

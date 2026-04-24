@@ -404,35 +404,6 @@ const updateBudget: RequestHandler = async (req, res, next) => {
   }
 };
 
-const getModelConfig: RequestHandler = async (req, res, next) => {
-  try {
-    const agentRepo = AppDataSource.getRepository(Agent);
-    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
-    if (!agent?.openclawAgentId) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    return res.json(ocService.getAgentModelConfig(agent.openclawAgentId));
-  } catch (error) {
-    return next(error);
-  }
-};
-
-const updateModelConfig: RequestHandler = async (req, res, next) => {
-  try {
-    const agentRepo = AppDataSource.getRepository(Agent);
-    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
-    if (!agent?.openclawAgentId) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    const body = (req.body ?? {}) as { model?: string | null };
-    const result = ocService.setAgentModel(agent.openclawAgentId, body.model ?? null);
-    if (!result.ok) return res.status(400).json(result);
-    return res.json(result);
-  } catch (error) {
-    return next(error);
-  }
-};
-
 const getSkillsConfig: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -522,8 +493,6 @@ export {
   serveWorkspaceUpload,
   getBudget,
   updateBudget,
-  getModelConfig,
-  updateModelConfig,
   getSkillsConfig,
   updateSkillsConfig,
   getSubagentsConfig,
