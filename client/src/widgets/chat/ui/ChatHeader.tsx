@@ -3,6 +3,7 @@ import { Box, TextField, IconButton, Typography, CircularProgress } from '@mui/m
 import { Edit, Check, Settings, TuneOutlined } from '@mui/icons-material';
 import { Link } from 'react-router';
 import { useGetAgentQuery, useUpdateAgentMutation } from '../../../entities/agent';
+import { AgentModelPicker } from '../../../features/agent/model-config';
 
 interface ChatHeaderProps {
   agentId: string;
@@ -98,19 +99,30 @@ export default function ChatHeader({
         </>
       ) : (
         <>
-          <Typography
-            variant="h6"
-            fontWeight={600}
+          <Box
             sx={{
               flex: 1,
               minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.1,
             }}
           >
-            {agent.name}
-          </Typography>
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                lineHeight: 1.2,
+              }}
+            >
+              {agent.name}
+            </Typography>
+            <AgentModelPicker agentId={agentId} />
+          </Box>
           <IconButton
             size="small"
             onClick={onToggleSessionSettings}

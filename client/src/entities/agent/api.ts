@@ -46,6 +46,109 @@ export interface SessionSettingsResponse {
   settings: Partial<SessionSettings>;
 }
 
+export type AgentBudgetKey =
+  | 'memoryGetMaxChars'
+  | 'memoryGetDefaultLines'
+  | 'toolResultMaxChars'
+  | 'postCompactionMaxChars'
+  | 'maxSkillsPromptChars';
+
+export interface AgentBudgetField {
+  key: AgentBudgetKey;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  override: number | null;
+  default: number | null;
+  effective: number | null;
+}
+
+export interface AgentBudgetResponse {
+  agentId: string;
+  known: boolean;
+  fields: AgentBudgetField[];
+}
+
+export type AgentBudgetPatch = Partial<Record<AgentBudgetKey, number | null>>;
+
+export interface AgentBudgetMutationResponse {
+  ok: boolean;
+  error?: string;
+  budget?: AgentBudgetResponse;
+}
+
+export interface AgentModelOption {
+  key: string;
+  alias: string | null;
+}
+
+export interface AgentModelConfigResponse {
+  agentId: string;
+  known: boolean;
+  override: string | null;
+  systemDefault: string | null;
+  effective: string | null;
+  available: AgentModelOption[];
+}
+
+export interface AgentModelConfigMutationResponse {
+  ok: boolean;
+  error?: string;
+  config?: AgentModelConfigResponse;
+}
+
+export interface AgentSkillSummary {
+  name: string;
+  description: string;
+  emoji: string;
+  eligible: boolean;
+  blockedByAllowlist: boolean;
+  source: string;
+  bundled: boolean;
+}
+
+export interface AgentSkillsResponse {
+  agentId: string;
+  known: boolean;
+  override: string[] | null;
+  available: AgentSkillSummary[];
+}
+
+export interface AgentSkillsMutationResponse {
+  ok: boolean;
+  error?: string;
+  config?: AgentSkillsResponse;
+}
+
+export interface AgentSubagentsConfig {
+  allowAgents: string[] | null;
+  model: string | null;
+  thinking: string | null;
+  requireAgentId: boolean | null;
+}
+
+export interface AgentSubagentsResponse {
+  agentId: string;
+  known: boolean;
+  config: AgentSubagentsConfig;
+  availableAgents: { id: string; name: string | null }[];
+  availableModels: AgentModelOption[];
+}
+
+export interface AgentSubagentsPatch {
+  allowAgents?: string[] | null;
+  model?: string | null;
+  thinking?: string | null;
+  requireAgentId?: boolean | null;
+}
+
+export interface AgentSubagentsMutationResponse {
+  ok: boolean;
+  error?: string;
+  config?: AgentSubagentsResponse;
+}
+
 export const WORKSPACE_TAB_FILES = [
   { label: 'AGENTS', file: 'AGENTS.md' },
   { label: 'SOUL', file: 'SOUL.md' },
@@ -67,7 +170,10 @@ export const agentsApi = baseApi.injectEndpoints({
       query: (id) => `/agent/${id}`,
       providesTags: ['Agent'],
     }),
-    createAgent: build.mutation<Agent, { name: string; openclawAgentId?: string; interactive?: boolean }>({
+    createAgent: build.mutation<
+      Agent,
+      { name: string; openclawAgentId?: string; interactive?: boolean }
+    >({
       query: (body) => ({
         url: '/agent',
         method: 'POST',
@@ -145,6 +251,69 @@ export const agentsApi = baseApi.injectEndpoints({
         { type: 'SessionSettings', id: conversationId },
       ],
     }),
+    getAgentBudget: build.query<AgentBudgetResponse, string>({
+      query: (agentId) => `/agent/${agentId}/budget`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentBudget', id: agentId }],
+    }),
+    updateAgentBudget: build.mutation<
+      AgentBudgetMutationResponse,
+      { agentId: string; patch: AgentBudgetPatch }
+    >({
+      query: ({ agentId, patch }) => ({
+        url: `/agent/${agentId}/budget`,
+        method: 'PATCH',
+        body: patch,
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentBudget', id: agentId }],
+    }),
+    getAgentModelConfig: build.query<AgentModelConfigResponse, string>({
+      query: (agentId) => `/agent/${agentId}/model-config`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentModelConfig', id: agentId }],
+    }),
+    updateAgentModelConfig: build.mutation<
+      AgentModelConfigMutationResponse,
+      { agentId: string; model: string | null }
+    >({
+      query: ({ agentId, model }) => ({
+        url: `/agent/${agentId}/model-config`,
+        method: 'PATCH',
+        body: { model },
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [
+        { type: 'AgentModelConfig', id: agentId },
+        'Agent',
+      ],
+    }),
+    getAgentSkills: build.query<AgentSkillsResponse, string>({
+      query: (agentId) => `/agent/${agentId}/skills`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentSkills', id: agentId }],
+    }),
+    updateAgentSkills: build.mutation<
+      AgentSkillsMutationResponse,
+      { agentId: string; skills: string[] | null }
+    >({
+      query: ({ agentId, skills }) => ({
+        url: `/agent/${agentId}/skills`,
+        method: 'PATCH',
+        body: { skills },
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentSkills', id: agentId }],
+    }),
+    getAgentSubagents: build.query<AgentSubagentsResponse, string>({
+      query: (agentId) => `/agent/${agentId}/subagents`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentSubagents', id: agentId }],
+    }),
+    updateAgentSubagents: build.mutation<
+      AgentSubagentsMutationResponse,
+      { agentId: string; patch: AgentSubagentsPatch }
+    >({
+      query: ({ agentId, patch }) => ({
+        url: `/agent/${agentId}/subagents`,
+        method: 'PATCH',
+        body: patch,
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [{ type: 'AgentSubagents', id: agentId }],
+    }),
   }),
 });
 
@@ -160,4 +329,12 @@ export const {
   useSaveWorkspaceFileMutation,
   useGetSessionSettingsQuery,
   usePatchSessionSettingsMutation,
+  useGetAgentBudgetQuery,
+  useUpdateAgentBudgetMutation,
+  useGetAgentModelConfigQuery,
+  useUpdateAgentModelConfigMutation,
+  useGetAgentSkillsQuery,
+  useUpdateAgentSkillsMutation,
+  useGetAgentSubagentsQuery,
+  useUpdateAgentSubagentsMutation,
 } = agentsApi;

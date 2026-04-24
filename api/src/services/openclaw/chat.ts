@@ -13,83 +13,6 @@ function isAgentEvent(msg: GwInboundMessage): msg is GwEventMessage<GwAgentEvent
   return msg.type === 'event' && (msg.event === 'agent' || msg.event === 'chat');
 }
 
-function runAgentViaGateway(
-  agentId: string,
-  message: string,
-  sessionKey: string | null,
-  emitter: SseEmitter
-): ChatRunHandle {
-  const runId = crypto.randomUUID();
-  const listenerKey = `agent-${runId}`;
-  let assistantSent = '';
-  let reasoningSent = '';
-
-  gateway.onEvent(listenerKey, (msg: GwInboundMessage) => {
-    if (!isAgentEvent(msg)) return;
-    const p = msg.payload;
-    if (p.runId !== runId) return;
-
-    if (msg.event !== 'agent' || !p.data?.delta) return;
-
-    const { stream } = p;
-    if (stream !== 'assistant' && stream !== 'reasoning') return;
-
-    const fullText = p.data.text;
-    if (fullText == null) return;
-
-    const clean = stripGatewayTags(fullText);
-    if (!clean || GW_RE_PARTIAL_TAG.test(clean)) return;
-
-    const alreadySent = stream === 'assistant' ? assistantSent : reasoningSent;
-    const sseType =
-      stream === 'assistant' ? 'response.output_text.delta' : 'response.thinking.delta';
-
-    if (alreadySent.length === 0 || clean.startsWith(alreadySent)) {
-      if (clean.length > alreadySent.length) {
-        const newContent = clean.substring(alreadySent.length);
-        if (stream === 'assistant') assistantSent = clean;
-        else reasoningSent = clean;
-        emitter.send(sseType, newContent);
-      }
-    } else {
-      if (stream === 'assistant') assistantSent = clean;
-      else reasoningSent = clean;
-      emitter.send(sseType, clean);
-    }
-  });
-
-  const sessionSettings = getSessionSettingsInternal(agentId, sessionKey);
-  const params: Record<string, unknown> = {
-    message,
-    agentId,
-    idempotencyKey: runId,
-    thinking: sessionSettings.thinkingLevel || 'medium',
-  };
-  if (sessionKey) {
-    const fullKey = `agent:${agentId}:${sessionKey}`;
-    params.sessionId = sessionKey;
-    params.sessionKey = fullKey;
-  }
-
-  gateway
-    .request('agent', params, { expectFinal: true, timeoutMs: 120000 })
-    .then(() => {
-      gateway.offEvent(listenerKey);
-      if (sessionKey) {
-        const thinking = extractThinkingFromJsonl(agentId, sessionKey);
-        if (thinking) emitter.send('response.thinking.delta', thinking);
-      }
-      emitter.done();
-    })
-    .catch((err: Error) => {
-      console.error('[gateway] agent error:', err.message);
-      gateway.offEvent(listenerKey);
-      emitter.error(err.message);
-    });
-
-  return { kill: () => gateway.offEvent(listenerKey) };
-}
-
 function runAgentWithEmitter(
   agentId: string,
   message: string,
@@ -213,7 +136,7 @@ function runAgentWithEmitter(
         })
         .join(' | ');
       if (errorLines) {
-        emitter.send('response.output_text.delta', `[Error] ${errorLines}`);
+        emitter.send('response.error', errorLines);
       }
     }
     emitter.done();
@@ -223,6 +146,90 @@ function runAgentWithEmitter(
     console.error('[openclaw] spawn error:', err);
     emitter.error(err.message);
   });
+}
+
+function runAgentViaGateway(
+  agentId: string,
+  message: string,
+  sessionKey: string | null,
+  emitter: SseEmitter
+): ChatRunHandle {
+  const runId = crypto.randomUUID();
+  const listenerKey = `agent-${runId}`;
+  let assistantSent = '';
+  let reasoningSent = '';
+
+  gateway.onEvent(listenerKey, (msg: GwInboundMessage) => {
+    if (!isAgentEvent(msg)) return;
+    const p = msg.payload;
+    if (p.runId !== runId) return;
+
+    if (msg.event !== 'agent' || !p.data?.delta) return;
+
+    const { stream } = p;
+    if (stream !== 'assistant' && stream !== 'reasoning') return;
+
+    const fullText = p.data.text;
+    if (fullText == null) return;
+
+    const clean = stripGatewayTags(fullText);
+    if (!clean || GW_RE_PARTIAL_TAG.test(clean)) return;
+
+    const alreadySent = stream === 'assistant' ? assistantSent : reasoningSent;
+    const sseType =
+      stream === 'assistant' ? 'response.output_text.delta' : 'response.thinking.delta';
+
+    if (alreadySent.length === 0 || clean.startsWith(alreadySent)) {
+      if (clean.length > alreadySent.length) {
+        const newContent = clean.substring(alreadySent.length);
+        if (stream === 'assistant') assistantSent = clean;
+        else reasoningSent = clean;
+        emitter.send(sseType, newContent);
+      }
+    } else {
+      if (stream === 'assistant') assistantSent = clean;
+      else reasoningSent = clean;
+      emitter.send(sseType, clean);
+    }
+  });
+
+  const sessionSettings = getSessionSettingsInternal(agentId, sessionKey);
+  const params: Record<string, unknown> = {
+    message,
+    agentId,
+    idempotencyKey: runId,
+    thinking: sessionSettings.thinkingLevel || 'medium',
+  };
+  if (sessionKey) {
+    const fullKey = `agent:${agentId}:${sessionKey}`;
+    params.sessionId = sessionKey;
+    params.sessionKey = fullKey;
+  }
+
+  gateway
+    .request('agent', params, { expectFinal: true, timeoutMs: 120000 })
+    .then(() => {
+      gateway.offEvent(listenerKey);
+      if (sessionKey) {
+        const thinking = extractThinkingFromJsonl(agentId, sessionKey);
+        if (thinking) emitter.send('response.thinking.delta', thinking);
+      }
+      emitter.done();
+    })
+    .catch((err: Error) => {
+      console.error('[gateway] agent error:', err.message);
+      gateway.offEvent(listenerKey);
+      const msg = err.message || '';
+      if (agentId !== 'main' && /unknown agent|agent .* not found|no such agent/i.test(msg)) {
+        console.warn(`[gateway] agent "${agentId}" unknown, retrying via CLI.`);
+        runAgentWithEmitter(agentId, message, sessionKey, emitter);
+        return;
+      }
+
+      emitter.error(msg);
+    });
+
+  return { kill: () => gateway.offEvent(listenerKey) };
 }
 
 // eslint-disable-next-line import/prefer-default-export

@@ -11,12 +11,14 @@ export interface ChatState {
   isStreaming: boolean;
   streamingText: string;
   streamingThinking: string;
+  streamError: string | null;
   pendingUserText: string;
   pendingFilesPreviews: MessageFile[];
 
   send: (text: string, files: File[]) => Promise<void>;
   loadMore: () => void;
   handleScroll: () => void;
+  clearError: () => void;
 
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   messagesEndRef: RefObject<HTMLDivElement | null>;

@@ -78,6 +78,10 @@ export const baseApi = createApi({
     'Cron',
     'Plugin',
     'Skill',
+    'AgentBudget',
+    'AgentModelConfig',
+    'AgentSkills',
+    'AgentSubagents',
   ],
   endpoints: () => ({}),
 });

@@ -374,6 +374,123 @@ const putWorkspaceFile: RequestHandler = async (req, res, next) => {
   }
 };
 
+const getBudget: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    return res.json(ocService.getAgentBudget(agent.openclawAgentId));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateBudget: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const result = ocService.setAgentBudget(agent.openclawAgentId, req.body || {});
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getModelConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    return res.json(ocService.getAgentModelConfig(agent.openclawAgentId));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateModelConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const body = (req.body ?? {}) as { model?: string | null };
+    const result = ocService.setAgentModel(agent.openclawAgentId, body.model ?? null);
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getSkillsConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    return res.json(ocService.getAgentSkillsConfig(agent.openclawAgentId));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateSkillsConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const body = (req.body ?? {}) as { skills?: string[] | null };
+    const skills = body.skills === undefined ? null : body.skills;
+    const result = ocService.setAgentSkills(agent.openclawAgentId, skills);
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getSubagentsConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    return res.json(ocService.getAgentSubagentsConfig(agent.openclawAgentId));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateSubagentsConfig: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const result = ocService.setAgentSubagents(agent.openclawAgentId, req.body ?? {});
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -403,4 +520,12 @@ export {
   getSessionSettings,
   patchSessionSettings,
   serveWorkspaceUpload,
+  getBudget,
+  updateBudget,
+  getModelConfig,
+  updateModelConfig,
+  getSkillsConfig,
+  updateSkillsConfig,
+  getSubagentsConfig,
+  updateSubagentsConfig,
 };

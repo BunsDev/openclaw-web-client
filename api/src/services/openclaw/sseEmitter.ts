@@ -22,11 +22,18 @@ export function createSseEmitter(res: Response): SseEmitter {
       res.end();
     },
     error(msg) {
+      const text = msg || 'Agent run failed.';
       if (!res.headersSent) {
-        res.status(500).json({ error: msg });
-      } else {
-        res.end();
+        res.status(500).json({ error: text });
+        return;
       }
+      try {
+        res.write(`data: ${JSON.stringify({ type: 'response.error', delta: text })}\n\n`);
+        res.write('data: [DONE]\n\n');
+      } catch {
+        /* best effort */
+      }
+      res.end();
     },
   };
 }

@@ -333,6 +333,274 @@ paths:
           $ref: '#/components/responses/401'
         500:
           $ref: '#/components/responses/500'
+  /agent/{id}/budget:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentBudget
+      summary: Get per-agent character/token budgets
+      description: >
+        Returns the override, default, and effective value for every character
+        budget that OpenClaw exposes per agent (memory fetch size, tool result
+        caps, post-compaction cap, skills prompt cap, etc.).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Budget configuration for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentBudgetResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentBudget
+      summary: Update per-agent character/token budgets
+      description: >
+        Patches one or more budget fields. Send a number to set an override,
+        or null to unset the override and fall back to the default.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentBudgetPatch'
+      responses:
+        200:
+          description: Updated budget configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentBudgetMutationResponse'
+        400:
+          description: Budget update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentBudgetMutationResponse'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/model-config:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentModelConfig
+      summary: Get per-agent model override
+      description: >
+        Returns the agent's model override (if any), the effective model,
+        the system default, and the list of configured models available
+        to pick from.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Model configuration for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentModelConfigResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentModelConfig
+      summary: Set or clear the per-agent model override
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                  nullable: true
+                  description: Model key to pin for this agent. Send null to inherit default.
+      responses:
+        200:
+          description: Updated model configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentModelConfigMutationResponse'
+        400:
+          description: Model update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentModelConfigMutationResponse'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/skills:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentSkills
+      summary: Get per-agent skill allowlist
+      description: >
+        Returns the skill allowlist configured for this agent. A null override
+        means the agent inherits `agents.defaults.skills`. An empty array means
+        the agent is restricted to no skills. Also returns the full catalog of
+        available skills so a UI can render a picker.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Skill configuration for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSkillsResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentSkills
+      summary: Set or clear the per-agent skill allowlist
+      description: >
+        Pass an array of skill names to pin an explicit allowlist (this
+        replaces, not merges with, the inherited defaults). Pass null to
+        unset the override.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skills:
+                  type: array
+                  nullable: true
+                  items:
+                    type: string
+                  description: Allowed skill names, or null to inherit defaults.
+      responses:
+        200:
+          description: Updated skill configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSkillsMutationResponse'
+        400:
+          description: Skill update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSkillsMutationResponse'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/subagents:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentSubagentsConfig
+      summary: Get per-agent subagent settings
+      description: >
+        Returns the allow-list of child agents this agent may spawn, the
+        default model and thinking level for spawned subagents, and whether
+        an explicit `agent_id` is required on spawn calls.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Subagent configuration for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSubagentsResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentSubagentsConfig
+      summary: Update per-agent subagent settings
+      description: >
+        Patches any subset of `allowAgents`, `model`, `thinking`, or
+        `requireAgentId`. Send null for any field to unset its override and
+        fall back to system defaults.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentSubagentsPatch'
+      responses:
+        200:
+          description: Updated subagent configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSubagentsMutationResponse'
+        400:
+          description: Subagent update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentSubagentsMutationResponse'
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
 #
 #
 #
@@ -357,7 +625,17 @@ components:
       required: true
       schema:
         type: string
-        enum: [AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md, MEMORY.md]
+        enum:
+          [
+            AGENTS.md,
+            SOUL.md,
+            TOOLS.md,
+            IDENTITY.md,
+            USER.md,
+            HEARTBEAT.md,
+            BOOTSTRAP.md,
+            MEMORY.md,
+          ]
   ##
   schemas:
     #
@@ -431,3 +709,237 @@ components:
         syncedMessages:
           type: integer
           description: Number of newly imported messages
+    #
+    agentBudgetField:
+      type: object
+      description: One character/token budget that can be overridden per agent.
+      properties:
+        key:
+          type: string
+          enum:
+            - memoryGetMaxChars
+            - memoryGetDefaultLines
+            - toolResultMaxChars
+            - postCompactionMaxChars
+            - maxSkillsPromptChars
+        label:
+          type: string
+        description:
+          type: string
+        min:
+          type: integer
+        max:
+          type: integer
+        override:
+          type: integer
+          nullable: true
+          description: Value set on this agent (null if inheriting default).
+        default:
+          type: integer
+          nullable: true
+          description: Inherited default from agents.defaults.
+        effective:
+          type: integer
+          nullable: true
+          description: Override if set, otherwise default.
+    #
+    agentBudgetResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+          description: Whether this agent is present in openclaw.json.
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentBudgetField'
+    #
+    agentBudgetPatch:
+      type: object
+      description: >
+        Any subset of known budget keys mapped to a number (override) or null
+        (unset override).
+      additionalProperties:
+        type: integer
+        nullable: true
+    #
+    agentBudgetMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        config:
+          $ref: '#/components/schemas/agentBudgetResponse'
+    #
+    agentModelOption:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Model key (what gets written to config).
+        alias:
+          type: string
+          nullable: true
+    #
+    agentModelConfigResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+        override:
+          type: string
+          nullable: true
+        systemDefault:
+          type: string
+          nullable: true
+        effective:
+          type: string
+          nullable: true
+        available:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentModelOption'
+    #
+    agentModelConfigMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        config:
+          $ref: '#/components/schemas/agentModelConfigResponse'
+    #
+    agentSkillSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        eligible:
+          type: boolean
+        blockedByAllowlist:
+          type: boolean
+        source:
+          type: string
+        bundled:
+          type: boolean
+    #
+    agentSkillsResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+        override:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Explicit allowlist, or null when inheriting defaults.
+        available:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentSkillSummary'
+    #
+    agentSkillsMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        config:
+          $ref: '#/components/schemas/agentSkillsResponse'
+    #
+    agentSubagentsConfig:
+      type: object
+      properties:
+        allowAgents:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Explicit child-agent allowlist, or null when unrestricted.
+        model:
+          type: string
+          nullable: true
+        thinking:
+          type: string
+          nullable: true
+          description: One of minimal, low, medium, high, or null to inherit.
+        requireAgentId:
+          type: boolean
+          nullable: true
+    #
+    agentRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          nullable: true
+    #
+    agentSubagentsResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+        config:
+          $ref: '#/components/schemas/agentSubagentsConfig'
+        availableAgents:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentRef'
+          description: Configured agents (excluding self) that can appear in allowAgents.
+        availableModels:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentModelOption'
+    #
+    agentSubagentsPatch:
+      type: object
+      description: Any subset of subagent fields. Pass null to unset an override.
+      properties:
+        allowAgents:
+          type: array
+          nullable: true
+          items:
+            type: string
+        model:
+          type: string
+          nullable: true
+        thinking:
+          type: string
+          nullable: true
+          enum: [minimal, low, medium, high, inherit]
+        requireAgentId:
+          type: boolean
+          nullable: true
+    #
+    agentSubagentsMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        config:
+          $ref: '#/components/schemas/agentSubagentsResponse'

@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Alert, Box, Typography, CircularProgress } from '@mui/material';
 import { MessageBubble } from '../../../entities/message';
 import type { ChatState } from '../model/types';
 
@@ -15,6 +15,7 @@ export default function MessageList({ chat }: MessageListProps) {
     isStreaming,
     streamingText,
     streamingThinking,
+    streamError,
     pendingUserText,
     pendingFilesPreviews,
     loadMore,
@@ -22,6 +23,7 @@ export default function MessageList({ chat }: MessageListProps) {
     scrollContainerRef,
     messagesEndRef,
     handleScroll,
+    clearError,
   } = chat;
 
   return (
@@ -37,6 +39,29 @@ export default function MessageList({ chat }: MessageListProps) {
         py: 2,
       }}
     >
+      {streamError && (
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            mb: 1.5,
+          }}
+        >
+          <Alert
+            severity="error"
+            variant="filled"
+            onClose={clearError}
+            sx={{
+              alignItems: 'flex-start',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {streamError}
+          </Alert>
+        </Box>
+      )}
       {isLoading && !loadMoreCursor ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress size={28} />

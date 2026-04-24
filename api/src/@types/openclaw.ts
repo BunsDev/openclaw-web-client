@@ -98,9 +98,37 @@ export interface SessionSettingsPatchBody {
 
 // ── OpenClaw config (openclaw.json) ──
 
+export interface OpenclawContextLimits {
+  memoryGetMaxChars?: number;
+  memoryGetDefaultLines?: number;
+  toolResultMaxChars?: number;
+  postCompactionMaxChars?: number;
+}
+
+export interface OpenclawSkillsLimits {
+  maxSkillsPromptChars?: number;
+}
+
+export interface OpenclawSubagentsSection {
+  allowAgents?: string[];
+  model?: string | { primary?: string; fallbacks?: string[] };
+  thinking?: string;
+  requireAgentId?: boolean;
+}
+
 export interface OpenclawAgentEntry {
   id?: string;
+  name?: string;
   model?: string | { primary?: string } | null;
+  contextLimits?: OpenclawContextLimits;
+  skillsLimits?: OpenclawSkillsLimits;
+  skills?: string[];
+  subagents?: OpenclawSubagentsSection;
+  [key: string]: unknown;
+}
+
+export interface OpenclawModelEntry {
+  alias?: string;
   [key: string]: unknown;
 }
 
@@ -108,9 +136,109 @@ export interface OpenclawAgentsSection {
   list?: OpenclawAgentEntry[];
   defaults?: {
     model?: { primary?: string } | null;
+    models?: Record<string, OpenclawModelEntry>;
+    contextLimits?: OpenclawContextLimits;
+    skillsLimits?: OpenclawSkillsLimits;
     [key: string]: unknown;
   };
   [key: string]: unknown;
+}
+
+// ── Agent budgets (context/skills limits) ──
+
+export type AgentBudgetKey =
+  | 'memoryGetMaxChars'
+  | 'memoryGetDefaultLines'
+  | 'toolResultMaxChars'
+  | 'postCompactionMaxChars'
+  | 'maxSkillsPromptChars';
+
+export interface AgentBudgetField {
+  key: AgentBudgetKey;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  override: number | null;
+  default: number | null;
+  effective: number | null;
+}
+
+export interface AgentBudgetResponse {
+  agentId: string;
+  known: boolean;
+  fields: AgentBudgetField[];
+}
+
+export type AgentBudgetPatch = Partial<Record<AgentBudgetKey, number | null>>;
+
+// ── Agent model config ──
+
+export interface AgentModelOption {
+  key: string;
+  alias: string | null;
+}
+
+export interface AgentModelConfigResponse {
+  agentId: string;
+  known: boolean;
+  override: string | null;
+  systemDefault: string | null;
+  effective: string | null;
+  available: AgentModelOption[];
+}
+
+export interface AgentModelConfigPatch {
+  model: string | null;
+}
+
+// ── Agent skills (per-agent allowlist) ──
+
+export interface AgentSkillSummary {
+  name: string;
+  description: string;
+  emoji: string;
+  eligible: boolean;
+  blockedByAllowlist: boolean;
+  source: string;
+  bundled: boolean;
+}
+
+export interface AgentSkillsResponse {
+  agentId: string;
+  known: boolean;
+  override: string[] | null;
+  available: AgentSkillSummary[];
+}
+
+export interface AgentSkillsPatch {
+  skills: string[] | null;
+}
+
+// ── Agent subagents ──
+
+export type AgentSubagentsThinking = 'minimal' | 'low' | 'medium' | 'high' | 'inherit' | string;
+
+export interface AgentSubagentsConfig {
+  allowAgents: string[] | null;
+  model: string | null;
+  thinking: string | null;
+  requireAgentId: boolean | null;
+}
+
+export interface AgentSubagentsResponse {
+  agentId: string;
+  known: boolean;
+  config: AgentSubagentsConfig;
+  availableAgents: { id: string; name: string | null }[];
+  availableModels: AgentModelOption[];
+}
+
+export interface AgentSubagentsPatch {
+  allowAgents?: string[] | null;
+  model?: string | null;
+  thinking?: string | null;
+  requireAgentId?: boolean | null;
 }
 
 export interface OpenclawConfig {

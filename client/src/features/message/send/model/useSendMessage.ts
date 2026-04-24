@@ -13,10 +13,12 @@ export interface SendMessageState {
   isStreaming: boolean;
   streamingText: string;
   streamingThinking: string;
+  streamError: string | null;
   pendingUserText: string;
   pendingFilesPreviews: MessageFile[];
   send: (text: string, files: File[]) => Promise<void>;
   abort: () => void;
+  clearError: () => void;
 }
 
 /**
@@ -30,6 +32,7 @@ export function useSendMessage({
 }: UseSendMessageArgs): SendMessageState {
   const [streamingText, setStreamingText] = useState('');
   const [streamingThinking, setStreamingThinking] = useState('');
+  const [streamError, setStreamError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingUserText, setPendingUserText] = useState('');
   const [pendingFilesPreviews, setPendingFilesPreviews] = useState<MessageFile[]>([]);
@@ -41,6 +44,8 @@ export function useSendMessage({
     abortRef.current?.abort();
     abortRef.current = null;
   }, []);
+
+  const clearError = useCallback(() => setStreamError(null), []);
 
   const send = useCallback(
     async (text: string, files: File[]) => {
@@ -59,6 +64,7 @@ export function useSendMessage({
       setPendingFilesPreviews(previews);
       setStreamingText('');
       setStreamingThinking('');
+      setStreamError(null);
       setIsStreaming(true);
 
       const token = localStorage.getItem('token');
@@ -80,6 +86,14 @@ export function useSendMessage({
 
         if (!res.ok || !res.body) {
           console.error('Chat request failed:', res.status);
+          let msg = `Chat request failed (${res.status}).`;
+          try {
+            const body = await res.json();
+            if (body?.error) msg = String(body.error);
+          } catch {
+            /* ignore */
+          }
+          setStreamError(msg);
           return;
         }
 
@@ -101,6 +115,8 @@ export function useSendMessage({
             } else if (event.type === 'response.thinking.delta' && event.delta) {
               accThinking += event.delta;
               setStreamingThinking(accThinking);
+            } else if (event.type === 'response.error' && event.delta) {
+              setStreamError(String(event.delta));
             }
           } catch {
             /* skip */
@@ -127,6 +143,7 @@ export function useSendMessage({
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Stream error:', err);
+        setStreamError(err instanceof Error ? err.message : 'Network error while streaming.');
       } finally {
         setIsStreaming(false);
         setStreamingText('');
@@ -146,9 +163,11 @@ export function useSendMessage({
     isStreaming,
     streamingText,
     streamingThinking,
+    streamError,
     pendingUserText,
     pendingFilesPreviews,
     send,
     abort,
+    clearError,
   };
 }

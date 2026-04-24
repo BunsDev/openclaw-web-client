@@ -1,19 +1,54 @@
+import { useState, type ReactElement } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Box, IconButton, Typography, CircularProgress } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { Box, IconButton, Typography, CircularProgress, Tab, Tabs } from '@mui/material';
+import { ArrowBack, Extension, FolderOpen, Group, Tune } from '@mui/icons-material';
 import { useGetAgentQuery } from '../../../entities/agent';
+import { AgentBudgets } from '../../../features/agent/budgets';
+import { AgentSkills } from '../../../features/agent/skills';
+import { AgentSubagents } from '../../../features/agent/subagents';
 import WorkspaceFileTabs from './WorkspaceFileTabs';
 
 interface WorkspaceProps {
   agentId: string;
 }
 
+type SectionId = 'files' | 'budgets' | 'skills' | 'subagents';
+
+const SECTIONS: { id: SectionId; label: string; icon: ReactElement; caption: string }[] = [
+  {
+    id: 'files',
+    label: 'Workspace',
+    icon: <FolderOpen sx={{ fontSize: 18 }} />,
+    caption: 'Workspace files',
+  },
+  {
+    id: 'budgets',
+    label: 'Budgets',
+    icon: <Tune sx={{ fontSize: 18 }} />,
+    caption: 'Per-agent character budgets',
+  },
+  {
+    id: 'skills',
+    label: 'Skills',
+    icon: <Extension sx={{ fontSize: 18 }} />,
+    caption: 'Per-agent skill allowlist',
+  },
+  {
+    id: 'subagents',
+    label: 'Subagents',
+    icon: <Group sx={{ fontSize: 18 }} />,
+    caption: 'Child-agent defaults',
+  },
+];
+
 export default function Workspace({ agentId }: WorkspaceProps) {
   const [searchParams] = useSearchParams();
   const returnConv = searchParams.get('return');
   const { data: agent, isLoading } = useGetAgentQuery(agentId, { skip: !agentId });
+  const [section, setSection] = useState<SectionId>('files');
 
   const backHref = returnConv ? `/agent/${agentId}/chat/${returnConv}` : '/';
+  const activeCaption = SECTIONS.find((s) => s.id === section)?.caption ?? '';
 
   if (isLoading && !agent) {
     return (
@@ -64,9 +99,40 @@ export default function Workspace({ agentId }: WorkspaceProps) {
             {agent?.name ?? 'Agent'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Workspace files
+            {activeCaption}
           </Typography>
         </Box>
+      </Box>
+
+      <Box
+        sx={{
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          flexShrink: 0,
+          px: { xs: 1, md: 2 },
+        }}
+      >
+        <Tabs
+          value={section}
+          onChange={(_, v: SectionId) => setSection(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{
+            minHeight: 40,
+            '& .MuiTab-root': {
+              minHeight: 40,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              px: 1.5,
+            },
+          }}
+        >
+          {SECTIONS.map((s) => (
+            <Tab key={s.id} value={s.id} iconPosition="start" icon={s.icon} label={s.label} />
+          ))}
+        </Tabs>
       </Box>
 
       <Box
@@ -78,7 +144,10 @@ export default function Workspace({ agentId }: WorkspaceProps) {
           py: 2,
         }}
       >
-        <WorkspaceFileTabs agentId={agentId} />
+        {section === 'files' && <WorkspaceFileTabs agentId={agentId} />}
+        {section === 'budgets' && agent?._id && <AgentBudgets agentId={String(agent._id)} />}
+        {section === 'skills' && agent?._id && <AgentSkills agentId={String(agent._id)} />}
+        {section === 'subagents' && agent?._id && <AgentSubagents agentId={String(agent._id)} />}
       </Box>
     </Box>
   );

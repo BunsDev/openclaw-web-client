@@ -42,10 +42,12 @@ export function useChat(conversationId: string | undefined): ChatState {
     isStreaming,
     streamingText,
     streamingThinking,
+    streamError,
     pendingUserText,
     pendingFilesPreviews,
     send,
     abort,
+    clearError,
   } = useSendMessage({
     conversationId,
     refetch,
@@ -140,6 +142,7 @@ export function useChat(conversationId: string | undefined): ChatState {
   if (prevConvId !== conversationId) {
     setPrevConvId(conversationId);
     abort();
+    clearError();
     if (loadMoreCursor !== undefined) setLoadMoreCursor(undefined);
   }
 
@@ -176,11 +179,13 @@ export function useChat(conversationId: string | undefined): ChatState {
     isStreaming,
     streamingText,
     streamingThinking,
+    streamError,
     pendingUserText,
     pendingFilesPreviews,
     send,
     loadMore,
     handleScroll,
+    clearError,
     scrollContainerRef,
     messagesEndRef,
   };
