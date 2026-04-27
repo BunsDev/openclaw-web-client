@@ -110,22 +110,33 @@ openclaw_client restart     # production (installed via `npm start`)
 npm run dev                 # development
 ```
 
-`api/.env`, the Vite dev/preview server, the built `serve.mjs`, `ALLOWED_DOMAIN`, `API_PUBLIC_URL`, and the bundled client's `VITE_API_BASE_URL` are all derived from this file, so both dev and production stay consistent.
+`api/.env`, the Vite dev/preview server, and the built `serve.mjs` all read this file so both dev and production stay consistent. The API derives `API_PUBLIC_URL` from each request's `Host` header (so workspace URLs match the hostname the user is actually browsing) and ships a permissive CORS default; see the **CORS / remote access** note below for how to lock it down.
 
 ### Environment Variables
 
 Generated automatically on first run in `api/.env` (see `api/.env.example` for reference):
 
-| Variable         | Default                  | Description                                           |
-| ---------------- | ------------------------ | ----------------------------------------------------- |
-| `NODE_ENV`       | `development`            | Environment mode                                      |
-| `JWT_SECRET`     | _(random)_               | Secret for JWT signing                                |
-| `DB_PATH`        | `./data/openclaw.sqlite` | Path to SQLite database file                          |
-| `PORT`           | _(API_PORT)_             | API listen port (driven by `~/.openclaw_client/.env`) |
-| `ALLOWED_DOMAIN` | _(CLIENT origin)_        | CORS allowed origin(s), comma-separated               |
-| `API_PUBLIC_URL` | _(API origin)_           | Public base URL used for generated workspace URLs     |
+| Variable               | Default                    | Description                                                       |
+| ---------------------- | -------------------------- | ----------------------------------------------------------------- |
+| `NODE_ENV`             | `development`              | Environment mode                                                  |
+| `JWT_SECRET`           | _(random)_                 | Secret for JWT signing                                            |
+| `DB_PATH`              | `./data/openclaw.sqlite`   | Path to SQLite database file                                      |
+| `PORT`                 | _(API_PORT)_               | API listen port (driven by `~/.openclaw_client/.env`)             |
+| `ALLOWED_DOMAIN`       | _(unset — allow all)_      | CORS allowlist, comma-separated; only enforced when `OPENCLAW_STRICT_CORS=1` |
+| `OPENCLAW_STRICT_CORS` | _(off)_                    | Set to `1` to reject any origin not in `ALLOWED_DOMAIN`           |
+| `API_PUBLIC_URL`       | _(derived from request)_   | Optional fallback origin for workspace URLs when no `Host` header |
 
-The client reads `VITE_API_BASE_URL` at build time; it is set automatically to match `API_PORT`. Override by setting it in `client/.env` only if you deploy behind a custom host.
+> **CORS / remote access.** OpenClaw Client is a single-user local app. By
+> default the API allows every origin and the client derives the API URL
+> from `window.location`, so the same install works on `localhost`, on a
+> LAN IP, and over Tailscale without any extra configuration. To lock it
+> down to a fixed allowlist, set `ALLOWED_DOMAIN` and `OPENCLAW_STRICT_CORS=1`
+> in `api/.env` (or `~/.openclaw_client/api/.env` for production installs).
+
+The client picks its API origin at runtime: `__OPENCLAW_CONFIG__.apiBaseUrl`
+(injected by the production static server from the request host) ▸
+`VITE_API_BASE_URL` (build-time override) ▸ derived from
+`window.location` + `VITE_API_PORT`.
 
 To regenerate secrets, delete `api/.env` and run `npm run dev` or `npm run setup` again.
 

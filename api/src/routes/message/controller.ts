@@ -14,7 +14,37 @@ import {
 } from '../../@types/message';
 import * as ocService from '../../services/openclaw';
 
-const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:18802';
+/**
+ * Resolve the public origin to use when minting URLs back to the client.
+ *
+ * OpenClaw Client is deployed in two patterns:
+ *   1. Local-only: browser on the install host. `Host` header reads
+ *      `localhost:<port>` and the API_PUBLIC_URL env (default
+ *      `http://localhost:18802`) was historically hardcoded — fine.
+ *   2. LAN/Tailscale/IP: browser on a different device. `Host` reads
+ *      `<remote-host>:<port>`. A hardcoded localhost URL would point
+ *      the remote browser at *its own machine*, breaking workspace
+ *      file previews and downloads silently.
+ *
+ * So we prefer `req.headers.host` (already validated by Express + the
+ * cors middleware) and only fall back to the env override / default
+ * for non-HTTP callers. `x-forwarded-host` is honoured for users
+ * running behind a reverse proxy.
+ */
+const apiPublicUrl = (req: {
+  headers: Record<string, string | string[] | undefined>;
+  protocol?: string;
+}): string => {
+  const envOverride = process.env.API_PUBLIC_URL;
+  const xfHost = req.headers['x-forwarded-host'];
+  const host = (Array.isArray(xfHost) ? xfHost[0] : xfHost) || req.headers.host;
+  if (host) {
+    const xfProto = req.headers['x-forwarded-proto'];
+    const proto = (Array.isArray(xfProto) ? xfProto[0] : xfProto) || req.protocol || 'http';
+    return `${proto}://${host}`;
+  }
+  return envOverride || 'http://localhost:18802';
+};
 
 function stripWrapperTags(text: string): string {
   return text
@@ -105,9 +135,11 @@ const chat: Chat = async (req, res, next) => {
     const agent = await agentRepo.findOneBy({ _id: conv.agentId });
     const agentIdForFiles = agent?.openclawAgentId || 'main';
 
+    const publicUrl = apiPublicUrl(req);
+
     const msgCount = await msgRepo.count({ where: { conversationId: conv._id } });
     if (msgCount === 0) {
-      ocService.appendBootstrapImageRule(agentIdForFiles, conv.agentId, API_PUBLIC_URL);
+      ocService.appendBootstrapImageRule(agentIdForFiles, conv.agentId, publicUrl);
     }
 
     const filePaths = uploadedFiles.map((uf) =>
@@ -121,7 +153,7 @@ const chat: Chat = async (req, res, next) => {
         originalName: f.originalname,
         mimetype: f.mimetype,
         size: f.size,
-        url: `${API_PUBLIC_URL}/api/agent/${conv.agentId}/workspace/uploads/${encodeURIComponent(savedName)}`,
+        url: `${publicUrl}/api/agent/${conv.agentId}/workspace/uploads/${encodeURIComponent(savedName)}`,
       };
     });
 

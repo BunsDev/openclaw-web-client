@@ -17,6 +17,11 @@ if (fs.existsSync(API_ENV)) {
 
 const JWT_SECRET = crypto.randomBytes(32).toString('hex');
 
+// ALLOWED_DOMAIN / API_PUBLIC_URL are deliberately omitted: the API has
+// a permissive CORS default and derives public URLs from the request
+// host so the same install works on localhost, LAN, and Tailscale.
+// Users who want strict CORS can set `ALLOWED_DOMAIN=...` and
+// `OPENCLAW_STRICT_CORS=1` themselves.
 fs.writeFileSync(
   API_ENV,
   [
@@ -24,8 +29,6 @@ fs.writeFileSync(
     `JWT_SECRET=${JWT_SECRET}`,
     `DB_PATH=./data/openclaw.sqlite`,
     `PORT=${apiPort}`,
-    `ALLOWED_DOMAIN=http://localhost:${clientPort}`,
-    `API_PUBLIC_URL=http://localhost:${apiPort}`,
     '',
   ].join('\n'),
 );

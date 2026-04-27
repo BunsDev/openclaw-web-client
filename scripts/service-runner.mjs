@@ -35,14 +35,17 @@ function parseEnvFile(file) {
 const userEnv = parseEnvFile(USER_ENV);
 const apiPort = Number(userEnv.API_PORT) || 18802;
 const clientPort = Number(userEnv.CLIENT_PORT) || 18800;
+// We deliberately do not export ALLOWED_DOMAIN / API_PUBLIC_URL here:
+// the API has a permissive CORS default and derives public URLs from
+// the request host, so the same install works on localhost, LAN, and
+// Tailscale. Users who want strict CORS set ALLOWED_DOMAIN and
+// OPENCLAW_STRICT_CORS=1 in ~/.openclaw_client/api/.env themselves.
 const childEnv = {
   ...process.env,
   NODE_ENV: 'production',
   API_PORT: String(apiPort),
   CLIENT_PORT: String(clientPort),
   PORT: String(apiPort),
-  ALLOWED_DOMAIN: `http://localhost:${clientPort}`,
-  API_PUBLIC_URL: `http://localhost:${apiPort}`,
 };
 
 const children = [];

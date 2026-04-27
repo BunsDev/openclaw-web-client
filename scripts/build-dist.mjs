@@ -107,7 +107,9 @@ export function deploy() {
 
   process.stdout.write('🔨 Building...\n');
   run(NPM_BIN, ['run', 'build'], API_SRC);
-  // VITE_API_BASE_URL is embedded into the bundle at build time
+  // VITE_API_PORT is embedded into the bundle as a fallback; the
+  // runtime resolves the actual API origin from the page's hostname so
+  // the same build works on localhost, LAN, and Tailscale.
   try {
     execFileSync(NPM_BIN, ['run', 'build'], { cwd: CLIENT_SRC, stdio: 'pipe', env: buildEnv });
   } catch (err) {
@@ -141,29 +143,35 @@ export function deploy() {
   const canonicalDbPath = path.join(dataDir, 'openclaw.sqlite');
 
   const envDist = path.join(apiDist, '.env');
-  const allowedDomain = `http://localhost:${clientPort}`;
-  const apiPublicUrl = `http://localhost:${apiPort}`;
+
+  // We seed only what the runtime can't figure out on its own.
+  //   - DB_PATH and PORT must match where the install actually lives.
+  //   - JWT_SECRET must persist across reinstalls or every login token
+  //     gets invalidated, so we generate it once.
+  //   - ALLOWED_DOMAIN / API_PUBLIC_URL are deliberately omitted: the
+  //     API has a permissive CORS default and derives public URLs from
+  //     the request host. Users who want strict CORS set
+  //     `ALLOWED_DOMAIN=...` and `OPENCLAW_STRICT_CORS=1` themselves.
+  const seedDefaults = {
+    NODE_ENV: 'production',
+    JWT_SECRET: crypto.randomBytes(32).toString('hex'),
+    DB_PATH: canonicalDbPath,
+    PORT: String(apiPort),
+  };
+  const overrides = {
+    DB_PATH: canonicalDbPath,
+    PORT: String(apiPort),
+  };
 
   if (!existsSync(envDist)) {
     writeFileSync(
       envDist,
-      [
-        'NODE_ENV=production',
-        `JWT_SECRET=${crypto.randomBytes(32).toString('hex')}`,
-        `DB_PATH=${canonicalDbPath}`,
-        `PORT=${apiPort}`,
-        `ALLOWED_DOMAIN=${allowedDomain}`,
-        `API_PUBLIC_URL=${apiPublicUrl}`,
-        '',
-      ].join('\n')
+      Object.entries(seedDefaults)
+        .map(([k, v]) => `${k}=${v}`)
+        .concat('')
+        .join('\n')
     );
   } else {
-    const overrides = {
-      DB_PATH: canonicalDbPath,
-      PORT: String(apiPort),
-      ALLOWED_DOMAIN: allowedDomain,
-      API_PUBLIC_URL: apiPublicUrl,
-    };
     const seen = new Set();
     const lines = readFileSync(envDist, 'utf-8').split('\n');
     const updated = lines.map((line) => {
