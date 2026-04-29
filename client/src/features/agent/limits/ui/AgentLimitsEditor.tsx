@@ -57,6 +57,15 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+const compactButtonSx = {
+  fontSize: '0.7rem',
+  lineHeight: 1.4,
+  py: 0.25,
+  px: 1,
+  minWidth: 'auto',
+  textTransform: 'none' as const,
+};
+
 /** Map a 0..1+ ratio to a colour bucket. Matches `AgentUsageBar`. */
 function ratioColour(state: AgentLimitWindowState): 'secondary' | 'warning' | 'error' | 'primary' {
   if (state.exceeded) return 'error';
@@ -103,7 +112,7 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
   const [updateLimits, { isLoading: isSaving }] = useUpdateAgentLimitsMutation();
 
   const [edits, setEdits] = useState<Partial<DraftState>>({});
-  const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [prevData, setPrevData] = useState(data);
   if (data !== prevData) {
@@ -150,7 +159,7 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
   const handleChange = (field: WindowMeta['field']) => (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setEdits((prev) => ({ ...prev, [field]: value }));
-    setFeedback(null);
+    setErrorMsg(null);
   };
 
   const handleSave = async () => {
@@ -168,32 +177,31 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
       }
     });
     if (errors.length > 0) {
-      setFeedback({ kind: 'err', msg: errors.join(' · ') });
+      setErrorMsg(errors.join(' · '));
       return;
     }
+    // Nothing to persist — silently no-op (the Save button is also disabled
+    // when nothing's dirty, so this branch is mostly defensive).
     if (Object.keys(patch).length === 0) {
-      setFeedback({ kind: 'ok', msg: 'Nothing to save.' });
+      setErrorMsg(null);
       return;
     }
     try {
       await updateLimits({ agentId, patch }).unwrap();
-      setFeedback({ kind: 'ok', msg: 'Saved.' });
+      setErrorMsg(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Save failed';
-      setFeedback({ kind: 'err', msg });
+      setErrorMsg(err instanceof Error ? err.message : 'Save failed');
     }
   };
 
   const handleReset = () => {
     setEdits({});
-    setFeedback(null);
+    setErrorMsg(null);
   };
 
   return (
     <Box
       sx={{
-        border: '1px solid',
-        borderColor: 'divider',
         borderRadius: 1,
         p: 1.5,
         bgcolor: 'background.paper',
@@ -217,7 +225,7 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
         <Stack direction="row" spacing={0.5} alignItems="center">
           {isFetching && !isSaving && <CircularProgress size={14} />}
           {dirty && (
-            <Button size="small" onClick={handleReset} disabled={isSaving}>
+            <Button size="small" onClick={handleReset} disabled={isSaving} sx={compactButtonSx}>
               Reset
             </Button>
           )}
@@ -227,7 +235,8 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
             disableElevation
             onClick={handleSave}
             disabled={!dirty || isSaving}
-            startIcon={isSaving ? <CircularProgress size={12} color="inherit" /> : null}
+            startIcon={isSaving ? <CircularProgress size={10} color="inherit" /> : null}
+            sx={compactButtonSx}
           >
             Save
           </Button>
@@ -237,23 +246,19 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: 0.75,
           mb: 1.25,
           p: 1,
           borderRadius: 1,
-          border: '1px solid',
-          borderColor: 'error.main',
-          bgcolor: (theme) =>
-            theme.palette.mode === 'dark' ? 'rgba(244, 67, 54, 0.08)' : 'rgba(244, 67, 54, 0.06)',
+          bgcolor: 'rgba(255, 167, 38, 0.10)',
         }}
       >
-        <ReportProblemOutlined sx={{ fontSize: 18, color: 'error.main', mt: '1px' }} />
+        <ReportProblemOutlined sx={{ fontSize: 18, color: 'warning.main', flexShrink: 0 }} />
         <Typography
           variant="caption"
           sx={{
-            color: 'error.main',
-            fontWeight: 700,
+            color: (theme) => (theme.palette.mode === 'dark' ? 'warning.light' : 'warning.dark'),
             lineHeight: 1.4,
             fontSize: '0.75rem',
           }}
@@ -278,8 +283,6 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
               sx={{
                 flex: 1,
                 minWidth: 0,
-                border: '1px solid',
-                borderColor: 'divider',
                 borderRadius: 1,
                 p: 1.25,
                 display: 'flex',
@@ -367,14 +370,14 @@ export default function AgentLimitsEditor({ agentId }: AgentLimitsEditorProps) {
         })}
       </Stack>
 
-      {feedback && (
+      {errorMsg && (
         <Alert
-          severity={feedback.kind === 'ok' ? 'success' : 'error'}
+          severity="error"
           variant="outlined"
           sx={{ mt: 1.25 }}
-          onClose={() => setFeedback(null)}
+          onClose={() => setErrorMsg(null)}
         >
-          {feedback.msg}
+          {errorMsg}
         </Alert>
       )}
     </Box>

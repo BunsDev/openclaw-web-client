@@ -213,8 +213,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
       <Stack spacing={1.25}>
         <Box
           sx={{
-            border: '1px solid',
-            borderColor: 'divider',
             borderRadius: 1,
             bgcolor: 'background.paper',
             overflow: 'hidden',
@@ -351,8 +349,6 @@ export default function AgentSubagents({ agentId }: AgentSubagentsProps) {
 
         <Box
           sx={{
-            border: '1px solid',
-            borderColor: 'divider',
             borderRadius: 1,
             p: 1.5,
             bgcolor: 'background.paper',

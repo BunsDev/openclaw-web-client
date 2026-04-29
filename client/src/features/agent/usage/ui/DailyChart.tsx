@@ -56,7 +56,7 @@ export default function DailyChart({ points }: DailyChartProps) {
               <Box
                 sx={{
                   flex: 1,
-                  width: 14,
+                  width: 10,
                   display: 'flex',
                   alignItems: 'flex-end',
                   minHeight: 0,

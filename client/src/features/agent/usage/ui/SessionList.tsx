@@ -20,8 +20,6 @@ export default function SessionList({ rows }: SessionListProps) {
         <Box
           key={s.key}
           sx={{
-            border: '1px solid',
-            borderColor: 'divider',
             borderRadius: 1,
             p: 1,
             bgcolor: 'background.paper',

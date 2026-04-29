@@ -84,7 +84,15 @@ export default function AgentUsage({ agentId }: AgentUsageProps) {
           size="small"
           onClick={() => refetch()}
           disabled={isFetching}
-          startIcon={isFetching ? <CircularProgress size={12} /> : null}
+          startIcon={isFetching ? <CircularProgress size={10} /> : null}
+          sx={{
+            fontSize: '0.7rem',
+            lineHeight: 1.4,
+            py: 0.25,
+            px: 1,
+            minWidth: 'auto',
+            textTransform: 'none',
+          }}
         >
           {isFetching ? 'Refreshing' : 'Refresh'}
         </Button>
@@ -127,8 +135,6 @@ export default function AgentUsage({ agentId }: AgentUsageProps) {
 
           <Box
             sx={{
-              border: '1px solid',
-              borderColor: 'divider',
               borderRadius: 1,
               p: 1.5,
               bgcolor: 'background.paper',

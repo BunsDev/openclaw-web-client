@@ -12,8 +12,6 @@ export default function StatCard({ label, value, hint }: StatCardProps) {
       sx={{
         flex: 1,
         minWidth: 140,
-        border: '1px solid',
-        borderColor: 'divider',
         borderRadius: 1,
         bgcolor: 'background.paper',
         p: 1.5,

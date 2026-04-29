@@ -194,8 +194,6 @@ export default function AgentBudgets({ agentId }: AgentBudgetsProps) {
             <Box
               key={field.key}
               sx={{
-                border: '1px solid',
-                borderColor: 'divider',
                 borderRadius: 1,
                 p: 1.25,
                 bgcolor: 'background.paper',

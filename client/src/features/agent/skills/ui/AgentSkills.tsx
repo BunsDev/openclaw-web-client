@@ -185,8 +185,6 @@ export default function AgentSkills({ agentId }: AgentSkillsProps) {
 
       <Box
         sx={{
-          border: '1px solid',
-          borderColor: 'divider',
           borderRadius: 1,
           bgcolor: 'background.paper',
           overflow: 'hidden',
