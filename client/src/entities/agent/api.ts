@@ -151,6 +151,107 @@ export interface AgentProviderModelMutationResponse {
   config?: AgentProviderModelsResponse;
 }
 
+export interface AgentUsageTotals {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+export interface AgentUsageMessageCounts {
+  total: number;
+  user: number;
+  assistant: number;
+  toolCalls: number;
+  errors: number;
+}
+
+export interface AgentUsageLatency {
+  count: number;
+  avgMs: number;
+  p95Ms: number;
+}
+
+export interface AgentUsageDailyPoint {
+  date: string;
+  tokens: number;
+  cost: number;
+}
+
+export interface AgentUsageModelRow {
+  provider: string;
+  model: string;
+  count: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+export interface AgentUsageToolRow {
+  name: string;
+  count: number;
+}
+
+export interface AgentUsageSessionRow {
+  key: string;
+  label: string | null;
+  channel: string | null;
+  updatedAt: number | null;
+  totalTokens: number;
+  totalCost: number;
+  modelProvider: string | null;
+  model: string | null;
+}
+
+export interface AgentUsageResponse {
+  agentId: string;
+  known: boolean;
+  range: { startDate: string | null; endDate: string | null };
+  sessionCount: number;
+  firstActivity: number | null;
+  lastActivity: number | null;
+  totals: AgentUsageTotals;
+  messageCounts: AgentUsageMessageCounts;
+  latency: AgentUsageLatency;
+  daily: AgentUsageDailyPoint[];
+  models: AgentUsageModelRow[];
+  tools: AgentUsageToolRow[];
+  sessions: AgentUsageSessionRow[];
+}
+
+export type AgentLimitWindow = 'daily' | 'monthly' | 'total';
+
+export interface AgentLimitWindowState {
+  limit: number | null;
+  spent: number;
+  ratio: number | null;
+  exceeded: boolean;
+  nearLimit: boolean;
+}
+
+export interface AgentLimitsResponse {
+  agentId: string;
+  today: string;
+  thisMonth: string;
+  windows: Record<AgentLimitWindow, AgentLimitWindowState>;
+  stored: {
+    costLimitDaily: number | null;
+    costLimitMonthly: number | null;
+    costLimitTotal: number | null;
+  };
+}
+
+export interface AgentLimitsPatch {
+  costLimitDaily?: number | null;
+  costLimitMonthly?: number | null;
+  costLimitTotal?: number | null;
+}
+
 export const WORKSPACE_TAB_FILES = [
   { label: 'AGENTS', file: 'AGENTS.md' },
   { label: 'SOUL', file: 'SOUL.md' },
@@ -302,6 +403,33 @@ export const agentsApi = baseApi.injectEndpoints({
       query: (agentId) => `/agent/${agentId}/provider-models`,
       providesTags: (_res, _err, agentId) => [{ type: 'AgentProviderModels', id: agentId }],
     }),
+    getAgentUsage: build.query<AgentUsageResponse, string>({
+      query: (agentId) => `/agent/${agentId}/usage`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentUsage', id: agentId }],
+    }),
+    getAgentLimits: build.query<AgentLimitsResponse, string>({
+      query: (agentId) => `/agent/${agentId}/limits`,
+      providesTags: (_res, _err, agentId) => [{ type: 'AgentLimits', id: agentId }],
+      // The chat-header ring should reflect the agent's true spend on every
+      // navigation — caching a stale value would make the indicator
+      // misleading after a turn completes. Drop the cached payload as soon
+      // as no component subscribes so the next mount always re-fetches.
+      keepUnusedDataFor: 0,
+    }),
+    updateAgentLimits: build.mutation<
+      AgentLimitsResponse,
+      { agentId: string; patch: AgentLimitsPatch }
+    >({
+      query: ({ agentId, patch }) => ({
+        url: `/agent/${agentId}/limits`,
+        method: 'PATCH',
+        body: patch,
+      }),
+      invalidatesTags: (_res, _err, { agentId }) => [
+        { type: 'AgentLimits', id: agentId },
+        { type: 'AgentUsage', id: agentId },
+      ],
+    }),
     updateAgentProviderModel: build.mutation<
       AgentProviderModelMutationResponse,
       { agentId: string; model: string; conversationId?: number | string }
@@ -339,4 +467,7 @@ export const {
   useUpdateAgentSubagentsMutation,
   useGetAgentProviderModelsQuery,
   useUpdateAgentProviderModelMutation,
+  useGetAgentUsageQuery,
+  useGetAgentLimitsQuery,
+  useUpdateAgentLimitsMutation,
 } = agentsApi;

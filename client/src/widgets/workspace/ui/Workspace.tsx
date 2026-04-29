@@ -1,18 +1,19 @@
 import { useState, type ReactElement } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Box, IconButton, Typography, CircularProgress, Tab, Tabs } from '@mui/material';
-import { ArrowBack, Extension, FolderOpen, Group, Tune } from '@mui/icons-material';
+import { ArrowBack, Extension, FolderOpen, Group, Insights, Tune } from '@mui/icons-material';
 import { useGetAgentQuery } from '../../../entities/agent';
 import { AgentBudgets } from '../../../features/agent/budgets';
 import { AgentSkills } from '../../../features/agent/skills';
 import { AgentSubagents } from '../../../features/agent/subagents';
+import { AgentUsage } from '../../../features/agent/usage';
 import WorkspaceFileTabs from './WorkspaceFileTabs';
 
 interface WorkspaceProps {
   agentId: string;
 }
 
-type SectionId = 'files' | 'budgets' | 'skills' | 'subagents';
+type SectionId = 'files' | 'usage' | 'budgets' | 'skills' | 'subagents';
 
 const SECTIONS: { id: SectionId; label: string; icon: ReactElement; caption: string }[] = [
   {
@@ -20,6 +21,12 @@ const SECTIONS: { id: SectionId; label: string; icon: ReactElement; caption: str
     label: 'Workspace',
     icon: <FolderOpen sx={{ fontSize: 18 }} />,
     caption: 'Workspace files',
+  },
+  {
+    id: 'usage',
+    label: 'Usage',
+    icon: <Insights sx={{ fontSize: 18 }} />,
+    caption: 'Token usage and cost across this agent',
   },
   {
     id: 'budgets',
@@ -145,6 +152,7 @@ export default function Workspace({ agentId }: WorkspaceProps) {
         }}
       >
         {section === 'files' && <WorkspaceFileTabs agentId={agentId} />}
+        {section === 'usage' && agent?._id && <AgentUsage agentId={String(agent._id)} />}
         {section === 'budgets' && agent?._id && <AgentBudgets agentId={String(agent._id)} />}
         {section === 'skills' && agent?._id && <AgentSkills agentId={String(agent._id)} />}
         {section === 'subagents' && agent?._id && <AgentSubagents agentId={String(agent._id)} />}

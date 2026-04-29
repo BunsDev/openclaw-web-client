@@ -465,6 +465,99 @@ paths:
           $ref: '#/components/responses/422'
         500:
           $ref: '#/components/responses/500'
+  /agent/{id}/usage:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentUsage
+      summary: Get aggregated token usage and activity stats for an agent
+      description: >
+        Aggregates the gateway's per-session `sessions.usage` data for this
+        agent into a single response: total tokens (input/output/cache),
+        estimated cost, message and tool counts, daily breakdown, per-model
+        rollups, and a list of the agent's sessions sorted by recency. The
+        response is served from a short in-memory cache to keep the UI snappy.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Aggregated usage for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentUsageResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+  /agent/{id}/limits:
+    get:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: getAgentLimits
+      summary: Get per-agent USD spend caps + current spend per window
+      description: >
+        Returns the cost caps stored for this agent (daily / monthly / all-time)
+        alongside the live spend bucketed into those same windows. The current
+        spend is derived from the gateway's `sessions.usage` payload (cached for
+        ~30 seconds). All caps are in USD; `null` means no limit.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        200:
+          description: Limits + current spend per window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentLimitsResponse'
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - agent
+      security:
+        - bearerAuth: []
+      operationId: updateAgentLimits
+      summary: Update per-agent USD spend caps
+      description: >
+        Sets or clears any subset of `costLimitDaily`, `costLimitMonthly`,
+        `costLimitTotal`. Pass `null` to clear a cap, a non-negative number to
+        set it. Returns the same shape as GET.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/agentLimitsPatch'
+      responses:
+        200:
+          description: Updated limits + live spend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/agentLimitsResponse'
+        400:
+          description: Invalid limit value
+        404:
+          description: Agent not found
+        401:
+          $ref: '#/components/responses/401'
+        422:
+          $ref: '#/components/responses/422'
+        500:
+          $ref: '#/components/responses/500'
   /agent/{id}/skills:
     get:
       tags:
@@ -848,6 +941,232 @@ components:
           description: Present when a gateway restart or new conversation is required.
         config:
           $ref: '#/components/schemas/agentProviderModelsResponse'
+    #
+    agentUsageTotals:
+      type: object
+      properties:
+        input:
+          type: integer
+        output:
+          type: integer
+        cacheRead:
+          type: integer
+        cacheWrite:
+          type: integer
+        totalTokens:
+          type: integer
+        totalCost:
+          type: number
+          format: double
+          description: Estimated cost in USD.
+    #
+    agentUsageDailyPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          description: ISO date (YYYY-MM-DD).
+        tokens:
+          type: integer
+        cost:
+          type: number
+          format: double
+    #
+    agentUsageModelRow:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        count:
+          type: integer
+          description: Number of turns served by this model.
+        input:
+          type: integer
+        output:
+          type: integer
+        cacheRead:
+          type: integer
+        cacheWrite:
+          type: integer
+        totalTokens:
+          type: integer
+        totalCost:
+          type: number
+          format: double
+    #
+    agentUsageToolRow:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+    #
+    agentUsageSessionRow:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+          nullable: true
+        channel:
+          type: string
+          nullable: true
+        updatedAt:
+          type: integer
+          nullable: true
+        totalTokens:
+          type: integer
+        totalCost:
+          type: number
+          format: double
+        modelProvider:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+    #
+    agentUsageResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        known:
+          type: boolean
+          description: True when the gateway responded with usage data.
+        range:
+          type: object
+          properties:
+            startDate:
+              type: string
+              nullable: true
+            endDate:
+              type: string
+              nullable: true
+        sessionCount:
+          type: integer
+        firstActivity:
+          type: integer
+          nullable: true
+          description: Earliest activity timestamp across this agent's sessions (ms).
+        lastActivity:
+          type: integer
+          nullable: true
+        totals:
+          $ref: '#/components/schemas/agentUsageTotals'
+        messageCounts:
+          type: object
+          properties:
+            total:
+              type: integer
+            user:
+              type: integer
+            assistant:
+              type: integer
+            toolCalls:
+              type: integer
+            errors:
+              type: integer
+        latency:
+          type: object
+          properties:
+            count:
+              type: integer
+            avgMs:
+              type: number
+              format: double
+            p95Ms:
+              type: number
+              format: double
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentUsageDailyPoint'
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentUsageModelRow'
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentUsageToolRow'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/agentUsageSessionRow'
+    #
+    agentLimitWindow:
+      type: object
+      properties:
+        limit:
+          type: number
+          nullable: true
+          description: Cap in USD, or null when no cap is set.
+        spent:
+          type: number
+          description: Spend (USD) accumulated in this window so far.
+        ratio:
+          type: number
+          nullable: true
+          description: spent / limit. Null when no cap is set.
+        exceeded:
+          type: boolean
+        nearLimit:
+          type: boolean
+          description: True when ratio >= 0.8 and not yet exceeded.
+    #
+    agentLimitsResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+        today:
+          type: string
+          description: ISO date used to bucket the daily window (host TZ).
+        thisMonth:
+          type: string
+          description: ISO YYYY-MM bucket for the monthly window.
+        windows:
+          type: object
+          properties:
+            daily:
+              $ref: '#/components/schemas/agentLimitWindow'
+            monthly:
+              $ref: '#/components/schemas/agentLimitWindow'
+            total:
+              $ref: '#/components/schemas/agentLimitWindow'
+        stored:
+          type: object
+          description: Raw cap values stored on the agent record.
+          properties:
+            costLimitDaily:
+              type: number
+              nullable: true
+            costLimitMonthly:
+              type: number
+              nullable: true
+            costLimitTotal:
+              type: number
+              nullable: true
+    #
+    agentLimitsPatch:
+      type: object
+      description: >
+        Any subset of these keys may be passed. Use `null` to clear a cap.
+      properties:
+        costLimitDaily:
+          type: number
+          nullable: true
+        costLimitMonthly:
+          type: number
+          nullable: true
+        costLimitTotal:
+          type: number
+          nullable: true
     #
     agentSkillSummary:
       type: object

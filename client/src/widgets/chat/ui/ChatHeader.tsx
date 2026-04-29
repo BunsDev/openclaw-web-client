@@ -4,6 +4,7 @@ import { Edit, Check, Settings, TuneOutlined } from '@mui/icons-material';
 import { Link } from 'react-router';
 import { useGetAgentQuery, useUpdateAgentMutation } from '../../../entities/agent';
 import { AgentModelPicker } from '../../../features/agent/provider-model';
+import { AgentUsageRing } from '../../../features/agent/limits';
 
 interface ChatHeaderProps {
   agentId: string;
@@ -46,25 +47,30 @@ export default function ChatHeader({
   return (
     <Box
       sx={{
-        px: {
-          xs: 1.5,
-          md: 2,
-        },
-        py: 1.5,
-        pl: {
-          xs: 7,
-          md: 2,
-        },
         borderBottom: '1px solid',
         borderColor: 'divider',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        minWidth: 0,
         flexShrink: 0,
+        minWidth: 0,
       }}
     >
-      {editing ? (
+      <Box
+        sx={{
+          px: {
+            xs: 1.5,
+            md: 2,
+          },
+          py: 1.5,
+          pl: {
+            xs: 7,
+            md: 2,
+          },
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          minWidth: 0,
+        }}
+      >
+        {editing ? (
         <>
           <TextField
             variant="standard"
@@ -99,6 +105,7 @@ export default function ChatHeader({
         </>
       ) : (
         <>
+          <AgentUsageRing agentId={agentId} conversationId={conversationId} />
           <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
             <Typography
               variant="h6"
@@ -148,6 +155,7 @@ export default function ChatHeader({
           </IconButton>
         </>
       )}
+      </Box>
     </Box>
   );
 }

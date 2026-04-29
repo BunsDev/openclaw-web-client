@@ -41,6 +41,13 @@ router
   .get(auth, validate.id, controller.getProviderModels)
   .patch(auth, validate.providerModelPatch, controller.updateProviderModel);
 
+router.route('/agent/:id(\\d+)/usage').get(auth, validate.id, controller.getUsage);
+
+router
+  .route('/agent/:id(\\d+)/limits')
+  .get(auth, validate.id, controller.getLimits)
+  .patch(auth, validate.limitsPatch, controller.updateLimits);
+
 router
   .route('/agent/:id(\\d+)/conversation/:conversationId(\\d+)/session-settings')
   .get(auth, controller.getSessionSettings)

@@ -462,6 +462,20 @@ const updateSubagentsConfig: RequestHandler = async (req, res, next) => {
   }
 };
 
+const getUsage: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const usage = await ocService.getAgentUsage(agent.openclawAgentId);
+    return res.json(usage);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const getProviderModels: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -506,6 +520,50 @@ const updateProviderModel: RequestHandler = async (req, res, next) => {
   }
 };
 
+const getLimits: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const limits = await ocService.getAgentLimits(agent);
+    return res.json({
+      ...limits,
+      stored: {
+        costLimitDaily: agent.costLimitDaily,
+        costLimitMonthly: agent.costLimitMonthly,
+        costLimitTotal: agent.costLimitTotal,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateLimits: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent?.openclawAgentId) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const result = await ocService.setAgentLimits(agent, req.body ?? {});
+    if (!result.ok) return res.status(400).json(result);
+    const fresh = await agentRepo.findOneByOrFail({ _id: agent._id });
+    return res.json({
+      ...result.config,
+      stored: {
+        costLimitDaily: fresh.costLimitDaily,
+        costLimitMonthly: fresh.costLimitMonthly,
+        costLimitTotal: fresh.costLimitTotal,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const serveWorkspaceUpload: RequestHandler = async (req, res, next) => {
   try {
     const agentRepo = AppDataSource.getRepository(Agent);
@@ -543,4 +601,7 @@ export {
   updateSubagentsConfig,
   getProviderModels,
   updateProviderModel,
+  getUsage,
+  getLimits,
+  updateLimits,
 };

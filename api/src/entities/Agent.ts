@@ -22,4 +22,13 @@ export default class Agent {
 
   @DeleteDateColumn({ type: 'datetime', nullable: true, default: null })
   deletedAt: Date | null;
+
+  @Column({ type: 'real', nullable: true, default: null })
+  costLimitDaily: number | null;
+
+  @Column({ type: 'real', nullable: true, default: null })
+  costLimitMonthly: number | null;
+
+  @Column({ type: 'real', nullable: true, default: null })
+  costLimitTotal: number | null;
 }

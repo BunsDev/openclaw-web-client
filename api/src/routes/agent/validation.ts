@@ -143,6 +143,26 @@ export default {
     }),
   ]),
 
+  limitsPatch: validate([
+    param('id').isInt().withMessage('Incorrect request url'),
+    body().custom((value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Body must be an object of limit fields.');
+      }
+      const allowedKeys = ['costLimitDaily', 'costLimitMonthly', 'costLimitTotal'];
+      Object.entries(value).forEach(([key, entryVal]) => {
+        if (!allowedKeys.includes(key)) {
+          throw new Error(`Unknown limit field: ${key}`);
+        }
+        if (entryVal === null) return;
+        if (typeof entryVal !== 'number' || !Number.isFinite(entryVal) || entryVal < 0) {
+          throw new Error(`"${key}" must be a non-negative number or null.`);
+        }
+      });
+      return true;
+    }),
+  ]),
+
   providerModelPatch: validate([
     param('id').isInt().withMessage('Incorrect request url'),
     body().custom((value) => {

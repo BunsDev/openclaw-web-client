@@ -34,6 +34,8 @@ export { getAgentProviderModels, setAgentProviderModel } from './agentProviderMo
 export { getAgentBudget, setAgentBudget, BUDGET_FIELDS } from './budget';
 export { getAgentSkillsConfig, setAgentSkills } from './agentSkills';
 export { getAgentSubagentsConfig, setAgentSubagents } from './agentSubagents';
+export { getAgentUsage, invalidateAgentUsageCache } from './agentUsage';
+export { getAgentLimits, setAgentLimits } from './agentLimits';
 export { listPlugins, togglePlugin } from './plugins';
 export { listSkills } from './skills';
 export { listChannels, addChannel, removeChannel } from './channels';

@@ -103,6 +103,8 @@ export const baseApi = createApi({
     'AgentSkills',
     'AgentSubagents',
     'AgentProviderModels',
+    'AgentUsage',
+    'AgentLimits',
   ],
   endpoints: () => ({}),
 });

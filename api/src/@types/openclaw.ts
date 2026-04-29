@@ -235,6 +235,106 @@ export interface AgentSubagentsPatch {
   requireAgentId?: boolean | null;
 }
 
+// ── Agent usage (token / cost / activity stats) ──
+
+export interface AgentUsageDailyPoint {
+  date: string;
+  tokens: number;
+  cost: number;
+}
+
+export interface AgentUsageModelRow {
+  provider: string;
+  model: string;
+  count: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+export interface AgentUsageToolRow {
+  name: string;
+  count: number;
+}
+
+export interface AgentUsageSessionRow {
+  key: string;
+  label: string | null;
+  channel: string | null;
+  updatedAt: number | null;
+  totalTokens: number;
+  totalCost: number;
+  modelProvider: string | null;
+  model: string | null;
+}
+
+export interface AgentUsageTotals {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+export interface AgentUsageMessageCounts {
+  total: number;
+  user: number;
+  assistant: number;
+  toolCalls: number;
+  errors: number;
+}
+
+export interface AgentUsageLatency {
+  count: number;
+  avgMs: number;
+  p95Ms: number;
+}
+
+export interface AgentUsageResponse {
+  agentId: string;
+  known: boolean;
+  range: { startDate: string | null; endDate: string | null };
+  sessionCount: number;
+  firstActivity: number | null;
+  lastActivity: number | null;
+  totals: AgentUsageTotals;
+  messageCounts: AgentUsageMessageCounts;
+  latency: AgentUsageLatency;
+  daily: AgentUsageDailyPoint[];
+  models: AgentUsageModelRow[];
+  tools: AgentUsageToolRow[];
+  sessions: AgentUsageSessionRow[];
+}
+
+// ── Agent cost limits (per-agent USD spend caps) ──
+
+export type AgentLimitWindow = 'daily' | 'monthly' | 'total';
+
+export interface AgentLimitWindowState {
+  limit: number | null;
+  spent: number;
+  ratio: number | null;
+  exceeded: boolean;
+  nearLimit: boolean;
+}
+
+export interface AgentLimitsResponse {
+  agentId: string;
+  today: string;
+  thisMonth: string;
+  windows: Record<AgentLimitWindow, AgentLimitWindowState>;
+}
+
+export interface AgentLimitsPatch {
+  costLimitDaily?: number | null;
+  costLimitMonthly?: number | null;
+  costLimitTotal?: number | null;
+}
+
 export interface OpenclawConfig {
   agents?: OpenclawAgentsSection;
   gateway?: { port?: number };
